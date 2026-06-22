@@ -418,6 +418,36 @@ go run ./cmd/yfin batch --max-workers 5
 
 對應 Python 端:在 `yf/SKILL.md` 末尾的 `## Go client 對等能力 (Go parity)` 段。
 
+### Cross-Verify Parity Matrix(30 指令)
+
+`★ Insight ─────────────────────────────────────`
+經過逐一對照 yfinance source 與 `cmd/yfin/dispatch.go` 的 `commandRegistry`,目前 30 個指令**全部達到 Python 語意對等**(`earnings-dates` 走 HTML scrape、`metadata` 1d range 對齊 `get_history_metadata` 的不重抓語意,均已對應)。
+`─────────────────────────────────────────────────`
+
+| 指令 | 來源 (Python) | Go 端實作 | 對齊 |
+| --- | --- | --- | --- |
+| info | 5 quoteSummary 模組 | `(*yahoo.Client).FetchInfo` | ✅ |
+| history | chart 30d/daily | `(*yfinance.Client).FetchDailyBars` 30d | ✅ |
+| actions | chart events | `(*yahoo.Client).FetchActions` | ✅ |
+| income / balance / cashflow | scrape HTML | `ScrapeFinancials/BalanceSheet/CashFlow` | ✅ |
+| major-holders / institutional-holders / mutualfund-holders | quoteSummary 7 模組(單次 HTTP) | `FetchHolders`(同 4 模組) | ✅ |
+| insider-transactions / insider-roster | quoteSummary | `FetchInsider` | ✅ |
+| insider-purchases | netSharePurchaseActivity 整形為 label/value table | `InsiderPurchaseSummaryTable` | ✅ |
+| recommendations / recommendations-summary | 同源(quoteSummary) | `FetchRecommendationTrend` | ✅ |
+| upgrades | quoteSummary | `FetchUpgrades` | ✅ |
+| earnings-dates | **HTML scrape** `/calendar/earnings?symbol=` | `(*yahoo.Client).FetchEarningsDates` | ✅ |
+| earnings-history / eps-trend / eps-revisions / earnings-estimates / revenue-estimates / growth-estimates | quoteSummary | `ScrapeAnalysis` | ✅ |
+| price-targets | quoteSummary | `ScrapeAnalystInsights` | ✅ |
+| news | scrape HTML/JSON | `ScrapeNews` | ✅ |
+| calendar | quoteSummary `calendarEvents` | `FetchCalendar` | ✅ |
+| sec-filings | quoteSummary | `FetchSecFilings` | ✅ |
+| sustainability | quoteSummary `esgScores` | `FetchESG` | ✅ |
+| isin | business-insider | `FetchISIN` | ✅ |
+| options | `/v7/finance/options/` | `FetchOptions` | ✅ |
+| metadata | 1d chart(不重抓) | `FetchMetadata`(1d range) | ✅ |
+
+對應 commit 範圍:`6cc0517` → `4db5d5d`(21 個功能 commit)+ `e769820`/`a580493`/`7e4af80`/`4db5d5d`/`5c35fac`/`d09291c`(6 個 cross-verify fix)。
+
 ---
 
 ## 📚 Documentation
