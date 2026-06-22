@@ -6,6 +6,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func int64Ptr(v int64) *int64       { return &v }
+func float64Ptr(v float64) *float64 { return &v }
+
 func TestDecodeInsider_ParsesTransactions(t *testing.T) {
 	raw := []byte(`{"quoteSummary":{"result":[{
 	  "insiderTransactions":{"transactions":[
@@ -31,4 +34,25 @@ func TestDecodeInsider_ParsesTransactions(t *testing.T) {
 func TestDecodeInsider_EmptyResult(t *testing.T) {
 	_, err := DecodeInsider([]byte(`{"quoteSummary":{"result":[],"error":null}}`))
 	require.Error(t, err)
+}
+
+func TestInsiderPurchaseSummaryTable(t *testing.T) {
+	dto := &NetSharePurchaseActivity{
+		Period:                    "6m",
+		BuyInfoShares:             RawInt{Raw: int64Ptr(5000)},
+		SellInfoShares:            RawInt{Raw: int64Ptr(2000)},
+		NetInfoShares:             RawInt{Raw: int64Ptr(3000)},
+		TotalInsiderShares:        RawInt{Raw: int64Ptr(100000)},
+		NetPercentInsiderShares:   RawValue{Raw: float64Ptr(0.03)},
+		BuyPercentInsiderShares:   RawValue{Raw: float64Ptr(0.05)},
+		SellPercentInsiderShares:  RawValue{Raw: float64Ptr(0.02)},
+		BuyInfoCount:              RawInt{Raw: int64Ptr(10)},
+		SellInfoCount:             RawInt{Raw: int64Ptr(5)},
+		NetInfoCount:              RawInt{Raw: int64Ptr(5)},
+	}
+	tbl := InsiderPurchaseSummaryTable(dto)
+	require.Equal(t, "Insider Purchases Last 6m", tbl.LabelColumn)
+	require.Equal(t, []string{"Purchases", "Sales", "Net Shares Purchased (Sold)", "Total Insider Shares Held", "% Net Shares Purchased (Sold)", "% Buy Shares", "% Sell Shares"}, tbl.Labels)
+	require.Equal(t, []any{int64(5000), int64(2000), int64(3000), int64(100000), 0.03, 0.05, 0.02}, tbl.Shares)
+	require.Equal(t, []any{int64(10), int64(5), int64(5), nil, nil, nil, nil}, tbl.Trans)
 }

@@ -22,10 +22,68 @@ type InsiderTransaction struct {
 }
 
 type NetSharePurchaseActivity struct {
-	Period         string `json:"period"`
-	BuyInfoShares  RawInt `json:"buyInfoShares"`
-	SellInfoShares RawInt `json:"sellInfoShares"`
-	NetInfoShares  RawInt `json:"netInfoShares"`
+	Period                    string   `json:"period"`
+	BuyInfoShares             RawInt   `json:"buyInfoShares"`
+	SellInfoShares            RawInt   `json:"sellInfoShares"`
+	NetInfoShares             RawInt   `json:"netInfoShares"`
+	TotalInsiderShares        RawInt   `json:"totalInsiderShares"`
+	NetPercentInsiderShares   RawValue `json:"netPercentInsiderShares"`
+	BuyPercentInsiderShares   RawValue `json:"buyPercentInsiderShares"`
+	SellPercentInsiderShares  RawValue `json:"sellPercentInsiderShares"`
+	BuyInfoCount              RawInt   `json:"buyInfoCount"`
+	SellInfoCount             RawInt   `json:"sellInfoCount"`
+	NetInfoCount              RawInt   `json:"netInfoCount"`
+}
+
+// InsiderPurchaseTable is one row in the yfinance-style label/value table.
+type InsiderPurchaseTable struct {
+	LabelColumn string
+	Labels      []string
+	Shares      []any
+	Trans       []any
+}
+
+func InsiderPurchaseSummaryTable(a *NetSharePurchaseActivity) InsiderPurchaseTable {
+	label := "Insider Purchases Last " + a.Period
+	labels := []string{
+		"Purchases",
+		"Sales",
+		"Net Shares Purchased (Sold)",
+		"Total Insider Shares Held",
+		"% Net Shares Purchased (Sold)",
+		"% Buy Shares",
+		"% Sell Shares",
+	}
+	shares := []any{
+		rawIntValue(a.BuyInfoShares),
+		rawIntValue(a.SellInfoShares),
+		rawIntValue(a.NetInfoShares),
+		rawIntValue(a.TotalInsiderShares),
+		rawFloatValue(a.NetPercentInsiderShares),
+		rawFloatValue(a.BuyPercentInsiderShares),
+		rawFloatValue(a.SellPercentInsiderShares),
+	}
+	trans := []any{
+		rawIntValue(a.BuyInfoCount),
+		rawIntValue(a.SellInfoCount),
+		rawIntValue(a.NetInfoCount),
+		nil, nil, nil, nil,
+	}
+	return InsiderPurchaseTable{LabelColumn: label, Labels: labels, Shares: shares, Trans: trans}
+}
+
+func rawIntValue(r RawInt) any {
+	if r.Raw == nil {
+		return nil
+	}
+	return *r.Raw
+}
+
+func rawFloatValue(r RawValue) any {
+	if r.Raw == nil {
+		return nil
+	}
+	return *r.Raw
 }
 
 type InsiderHolder struct {
