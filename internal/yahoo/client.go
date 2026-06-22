@@ -15,6 +15,14 @@ import (
 type Client struct {
 	httpClient *httpx.Client
 	baseURL    string
+	crumb      *CrumbManager
+}
+
+// NewClientWithAuth creates a Client wired with a CrumbManager for authenticated endpoints.
+func NewClientWithAuth(httpClient *httpx.Client, baseURL string, cm *CrumbManager) *Client {
+	c := NewClient(httpClient, baseURL)
+	c.crumb = cm
+	return c
 }
 
 // NewClient creates a new Yahoo Finance client
