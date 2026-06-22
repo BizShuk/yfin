@@ -397,6 +397,27 @@ func main() {
 }
 ```
 
+## 🐍→🦫 Batch Mode (Python yf parity)
+
+`yfin batch` 對等複刻 `yf/scripts/all_ticker_yf.py`,以 Go 重做整套批次抓取 + 分級快取管線:
+
+- 30 個資料維度(含 quoteSummary 新增的 holders / insider / upgrades / calendar / sec-filings / sustainability / isin / options / actions / metadata)對齊 Python 的 30 指令。
+- 認證:Yahoo 免費 cookie + crumb,無需付費訂閱即可走 `v10/finance/quoteSummary` 與 `v7/finance/options/`。
+- 輸出結構一致:`<rawDir>/<command>/<ticker>.<YYYY-MM-DD>.json`;失敗寫 `<rawDir>/_failed/<ticker>.<command>.err`。
+- 快取分級沿用 Python 的 `REFRESH_MAP`(`daily` / `monthly` / `quarterly` / `annually`)。
+
+```bash
+# 預設:抓 yf/references/ticker_list.csv 中所有 ticker × 30 指令
+go run ./cmd/yfin batch
+
+# 單股 / 強制重抓 / 調整並行
+go run ./cmd/yfin batch --ticker 2330.TW
+go run ./cmd/yfin batch --ticker 2330.TW --force
+go run ./cmd/yfin batch --max-workers 5
+```
+
+對應 Python 端:在 `yf/SKILL.md` 末尾的 `## Go client 對等能力 (Go parity)` 段。
+
 ---
 
 ## 📚 Documentation
