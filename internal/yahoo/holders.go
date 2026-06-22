@@ -8,6 +8,7 @@ import (
 
 type HoldersDTO struct {
 	MajorBreakdown       MajorHoldersBreakdown
+	MajorDirectHolders   []MajorDirectHolder
 	InstitutionOwnership []HolderRow
 	FundOwnership        []HolderRow
 }
@@ -17,6 +18,13 @@ type MajorHoldersBreakdown struct {
 	InstitutionsPercentHeld  RawValue `json:"institutionsPercentHeld"`
 	InstitutionsFloatPctHeld RawValue `json:"institutionsFloatPercentHeld"`
 	InstitutionsCount        RawInt   `json:"institutionsCount"`
+}
+
+type MajorDirectHolder struct {
+	Organization       string `json:"organization"`
+	PositionDirect     RawInt `json:"positionDirect"`
+	PositionDirectDate RawInt `json:"positionDirectDate"`
+	ValueDirect        RawInt `json:"valueDirect"`
 }
 
 type HolderRow struct {
@@ -30,7 +38,10 @@ type holdersResult struct {
 	QuoteSummary struct {
 		Result []struct {
 			MajorHoldersBreakdown MajorHoldersBreakdown `json:"majorHoldersBreakdown"`
-			InstitutionOwnership  struct {
+			MajorDirectHolders    struct {
+				Holders []MajorDirectHolder `json:"holders"`
+			} `json:"majorDirectHolders"`
+			InstitutionOwnership struct {
 				OwnershipList []HolderRow `json:"ownershipList"`
 			} `json:"institutionOwnership"`
 			FundOwnership struct {
@@ -54,6 +65,7 @@ func DecodeHolders(data []byte) (*HoldersDTO, error) {
 	res := r.QuoteSummary.Result[0]
 	return &HoldersDTO{
 		MajorBreakdown:       res.MajorHoldersBreakdown,
+		MajorDirectHolders:   res.MajorDirectHolders.Holders,
 		InstitutionOwnership: res.InstitutionOwnership.OwnershipList,
 		FundOwnership:        res.FundOwnership.OwnershipList,
 	}, nil
@@ -61,7 +73,7 @@ func DecodeHolders(data []byte) (*HoldersDTO, error) {
 
 func (c *Client) FetchHolders(ctx context.Context, symbol string) (*HoldersDTO, error) {
 	raw, err := c.FetchQuoteSummary(ctx, symbol,
-		[]string{"majorHoldersBreakdown", "institutionOwnership", "fundOwnership"})
+		[]string{"majorHoldersBreakdown", "majorDirectHolders", "institutionOwnership", "fundOwnership"})
 	if err != nil {
 		return nil, err
 	}
