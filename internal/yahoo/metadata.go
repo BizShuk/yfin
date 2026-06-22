@@ -38,7 +38,9 @@ func ExtractMetadata(data []byte) (*ChartMetadata, error) {
 }
 
 func (c *Client) FetchMetadata(ctx context.Context, symbol string) (*ChartMetadata, error) {
-	raw, err := c.fetchChartRaw(ctx, symbol)
+	// Use a 1-day lookback to match Python yfinance's get_history_metadata,
+	// which serves cached metadata without re-fetching a large range.
+	raw, err := c.fetchChartRaw(ctx, symbol, 1)
 	if err != nil {
 		return nil, err
 	}

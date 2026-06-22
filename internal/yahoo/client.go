@@ -130,10 +130,10 @@ func (c *Client) FetchFundamentalsQuarterly(ctx context.Context, symbol string) 
 	return fundResp, nil
 }
 
-// fetchChartRaw returns the raw bytes of the chart response for a 1-year daily range.
-func (c *Client) fetchChartRaw(ctx context.Context, symbol string) ([]byte, error) {
+// fetchChartRaw returns the raw bytes of the chart response for the given lookback window in days.
+func (c *Client) fetchChartRaw(ctx context.Context, symbol string, daysBack int) ([]byte, error) {
 	end := time.Now()
-	start := end.AddDate(-1, 0, 0)
+	start := end.AddDate(0, 0, -daysBack)
 	u, err := c.buildBarsURL(symbol, start, end, true)
 	if err != nil {
 		return nil, err
