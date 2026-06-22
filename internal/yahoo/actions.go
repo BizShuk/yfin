@@ -57,7 +57,8 @@ func ExtractActions(data []byte) (*ActionsDTO, error) {
 }
 
 func (c *Client) FetchActions(ctx context.Context, symbol string) (*ActionsDTO, error) {
-	raw, err := c.fetchChartRaw(ctx, symbol)
+	// Use a 1-year lookback so we capture dividends + splits history.
+	raw, err := c.fetchChartRaw(ctx, symbol, 365)
 	if err != nil {
 		return nil, err
 	}
