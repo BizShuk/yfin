@@ -8,7 +8,7 @@ import (
 
 // InfoModules are the quoteSummary modules merged into the flat .info map.
 var InfoModules = []string{
-	"assetProfile", "summaryProfile", "summaryDetail",
+	"assetProfile", "summaryDetail",
 	"defaultKeyStatistics", "financialData", "quoteType",
 }
 
