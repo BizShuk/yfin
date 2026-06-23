@@ -67,7 +67,7 @@ func TestFetchSTOCK_DAY_Decode(t *testing.T) {
 }
 
 func TestFetchSTOCK_DAY_MissingStockNo(t *testing.T) {
-	c := httpx.NewClient(httpx.DefaultConfig())
+	c := NewHttpxCaller(httpx.NewClient(httpx.DefaultConfig()))
 	_, err := FetchSTOCK_DAY(context.Background(), c, "20260620", url.Values{})
 	if err == nil {
 		t.Fatal("expected error for missing stockNo, got nil")

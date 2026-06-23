@@ -1,3 +1,9 @@
+// mi_index_odd.go 對應 `/afterTrading/MI_INDEX_ODD` 端點。
+// 用途:零股交易行情單(成交股數、成交金額、開高低收)。
+// 對應 README.tsme.md「盤後交易資訊」第 5 個端點。
+// 範例:
+//   curl "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX_ODD?date=20221230&response=json"
+
 package twse
 
 import (
@@ -5,8 +11,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-
-	"github.com/AmpyFin/yfinance-go/internal/httpx"
 )
 
 // MI_INDEX_ODDResponse embeds the common Response envelope and adds
@@ -34,7 +38,7 @@ type MIIndexOddRow struct {
 
 // FetchMI_INDEX_ODD retrieves the odd-lot (零股) trading snapshot for
 // `date`.
-func FetchMI_INDEX_ODD(ctx context.Context, c *httpx.Client, date string, opts url.Values) (any, error) {
+func FetchMI_INDEX_ODD(ctx context.Context, c Caller, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/MI_INDEX_ODD: date is required")
 	}

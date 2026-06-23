@@ -1,11 +1,15 @@
+// bfimuu.go 對應 `/block/BFIMUU` 端點。
+// 用途:鉅額交易月成交資訊(年月份、成交筆數、股數、金額)。
+// 對應 README.tsme.md「鉅額交易」章節;月份格式 YYYYMM01。
+// 範例:
+//   curl "https://www.twse.com.tw/rwd/zh/block/BFIMUU?date=20221201&response=json"
+
 package twse
 
 import (
 	"context"
 	"fmt"
 	"net/url"
-
-	"github.com/AmpyFin/yfinance-go/internal/httpx"
 )
 
 // BFIMUResponse embeds the common Response envelope and adds the
@@ -28,7 +32,7 @@ type BFIMUURow struct {
 }
 
 // FetchBFIMUU retrieves the monthly block-trade report for `date` (YYYYMM01).
-func FetchBFIMUU(ctx context.Context, c *httpx.Client, date string, opts url.Values) (any, error) {
+func FetchBFIMUU(ctx context.Context, c Caller, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/BFIMUU: date is required")
 	}

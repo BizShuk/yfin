@@ -1,11 +1,15 @@
+// stock_day_avg.go 對應 `/exchangeReport/STOCK_DAY_AVG` 端點。
+// 用途:個股月均價(最高、最低、加權平均、成交筆數/股數/金額)。
+// 對應 README.tsme.md「大盤統計」章節;月份格式 YYYYMM01。
+// 範例:
+//   curl "https://www.twse.com.tw/rwd/zh/exchangeReport/STOCK_DAY_AVG?date=20221201&stockNo=2330&response=json"
+
 package twse
 
 import (
 	"context"
 	"fmt"
 	"net/url"
-
-	"github.com/AmpyFin/yfinance-go/internal/httpx"
 )
 
 // StockDayAvgResponse embeds the common Response envelope and adds the
@@ -34,7 +38,7 @@ type StockDayAvgRow struct {
 
 // FetchStockDayAvg retrieves the per-stock monthly average price for `date`
 // (YYYYMM01). `stockNo` must be supplied via opts.
-func FetchStockDayAvg(ctx context.Context, c *httpx.Client, date string, opts url.Values) (any, error) {
+func FetchStockDayAvg(ctx context.Context, c Caller, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/STOCK_DAY_AVG: date is required")
 	}

@@ -12,18 +12,20 @@ import (
 	"github.com/AmpyFin/yfinance-go/internal/httpx"
 )
 
-func newTestClient(t *testing.T, srv *httptest.Server) *httpx.Client {
+// newTestClient returns a Caller backed by an httpx client wired to the
+// httptest server. It also overrides BaseURL so FetchJSON's internal
+// logic and the Caller's URL builder both point at the test server.
+func newTestClient(t *testing.T, srv *httptest.Server) Caller {
 	t.Helper()
 	cfg := httpx.DefaultConfig()
 	cfg.Timeout = 5_000_000_000 // 5s in ns
 	cfg.MaxAttempts = 1
 	cfg.BaseURL = srv.URL
 	c := httpx.NewClient(cfg)
-	// Override BaseURL on the twse package so FetchJSON hits the test server.
 	old := BaseURL
 	BaseURL = srv.URL
 	t.Cleanup(func() { BaseURL = old })
-	return c
+	return NewHttpxCaller(c)
 }
 
 func TestFetchMI_INDEX_Decode(t *testing.T) {

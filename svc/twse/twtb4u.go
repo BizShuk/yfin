@@ -1,11 +1,15 @@
+// twtb4u.go 對應 `/afterTrading/TWTB4U` 端點。
+// 用途:當日沖銷交易標的及統計(成交股數、買賣成交金額)。
+// 對應 README.tsme.md「盤後交易資訊」第 7 個端點。
+// 範例:
+//   curl "https://www.twse.com.tw/rwd/zh/afterTrading/TWTB4U?date=20221230&response=json"
+
 package twse
 
 import (
 	"context"
 	"fmt"
 	"net/url"
-
-	"github.com/AmpyFin/yfinance-go/internal/httpx"
 )
 
 // TWTB4UResponse embeds the common Response envelope and adds the
@@ -29,7 +33,7 @@ type TWTB4URow struct {
 }
 
 // FetchTWTB4U retrieves the daily day-trade targets and statistics for `date`.
-func FetchTWTB4U(ctx context.Context, c *httpx.Client, date string, opts url.Values) (any, error) {
+func FetchTWTB4U(ctx context.Context, c Caller, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/TWTB4U: date is required")
 	}

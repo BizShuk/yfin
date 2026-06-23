@@ -35,11 +35,12 @@ func TestFetchBFIAUUSTOCK_Decode(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"stat":  "OK",
 			"title": "單一證券鉅額交易",
-			"fields": []string{"證券代號", "成交價", "成交量"},
+			"fields": []string{"序號", "證券代號", "證券名稱", "買進證券商", "賣出證券商", "成交數量", "成交金額", "成交價格", "成交時間", "買進成交價"},
 			"data": [][]string{
-				{"2330", "1,000", "500,000", "500,000,000"},
+				{"1", "2330", "台積電", "元大", "凱基", "100,000", "60,000,000", "600.00", "13:30:00", "599.50"},
 			},
-			"date": "20260620",
+			"date":    "20260620",
+			"stockNo": "2330",
 		})
 	}))
 	defer srv.Close()
@@ -51,9 +52,9 @@ func TestFetchBFIAUUSTOCK_Decode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FetchBFIAUUSTOCK returned error: %v", err)
 	}
-	resp, ok := raw.(BFIAUResponse)
+	resp, ok := raw.(BlockBFIAUUResponse)
 	if !ok {
-		t.Fatalf("expected *BFIAUResponse, got %T", raw)
+		t.Fatalf("expected BlockBFIAUUResponse, got %T", raw)
 	}
 	if resp.GetStat() != "OK" {
 		t.Fatalf("expected stat OK, got %q", resp.GetStat())
@@ -64,33 +65,26 @@ func TestFetchBFIAUUSTOCK_Decode(t *testing.T) {
 	if len(resp.Data) != 1 {
 		t.Fatalf("expected 1 data row, got %d", len(resp.Data))
 	}
-	if resp.Data[0][0] != "2330" {
-		t.Errorf("expected stockNo=2330 in row, got %q", resp.Data[0][0])
-	}
-}
-
-func TestParseBFIAUUSTOCKRow(t *testing.T) {
-	row := []string{"2330", "1,000", "500,000", "500,000,000"}
-	parsed, err := ParseBFIAUUSTOCKRow(row)
+	row, err := ParseBFIAUUSTOCKRow(resp.Data[0])
 	if err != nil {
 		t.Fatalf("ParseBFIAUUSTOCKRow returned error: %v", err)
 	}
-	if parsed.StockNo != "2330" {
-		t.Errorf("StockNo = %q, want %q", parsed.StockNo, "2330")
+	if row.StockCode != "2330" {
+		t.Errorf("StockCode = %q, want 2330", row.StockCode)
 	}
-	if parsed.Price != 1000 {
-		t.Errorf("Price = %v, want 1000", parsed.Price)
+	if row.StockName != "台積電" {
+		t.Errorf("StockName = %q", row.StockName)
 	}
-	if parsed.Volume != 500000 {
-		t.Errorf("Volume = %v, want 500000", parsed.Volume)
+	if row.TradeVolume != 100000 {
+		t.Errorf("TradeVolume = %v, want 100000", row.TradeVolume)
 	}
-	if parsed.Amount != 500000000 {
-		t.Errorf("Amount = %v, want 500000000", parsed.Amount)
+	if row.TradeAmount != 60000000 {
+		t.Errorf("TradeAmount = %v, want 60000000", row.TradeAmount)
 	}
 }
 
 func TestParseBFIAUUSTOCKRow_TooShort(t *testing.T) {
-	_, err := ParseBFIAUUSTOCKRow([]string{"2330"})
+	_, err := ParseBFIAUUSTOCKRow([]string{"1"})
 	if err == nil {
 		t.Fatal("expected error for short row, got nil")
 	}

@@ -1,3 +1,9 @@
+// stock_day.go 對應 `/afterTrading/STOCK_DAY` 端點。
+// 用途:個股日成交資訊(開高低收、成交量、成交金額、成交筆數)。
+// 對應 README.tsme.md「盤後交易資訊」第 2 個端點;需指定 stockNo。
+// 範例:
+//   curl "https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY?date=20221230&stockNo=2330&response=json"
+
 package twse
 
 import (
@@ -5,8 +11,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-
-	"github.com/AmpyFin/yfinance-go/internal/httpx"
 )
 
 // STOCK_DAYResponse embeds the common Response envelope and adds the
@@ -36,7 +40,7 @@ type StockDayRow struct {
 
 // FetchSTOCK_DAY retrieves per-stock daily trade info for `date` and
 // `stockNo` (must be supplied via opts).
-func FetchSTOCK_DAY(ctx context.Context, c *httpx.Client, date string, opts url.Values) (any, error) {
+func FetchSTOCK_DAY(ctx context.Context, c Caller, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/STOCK_DAY: date is required")
 	}

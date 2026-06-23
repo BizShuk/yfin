@@ -1,11 +1,15 @@
+// bfiauu_year.go 對應 `/block/BFIAUU_YEAR` 端點。
+// 用途:鉅額交易年成交資訊(年度、成交筆數、股數、金額)。
+// 對應 README.tsme.md「鉅額交易」章節。
+// 範例:
+//   curl "https://www.twse.com.tw/rwd/zh/block/BFIAUU_YEAR?date=20220101&response=json"
+
 package twse
 
 import (
 	"context"
 	"fmt"
 	"net/url"
-
-	"github.com/AmpyFin/yfinance-go/internal/httpx"
 )
 
 // BFIAUUYEARResponse embeds the common Response envelope and adds the
@@ -28,7 +32,7 @@ type BFIAUUYEARRow struct {
 }
 
 // FetchBFIAUUYEAR retrieves the annual block-trade report for `date` (YYYY0101).
-func FetchBFIAUUYEAR(ctx context.Context, c *httpx.Client, date string, opts url.Values) (any, error) {
+func FetchBFIAUUYEAR(ctx context.Context, c Caller, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/BFIAUU_YEAR: date is required")
 	}

@@ -22,7 +22,7 @@ func TestFetchJSON_Decodes(t *testing.T) {
 	BaseURL = srv.URL
 	defer func() { BaseURL = oldBase }()
 
-	got, err := FetchJSON[TestResponse](context.Background(), httpx.NewClient(httpx.DefaultConfig()), "/rwd/zh/test/endpoint", nil)
+	got, err := FetchJSON[TestResponse](context.Background(), NewHttpxCaller(httpx.NewClient(httpx.DefaultConfig())), "/rwd/zh/test/endpoint", nil)
 	require.NoError(t, err)
 	require.Equal(t, "OK", got.Stat)
 	require.Equal(t, "MI_INDEX", got.Title)
@@ -39,7 +39,7 @@ func TestFetchJSON_NoDataReturnsErrNoData(t *testing.T) {
 	BaseURL = srv.URL
 	defer func() { BaseURL = oldBase }()
 
-	_, err := FetchJSON[TestResponse](context.Background(), httpx.NewClient(httpx.DefaultConfig()), "/rwd/zh/test/endpoint", nil)
+	_, err := FetchJSON[TestResponse](context.Background(), NewHttpxCaller(httpx.NewClient(httpx.DefaultConfig())), "/rwd/zh/test/endpoint", nil)
 	require.Error(t, err)
 	require.True(t, errors.Is(err, ErrNoData))
 }
@@ -54,7 +54,7 @@ func TestFetchJSON_StatAtTopLevel(t *testing.T) {
 	BaseURL = srv.URL
 	defer func() { BaseURL = oldBase }()
 
-	got, err := FetchJSON[TestResponse](context.Background(), httpx.NewClient(httpx.DefaultConfig()), "/rwd/zh/test/endpoint", nil)
+	got, err := FetchJSON[TestResponse](context.Background(), NewHttpxCaller(httpx.NewClient(httpx.DefaultConfig())), "/rwd/zh/test/endpoint", nil)
 	require.NoError(t, err)
 	require.Equal(t, "OK", got.Stat)
 }
@@ -77,7 +77,7 @@ func TestFetchJSON_EmbeddedStructReportsStat(t *testing.T) {
 	defer func() { BaseURL = oldBase }()
 
 	got, err := FetchJSON[EmbeddedResponse](context.Background(),
-		httpx.NewClient(httpx.DefaultConfig()), "/rwd/zh/test/endpoint", nil)
+		NewHttpxCaller(httpx.NewClient(httpx.DefaultConfig())), "/rwd/zh/test/endpoint", nil)
 	require.NoError(t, err)
 	require.Equal(t, "OK", got.GetStat())
 	require.Equal(t, "20221230", got.Date)

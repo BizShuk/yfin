@@ -1,3 +1,9 @@
+// bfi82u.go 對應 `/fund/BFI82U` 端點。
+// 用途:三大法人買賣金額統計表(投信、自營商、外資及陸資)。
+// 對應 README.tsme.md「三大法人」章節。
+// 範例:
+//   curl "https://www.twse.com.tw/rwd/zh/fund/BFI82U?date=20221230&type=day&response=json"
+
 package twse
 
 import (
@@ -5,8 +11,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-
-	"github.com/AmpyFin/yfinance-go/internal/httpx"
 )
 
 // BFI82UResponse embeds the common Response envelope and adds the
@@ -31,7 +35,7 @@ type BFI82URow struct {
 // FetchBFI82U retrieves the daily aggregated buy/sell amounts of the
 // three main institutional investors (自營商, 投信, 外資及陸資) for `date`.
 // TWSE requires `type=day` for this endpoint.
-func FetchBFI82U(ctx context.Context, c *httpx.Client, date string, opts url.Values) (any, error) {
+func FetchBFI82U(ctx context.Context, c Caller, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/BFI82U: date is required")
 	}

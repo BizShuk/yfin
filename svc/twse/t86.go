@@ -1,11 +1,15 @@
+// t86.go 對應 `/fund/T86` 端點。
+// 用途:三大法人買賣超日報(外陸資、投信、自營商)。
+// 對應 README.tsme.md「三大法人」章節。
+// 範例:
+//   curl "https://www.twse.com.tw/rwd/zh/fund/T86?date=20221230&selectType=ALL&response=json"
+
 package twse
 
 import (
 	"context"
 	"fmt"
 	"net/url"
-
-	"github.com/AmpyFin/yfinance-go/internal/httpx"
 )
 
 // T86Response embeds the common Response envelope and adds the
@@ -36,7 +40,7 @@ type T86Row struct {
 
 // FetchT86 retrieves the three-institution daily buy/sell for `date`.
 // selectType=ALL is always added by this fetcher.
-func FetchT86(ctx context.Context, c *httpx.Client, date string, opts url.Values) (any, error) {
+func FetchT86(ctx context.Context, c Caller, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/T86: date is required")
 	}

@@ -1,3 +1,9 @@
+// mi_week.go 對應 `/statistics/MI_WEEK` 端點。
+// 用途:股票市值週報(股票代號、發行股數、市值)。
+// 對應 README.tsme.md「大盤統計」章節。
+// 範例:
+//   curl "https://www.twse.com.tw/rwd/zh/statistics/MI_WEEK?date=20221230&response=json"
+
 package twse
 
 import (
@@ -5,8 +11,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-
-	"github.com/AmpyFin/yfinance-go/internal/httpx"
 )
 
 // MI_WEEKResponse embeds the common Response envelope and adds the `date`
@@ -30,7 +34,7 @@ type MIWeekRow struct {
 
 // FetchMI_WEEK retrieves the weekly stock market-cap report for `date`.
 // `date` is required (YYYYMMDD).
-func FetchMI_WEEK(ctx context.Context, c *httpx.Client, date string, opts url.Values) (any, error) {
+func FetchMI_WEEK(ctx context.Context, c Caller, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/MI_WEEK: date is required")
 	}

@@ -1,3 +1,9 @@
+// bfiamu.go 對應 `/afterTrading/BFIAMU` 端點。
+// 用途:每日各類指數成交量值(收盤指數、漲跌、百分比)。
+// 對應 README.tsme.md「盤後交易資訊」附屬指數章節。
+// 範例:
+//   curl "https://www.twse.com.tw/rwd/zh/afterTrading/BFIAMU?date=20221230&response=json"
+
 package twse
 
 import (
@@ -5,8 +11,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-
-	"github.com/AmpyFin/yfinance-go/internal/httpx"
 )
 
 // BFIAMUResponse embeds the common Response envelope and adds the `date`
@@ -30,7 +34,7 @@ type BFIAMURow struct {
 
 // FetchBFIAMU retrieves per-day index close & change values for `date`.
 // `date` is required (YYYYMMDD).
-func FetchBFIAMU(ctx context.Context, c *httpx.Client, date string, opts url.Values) (any, error) {
+func FetchBFIAMU(ctx context.Context, c Caller, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/BFIAMU: date is required")
 	}

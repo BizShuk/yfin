@@ -1,11 +1,15 @@
+// mi_margn.go 對應 `/marginTrading/MI_MARGN` 端點。
+// 用途:融資融券餘額(融資/融券買賣、償還、餘額)。
+// 對應 README.tsme.md「融資融券」章節。
+// 範例:
+//   curl "https://www.twse.com.tw/rwd/zh/marginTrading/MI_MARGN?date=20221230&selectType=ALL&response=json"
+
 package twse
 
 import (
 	"context"
 	"fmt"
 	"net/url"
-
-	"github.com/AmpyFin/yfinance-go/internal/httpx"
 )
 
 // MI_MARGNResponse embeds the common Response envelope and adds the
@@ -34,7 +38,7 @@ type MI_MARGNRow struct {
 
 // FetchMI_MARGN retrieves the margin trading balances for `date`.
 // selectType=ALL is always added by this fetcher.
-func FetchMI_MARGN(ctx context.Context, c *httpx.Client, date string, opts url.Values) (any, error) {
+func FetchMI_MARGN(ctx context.Context, c Caller, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/MI_MARGN: date is required")
 	}

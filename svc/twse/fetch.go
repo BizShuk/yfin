@@ -1,3 +1,14 @@
+// Package twse 提供臺灣證券交易所 (Taiwan Stock Exchange, TWSE) 公開
+// REST 端點的擷取、列解析與強型別 DTO。本檔定義 FetchJSON 共用函式、
+// Caller 傳輸介面與 ErrNoData sentinel error。
+//
+// 設計重點:
+//   - Caller 介面將傳輸層 (HTTP) 與業務層 (DTO 解碼、stat 檢查) 解耦,
+//     方便用 httptest.Server 替換為測試 stub。
+//   - FetchJSON 統一處理 URL 組裝、response=json 附加、JSON 解碼與
+//     「沒有符合條件的資料」stat 字串偵測。
+//   - 各端點檔 (mi_index.go、t86.go ...) 實作各自的 FetchXxx 函式,
+//     全部以 Caller 為唯一外部相依。
 package twse
 
 import (
@@ -5,13 +16,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"net/url"
 	"strings"
 	"time"
-
-	"github.com/AmpyFin/yfinance-go/internal/httpx"
 )
 
 // BaseURL is the TWSE RESTful endpoint root. It is a `var` (not const) so
@@ -31,23 +38,32 @@ var ErrNoData = errors.New("twse: no data for requested date")
 // DefaultTimeout is the per-request timeout suggested by TWSE engineering notes.
 const DefaultTimeout = 30 * time.Second
 
-// FetchJSON performs a GET on `BaseURL + path` with optional query params and
-// decodes the body into T. It automatically checks the envelope's `stat`
-// field; if it indicates "no data" it returns ErrNoData.
+// Caller is the transport contract for fetching TWSE JSON. Production
+// callers use *httpx.Client via HttpxCaller; tests can use a stub. The
+// Caller is responsible for everything HTTP — building the full URL,
+// setting headers, executing the request, checking status, and reading
+// the body. It returns the raw response body (already known to be 2xx).
+type Caller interface {
+	Call(ctx context.Context, path string, query url.Values) ([]byte, error)
+}
+
+// FetchJSON performs a GET on `BaseURL + path` with the supplied query
+// params, then decodes the body into T. It automatically:
+//   - appends `response=json` to the query string,
+//   - returns ErrNoData when the body is empty (TWSE returns 200 + empty
+//     body for some no-data cases) or when the envelope's `stat` field
+//     contains the "no data" substring.
 //
-// `path` is the endpoint path (e.g. "/afterTrading/MI_INDEX"), appended to
-// BaseURL. `query` is optional (nil OK); `response=json` is added automatically.
+// `path` is the endpoint path (e.g. "/afterTrading/MI_INDEX"), appended
+// to BaseURL. `query` is optional (nil OK); caller-supplied keys are
+// preserved and `response=json` is always added on top.
 //
 // T must either be (or embed) *Response, or implement GetStat() string.
-// Concrete DTOs typically embed `Response` and gain GetStat() via promotion;
-// if the embedded name is shadowed, the DTO should provide its own
-// GetStat() method.
-func FetchJSON[T any](ctx context.Context, c *httpx.Client, path string, query url.Values) (T, error) {
+// Concrete DTOs typically embed `Response` and gain GetStat() via
+// promotion; if the embedded name is shadowed, the DTO should provide
+// its own GetStat() method.
+func FetchJSON[T any](ctx context.Context, c Caller, path string, query url.Values) (T, error) {
 	var zero T
-	u, err := url.Parse(BaseURL + path)
-	if err != nil {
-		return zero, fmt.Errorf("twse: invalid path %q: %w", path, err)
-	}
 	q := url.Values{}
 	for k, vs := range query {
 		for _, v := range vs {
@@ -55,27 +71,14 @@ func FetchJSON[T any](ctx context.Context, c *httpx.Client, path string, query u
 		}
 	}
 	q.Set("response", "json")
-	u.RawQuery = q.Encode()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return zero, err
-	}
-	resp, err := c.Do(ctx, req)
+	body, err := c.Call(ctx, path, q)
 	if err != nil {
 		return zero, fmt.Errorf("twse: request failed: %w", err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode/100 != 2 {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-		return zero, fmt.Errorf("twse: unexpected status %d: %s", resp.StatusCode, string(body))
+	if len(body) == 0 {
+		return zero, ErrNoData
 	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return zero, fmt.Errorf("twse: read body: %w", err)
-	}
-
 	var out T
 	if err := json.Unmarshal(body, &out); err != nil {
 		return zero, fmt.Errorf("twse: decode json: %w", err)

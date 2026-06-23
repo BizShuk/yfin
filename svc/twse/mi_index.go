@@ -1,3 +1,9 @@
+// mi_index.go 對應 `/afterTrading/MI_INDEX` 端點。
+// 用途:全市場每日收盤行情(價格指數、漲跌點數、漲跌百分比)。
+// 對應 README.tsme.md「盤後交易資訊」第 1 個端點。
+// 範例:
+//   curl "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX?date=20221230&type=ALL&response=json"
+
 package twse
 
 import (
@@ -5,8 +11,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-
-	"github.com/AmpyFin/yfinance-go/internal/httpx"
 )
 
 // MI_INDEXResponse embeds the common Response envelope and adds the
@@ -30,7 +34,7 @@ type MIIndexRow struct {
 
 // FetchMI_INDEX retrieves the daily market index close for `date`.
 // `opts` may include a `type=ALL` parameter (TWSE expects this).
-func FetchMI_INDEX(ctx context.Context, c *httpx.Client, date string, opts url.Values) (any, error) {
+func FetchMI_INDEX(ctx context.Context, c Caller, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/MI_INDEX: date is required")
 	}

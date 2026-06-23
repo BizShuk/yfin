@@ -1,3 +1,9 @@
+// fmsrfk.go 對應 `/exchangeReport/FMSRFK` 端點。
+// 用途:個股月成交資訊(年度月份、最高最低、加權均價、週轉率)。
+// 對應 README.tsme.md「大盤統計」章節;需指定 stockNo。
+// 範例:
+//   curl "https://www.twse.com.tw/rwd/zh/exchangeReport/FMSRFK?date=2022&stockNo=2330&response=json"
+
 package twse
 
 import (
@@ -5,8 +11,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-
-	"github.com/AmpyFin/yfinance-go/internal/httpx"
 )
 
 // FMSRFKResponse embeds the common Response envelope and adds stockNo/date
@@ -35,7 +39,7 @@ type FMSRFKRow struct {
 
 // FetchFMSRFK retrieves per-stock monthly trading info for the year `date`.
 // `stockNo` is required (e.g. "2330"); `date` is the year (e.g. "2022").
-func FetchFMSRFK(ctx context.Context, c *httpx.Client, stockNo, date string, opts url.Values) (any, error) {
+func FetchFMSRFK(ctx context.Context, c Caller, stockNo, date string, opts url.Values) (any, error) {
 	if stockNo == "" {
 		return nil, fmt.Errorf("twse/FMSRFK: stockNo is required")
 	}

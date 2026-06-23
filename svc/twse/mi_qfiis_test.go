@@ -36,9 +36,9 @@ func TestFetchMI_QFIIS_Decode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FetchMI_QFIIS returned error: %v", err)
 	}
-	resp, ok := raw.(*MI_QFIISResponse)
+	resp, ok := raw.(MI_QFIISResponse)
 	if !ok {
-		t.Fatalf("expected *MI_QFIISResponse, got %T", raw)
+		t.Fatalf("expected MI_QFIISResponse, got %T", raw)
 	}
 	if resp.GetStat() != "OK" {
 		t.Fatalf("expected stat OK, got %q", resp.GetStat())

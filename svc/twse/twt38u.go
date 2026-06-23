@@ -1,3 +1,9 @@
+// twt38u.go 對應 `/fund/TWT38U` 端點。
+// 用途:外資及陸資買賣超彙總表(買進、賣出、買賣差額股數)。
+// 對應 README.tsme.md「外資及陸資」章節。
+// 範例:
+//   curl "https://www.twse.com.tw/rwd/zh/fund/TWT38U?date=20221230&response=json"
+
 package twse
 
 import (
@@ -5,8 +11,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-
-	"github.com/AmpyFin/yfinance-go/internal/httpx"
 )
 
 // TWT38UResponse embeds the common Response envelope and adds the
@@ -30,7 +34,7 @@ type TWT38URow struct {
 
 // FetchTWT38U retrieves the daily aggregated buy/sell volume of
 // foreign investors (含陸資) for `date`.
-func FetchTWT38U(ctx context.Context, c *httpx.Client, date string, opts url.Values) (any, error) {
+func FetchTWT38U(ctx context.Context, c Caller, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/TWT38U: date is required")
 	}

@@ -36,9 +36,9 @@ func TestFetchTWTB4U_Decode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FetchTWTB4U returned error: %v", err)
 	}
-	resp, ok := raw.(*TWTB4UResponse)
+	resp, ok := raw.(TWTB4UResponse)
 	if !ok {
-		t.Fatalf("expected *TWTB4UResponse, got %T", raw)
+		t.Fatalf("expected TWTB4UResponse, got %T", raw)
 	}
 	if resp.GetStat() != "OK" {
 		t.Fatalf("expected stat OK, got %q", resp.GetStat())

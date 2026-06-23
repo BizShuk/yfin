@@ -45,7 +45,7 @@ Examples:
 // twseFetcher is the uniform function signature used by nameToFetcher.
 // All entries in twseNameToFetcher satisfy this contract: `date` is the
 // primary date/period key, `opts` carries extra params (e.g. stockNo).
-type twseFetcher func(ctx context.Context, c *httpx.Client, date string, opts url.Values) (any, error)
+type twseFetcher func(ctx context.Context, c twse.Caller, date string, opts url.Values) (any, error)
 
 // twseNameToFetcher maps an endpoint name (Registry key) to its fetcher.
 // For endpoints with a special 2nd positional argument (e.g. FMSRFK needs
@@ -65,7 +65,7 @@ var twseNameToFetcher = map[string]twseFetcher{
 	"TWT38U":        twse.FetchTWT38U,
 	"TWT43U":        twse.FetchTWT43U,
 	"TWT44U":        twse.FetchTWT44U,
-	"BFIAUU":        twse.FetchBFIAU, //nolint:misspell // upstream naming
+	"BFIAUU":        twse.FetchBlockBFIAUU, //nolint:misspell // upstream naming; 4-col & 10-col were consolidated to 10-col
 	"BFIAUU_STOCK":  twse.FetchBFIAUUSTOCK,
 	"BFIMUU":        twse.FetchBFIMUU,
 	"BFIAUU_YEAR":   twse.FetchBFIAUUYEAR,
@@ -73,14 +73,14 @@ var twseNameToFetcher = map[string]twseFetcher{
 	"STOCK_DAY_AVG": twse.FetchStockDayAvg,
 	// FMSRFK has the signature FetchFMSRFK(ctx, c, stockNo, date, opts);
 	// wrap it so the adapter sees a uniform (date, opts) shape.
-	"FMSRFK": func(ctx context.Context, c *httpx.Client, date string, opts url.Values) (any, error) {
+	"FMSRFK": func(ctx context.Context, c twse.Caller, date string, opts url.Values) (any, error) {
 		stockNo := opts.Get("stockNo")
 		if stockNo == "" {
 			return nil, fmt.Errorf("FMSRFK: --stock is required")
 		}
 		return twse.FetchFMSRFK(ctx, c, stockNo, date, opts)
 	},
-	"BFIAMU": twse.FetchBFIAMU,
+	"BFIAMU":  twse.FetchBFIAMU,
 	"MI_WEEK": twse.FetchMI_WEEK,
 }
 
@@ -130,16 +130,18 @@ func runTwseEndpoint(cmd *cobra.Command, args []string) error {
 		opts.Set("month", twseCfg.month)
 	}
 
-	// Build a TWSE-tuned httpx client (timeout 30s, modest QPS).
+	// Build a TWSE-tuned httpx client (timeout 30s, modest QPS) and wrap it
+	// in a HttpxCaller so it satisfies the twse.Caller interface used by
+	// every per-endpoint Fetch* function.
 	cfg := httpx.DefaultConfig()
 	cfg.Timeout = twseCfg.timeout
 	cfg.MaxAttempts = 1
-	client := httpx.NewClient(cfg)
+	caller := twse.NewHttpxCaller(httpx.NewClient(cfg))
 
 	ctx, cancel := context.WithTimeout(context.Background(), twseCfg.timeout+5*time.Second)
 	defer cancel()
 
-	raw, err := fetcher(ctx, client, twseCfg.date, opts)
+	raw, err := fetcher(ctx, caller, twseCfg.date, opts)
 	if err != nil {
 		if errors.Is(err, twse.ErrNoData) || strings.Contains(err.Error(), "no data") {
 			fmt.Fprintf(os.Stderr, "INFO: TWSE returned no data for %s on %s\n", twseCfg.endpoint, twseCfg.date)

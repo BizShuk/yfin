@@ -36,9 +36,9 @@ func TestFetchT86_Decode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FetchT86 returned error: %v", err)
 	}
-	resp, ok := raw.(*T86Response)
+	resp, ok := raw.(T86Response)
 	if !ok {
-		t.Fatalf("expected *T86Response, got %T", raw)
+		t.Fatalf("expected T86Response, got %T", raw)
 	}
 	if resp.GetStat() != "OK" {
 		t.Fatalf("expected stat OK, got %q", resp.GetStat())

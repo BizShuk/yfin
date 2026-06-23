@@ -1,3 +1,9 @@
+// twt44u.go 對應 `/fund/TWT44U` 端點。
+// 用途:自營商買賣超彙總表(買進、賣出、買賣差額股數)。
+// 對應 README.tsme.md「三大法人」章節。
+// 範例:
+//   curl "https://www.twse.com.tw/rwd/zh/fund/TWT44U?date=20221230&response=json"
+
 package twse
 
 import (
@@ -5,8 +11,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-
-	"github.com/AmpyFin/yfinance-go/internal/httpx"
 )
 
 // TWT44UResponse embeds the common Response envelope and adds the
@@ -30,7 +34,7 @@ type TWT44URow struct {
 
 // FetchTWT44U retrieves the daily aggregated buy/sell volume of
 // dealers (自營商) for `date`.
-func FetchTWT44U(ctx context.Context, c *httpx.Client, date string, opts url.Values) (any, error) {
+func FetchTWT44U(ctx context.Context, c Caller, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/TWT44U: date is required")
 	}

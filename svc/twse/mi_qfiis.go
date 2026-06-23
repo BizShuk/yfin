@@ -1,11 +1,15 @@
+// mi_qfiis.go 對應 `/fund/MI_QFIIS` 端點。
+// 用途:外資及陸資投資持股統計(持有股數、佔發行股數%)。
+// 對應 README.tsme.md「外資及陸資」章節。
+// 範例:
+//   curl "https://www.twse.com.tw/rwd/zh/fund/MI_QFIIS?date=20221230&selectType=ALL&response=json"
+
 package twse
 
 import (
 	"context"
 	"fmt"
 	"net/url"
-
-	"github.com/AmpyFin/yfinance-go/internal/httpx"
 )
 
 // MI_QFIISResponse embeds the common Response envelope and adds the
@@ -28,7 +32,7 @@ type MI_QFIISRow struct {
 
 // FetchMI_QFIIS retrieves the foreign+mainland investor holdings for `date`.
 // selectType=ALL is always added by this fetcher.
-func FetchMI_QFIIS(ctx context.Context, c *httpx.Client, date string, opts url.Values) (any, error) {
+func FetchMI_QFIIS(ctx context.Context, c Caller, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/MI_QFIIS: date is required")
 	}

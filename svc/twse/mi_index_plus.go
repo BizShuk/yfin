@@ -1,3 +1,9 @@
+// mi_index_plus.go 對應 `/afterTrading/MI_INDEX_PLUS` 端點。
+// 用途:盤後定價交易(收盤指數、漲跌)。
+// 對應 README.tsme.md「盤後交易資訊」第 4 個端點。
+// 範例:
+//   curl "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX_PLUS?date=20221230&response=json"
+
 package twse
 
 import (
@@ -5,8 +11,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-
-	"github.com/AmpyFin/yfinance-go/internal/httpx"
 )
 
 // MI_INDEX_PLUSResponse embeds the common Response envelope and adds
@@ -30,7 +34,7 @@ type MIIndexPlusRow struct {
 
 // FetchMI_INDEX_PLUS retrieves the after-hours (盤後定價) index data
 // for `date`.
-func FetchMI_INDEX_PLUS(ctx context.Context, c *httpx.Client, date string, opts url.Values) (any, error) {
+func FetchMI_INDEX_PLUS(ctx context.Context, c Caller, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/MI_INDEX_PLUS: date is required")
 	}

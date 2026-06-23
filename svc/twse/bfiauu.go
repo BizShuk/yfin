@@ -1,37 +1,50 @@
+// bfiauu.go 對應 `/block/BFIAUU` 端點(已合併舊版 bfiauu_block)。
+// 用途:鉅額交易日成交資訊(序號、買賣證券商、成交價、買進價)。
+// 對應 README.tsme.md「鉅額交易」章節。
+// 範例:
+//   curl "https://www.twse.com.tw/rwd/zh/block/BFIAUU?date=20221230&response=json"
+
 package twse
 
 import (
 	"context"
 	"fmt"
 	"net/url"
-
-	"github.com/AmpyFin/yfinance-go/internal/httpx"
+	"strings"
 )
 
-// BFIAUResponse embeds the common Response envelope and adds the
-// `date` field that TWSE returns on this endpoint.
-type BFIAUResponse struct {
+// BlockBFIAUUResponse embeds the common Response envelope and adds
+// the `date` and optional `stockNo` fields that TWSE returns on the
+// /block/BFIAUU block-trade endpoint.
+type BlockBFIAUUResponse struct {
 	Response
-	Date string `json:"date"`
+	Date    string `json:"date"`
+	StockNo string `json:"stockNo,omitempty"`
 }
 
 // GetStat returns the embedded stat field.
-func (r *BFIAUResponse) GetStat() string { return r.Response.Stat }
+func (r *BlockBFIAUUResponse) GetStat() string { return r.Response.Stat }
 
-// BFIAURow is a typed representation of one BFIAU/BFIAUU_STOCK data row.
-// Fields: 證券代號, 成交價, 成交量, 成交金額.
-type BFIAURow struct {
-	StockNo string  // 證券代號
-	Price   float64 // 成交價
-	Volume  int64   // 成交量
-	Amount  int64   // 成交金額
+// BlockBFIAUURow is a typed representation of one /block/BFIAUU data row.
+// Fields: 序號, 證券代號, 證券名稱, 買進證券商, 賣出證券商, 成交數量, 成交金額, 成交價格, 成交時間, 買進成交價.
+type BlockBFIAUURow struct {
+	Seq           string  // 序號
+	StockCode     string  // 證券代號
+	StockName     string  // 證券名稱
+	BuyBroker     string  // 買進證券商
+	SellBroker    string  // 賣出證券商
+	TradeVolume   int64   // 成交數量
+	TradeAmount   float64 // 成交金額
+	TradePrice    float64 // 成交價格
+	TradeTime     string  // 成交時間
+	BuyTradePrice float64 // 買進成交價
 }
 
-// FetchBFIAU retrieves the daily block-trade data for `date`.
-// `opts` may include a `stockNo=...` parameter to filter to a single security.
-func FetchBFIAU(ctx context.Context, c *httpx.Client, date string, opts url.Values) (any, error) {
+// FetchBlockBFIAUU retrieves block-trade (鉅額交易) data for `date`.
+// If `stockNo` is set in `opts`, the response is filtered to that symbol.
+func FetchBlockBFIAUU(ctx context.Context, c Caller, date string, opts url.Values) (any, error) {
 	if date == "" {
-		return nil, fmt.Errorf("twse/BFIAU: date is required")
+		return nil, fmt.Errorf("twse/BFIAUU: date is required")
 	}
 	q := url.Values{}
 	q.Set("date", date)
@@ -40,18 +53,24 @@ func FetchBFIAU(ctx context.Context, c *httpx.Client, date string, opts url.Valu
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[BFIAUResponse](ctx, c, "/block/BFIAUU", q)
+	return FetchJSON[BlockBFIAUUResponse](ctx, c, "/block/BFIAUU", q)
 }
 
-// ParseBFIAURow converts one raw `data` row into a typed BFIAURow.
-func ParseBFIAURow(row []string) (BFIAURow, error) {
-	if len(row) < 4 {
-		return BFIAURow{}, fmt.Errorf("BFIAUU: row too short: %d cols", len(row))
+// ParseBlockBFIAUURow converts one raw `data` row into a typed BlockBFIAUURow.
+func ParseBlockBFIAUURow(row []string) (BlockBFIAUURow, error) {
+	if len(row) < 10 {
+		return BlockBFIAUURow{}, fmt.Errorf("BFIAUU: row too short: %d cols", len(row))
 	}
-	return BFIAURow{
-		StockNo: row[0],
-		Price:   ParseFloat(row[1]),
-		Volume:  ParseInt(row[2]),
-		Amount:  ParseInt(row[3]),
+	return BlockBFIAUURow{
+		Seq:           strings.TrimSpace(row[0]),
+		StockCode:     strings.TrimSpace(row[1]),
+		StockName:     strings.TrimSpace(row[2]),
+		BuyBroker:     strings.TrimSpace(row[3]),
+		SellBroker:    strings.TrimSpace(row[4]),
+		TradeVolume:   ParseInt(row[5]),
+		TradeAmount:   ParseFloat(row[6]),
+		TradePrice:    ParseFloat(row[7]),
+		TradeTime:     strings.TrimSpace(row[8]),
+		BuyTradePrice: ParseFloat(row[9]),
 	}, nil
 }

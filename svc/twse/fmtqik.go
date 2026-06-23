@@ -1,11 +1,15 @@
+// fmtqik.go 對應 `/exchangeReport/FMTQIK` 端點。
+// 用途:臺股指數及交易量表(成交股數、金額、發行量加權股價指數)。
+// 對應 README.tsme.md「大盤統計」章節;月份格式 YYYYMM01。
+// 範例:
+//   curl "https://www.twse.com.tw/rwd/zh/exchangeReport/FMTQIK?date=20221201&response=json"
+
 package twse
 
 import (
 	"context"
 	"fmt"
 	"net/url"
-
-	"github.com/AmpyFin/yfinance-go/internal/httpx"
 )
 
 // FMTQIKResponse embeds the common Response envelope and adds the
@@ -30,7 +34,7 @@ type FMTQIKRow struct {
 
 // FetchFMTQIK retrieves the TAIEX index and trading volume for `date`.
 // `date` should be YYYYMMDD (month-start or month-end).
-func FetchFMTQIK(ctx context.Context, c *httpx.Client, date string, opts url.Values) (any, error) {
+func FetchFMTQIK(ctx context.Context, c Caller, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/FMTQIK: date is required")
 	}

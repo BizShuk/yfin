@@ -1,11 +1,15 @@
+// mi_5mins.go 對應 `/afterTrading/MI_5MINS` 端點。
+// 用途:每 5 秒委託成交統計(累積委買賣筆數/張數、累計成交)。
+// 對應 README.tsme.md「盤後交易資訊」第 6 個端點。
+// 範例:
+//   curl "https://www.twse.com.tw/rwd/zh/afterTrading/MI_5MINS?date=20221230&response=json"
+
 package twse
 
 import (
 	"context"
 	"fmt"
 	"net/url"
-
-	"github.com/AmpyFin/yfinance-go/internal/httpx"
 )
 
 // MI_5MINSResponse embeds the common Response envelope and adds the
@@ -30,7 +34,7 @@ type MI_5MINSRow struct {
 }
 
 // FetchMI_5MINS retrieves the every-5-seconds order/trade statistics for `date`.
-func FetchMI_5MINS(ctx context.Context, c *httpx.Client, date string, opts url.Values) (any, error) {
+func FetchMI_5MINS(ctx context.Context, c Caller, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/MI_5MINS: date is required")
 	}

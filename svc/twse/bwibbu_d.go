@@ -1,3 +1,9 @@
+// bwibbu_d.go 對應 `/afterTrading/BWIBBU_d` 端點。
+// 用途:個股日本益比、殖利率及股價淨值比。
+// 對應 README.tsme.md「盤後交易資訊」第 3 個端點。
+// 範例:
+//   curl "https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d?date=20221230&selectType=ALL&response=json"
+
 package twse
 
 import (
@@ -5,8 +11,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-
-	"github.com/AmpyFin/yfinance-go/internal/httpx"
 )
 
 // BWIBBU_dResponse embeds the common Response envelope and adds the
@@ -32,7 +36,7 @@ type BWIBBUdRow struct {
 // FetchBWIBBU_d retrieves the per-stock P/E, dividend yield, and P/B
 // ratio snapshot for `date`. `opts` may include `selectType=ALL`
 // (TWSE expects this).
-func FetchBWIBBU_d(ctx context.Context, c *httpx.Client, date string, opts url.Values) (any, error) {
+func FetchBWIBBU_d(ctx context.Context, c Caller, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/BWIBBU_d: date is required")
 	}
