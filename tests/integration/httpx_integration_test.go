@@ -35,20 +35,20 @@ func TestHTTPAdapterRetriesBackoff(t *testing.T) {
 	defer server.Close()
 
 	config := &httpx.Config{
-		BaseURL:               server.URL,
-		Timeout:               30 * time.Second,
-		IdleTimeout:           90 * time.Second,
-		MaxConnsPerHost:       5,
-		MaxAttempts:           3,
-		BackoffBaseMs:         100,
-		BackoffJitterMs:       50,
-		MaxDelayMs:            1000,
-		QPS:                   10.0,
-		Burst:                 10,
-		CircuitWindow:         60 * time.Second,
-		FailureThreshold:      5,
-		ResetTimeout:          30 * time.Second,
-		UserAgent:             "test-agent",
+		BaseURL:          server.URL,
+		Timeout:          30 * time.Second,
+		IdleTimeout:      90 * time.Second,
+		MaxConnsPerHost:  5,
+		MaxAttempts:      3,
+		BackoffBaseMs:    100,
+		BackoffJitterMs:  50,
+		MaxDelayMs:       1000,
+		QPS:              10.0,
+		Burst:            10,
+		CircuitWindow:    60 * time.Second,
+		FailureThreshold: 5,
+		ResetTimeout:     30 * time.Second,
+		UserAgent:        "test-agent",
 	}
 
 	client := httpx.NewClient(config)
@@ -79,20 +79,20 @@ func TestHTTPAdapterCircuitBreaker(t *testing.T) {
 	defer server.Close()
 
 	config := &httpx.Config{
-		BaseURL:               server.URL,
-		Timeout:               30 * time.Second,
-		IdleTimeout:           90 * time.Second,
-		MaxConnsPerHost:       5,
-		MaxAttempts:           1, // No retries for circuit breaker test
-		BackoffBaseMs:         100,
-		BackoffJitterMs:       50,
-		MaxDelayMs:            1000,
-		QPS:                   10.0,
-		Burst:                 10,
-		CircuitWindow:         5 * time.Second,
-		FailureThreshold:      3,
-		ResetTimeout:          2 * time.Second,
-		UserAgent:             "test-agent",
+		BaseURL:          server.URL,
+		Timeout:          30 * time.Second,
+		IdleTimeout:      90 * time.Second,
+		MaxConnsPerHost:  5,
+		MaxAttempts:      1, // No retries for circuit breaker test
+		BackoffBaseMs:    100,
+		BackoffJitterMs:  50,
+		MaxDelayMs:       1000,
+		QPS:              10.0,
+		Burst:            10,
+		CircuitWindow:    5 * time.Second,
+		FailureThreshold: 3,
+		ResetTimeout:     2 * time.Second,
+		UserAgent:        "test-agent",
 	}
 
 	client := httpx.NewClient(config)
@@ -126,20 +126,20 @@ func TestHTTPAdapterRateLimiting(t *testing.T) {
 	defer server.Close()
 
 	config := &httpx.Config{
-		BaseURL:               server.URL,
-		Timeout:               30 * time.Second,
-		IdleTimeout:           90 * time.Second,
-		MaxConnsPerHost:       5,
-		MaxAttempts:           1,
-		BackoffBaseMs:         100,
-		BackoffJitterMs:       50,
-		MaxDelayMs:            1000,
-		QPS:                   2.0, // 2 QPS
-		Burst:                 2,
-		CircuitWindow:         60 * time.Second,
-		FailureThreshold:      5,
-		ResetTimeout:          30 * time.Second,
-		UserAgent:             "test-agent",
+		BaseURL:          server.URL,
+		Timeout:          30 * time.Second,
+		IdleTimeout:      90 * time.Second,
+		MaxConnsPerHost:  5,
+		MaxAttempts:      1,
+		BackoffBaseMs:    100,
+		BackoffJitterMs:  50,
+		MaxDelayMs:       1000,
+		QPS:              2.0, // 2 QPS
+		Burst:            2,
+		CircuitWindow:    60 * time.Second,
+		FailureThreshold: 5,
+		ResetTimeout:     30 * time.Second,
+		UserAgent:        "test-agent",
 	}
 
 	client := httpx.NewClient(config)
@@ -211,20 +211,20 @@ func TestHTTPAdapterErrorHandling(t *testing.T) {
 			defer server.Close()
 
 			config := &httpx.Config{
-				BaseURL:               server.URL,
-				Timeout:               30 * time.Second,
-				IdleTimeout:           90 * time.Second,
-				MaxConnsPerHost:       5,
-				MaxAttempts:           1, // No retries for error type test
-				BackoffBaseMs:         100,
-				BackoffJitterMs:       50,
-				MaxDelayMs:            1000,
-				QPS:                   10.0,
-				Burst:                 10,
-				CircuitWindow:         60 * time.Second,
-				FailureThreshold:      5,
-				ResetTimeout:          30 * time.Second,
-				UserAgent:             "test-agent",
+				BaseURL:          server.URL,
+				Timeout:          30 * time.Second,
+				IdleTimeout:      90 * time.Second,
+				MaxConnsPerHost:  5,
+				MaxAttempts:      1, // No retries for error type test
+				BackoffBaseMs:    100,
+				BackoffJitterMs:  50,
+				MaxDelayMs:       1000,
+				QPS:              10.0,
+				Burst:            10,
+				CircuitWindow:    60 * time.Second,
+				FailureThreshold: 5,
+				ResetTimeout:     30 * time.Second,
+				UserAgent:        "test-agent",
 			}
 
 			client := httpx.NewClient(config)
