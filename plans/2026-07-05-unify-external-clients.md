@@ -667,13 +667,13 @@ go test ./svc/twse/... ./svc/yahoo/... ./svc/scrape/... ./tests/integration/...
 
 ## 風險與緩解 (Risks & Mitigations)
 
-| 風險                                                          | 緩解                                                                                                                                                                                   |
-| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Task 3 刪除 scrape 自己的 retry/limiter,可能打破既有整合測試 | 階段式:Task 1+2 完成後先跑 scrape integration;Task 3 才刪除自有的元件                                                                                                                |
-| `config.HTTPClient()` 可能被其他 package 引用                 | Step 5 grep 確認;若仍有依賴,改為呼叫 `httpx.NewClient`                                                                                                                                 |
-| TWSE 23 個 endpoint 檔案 `Fetcher` signature 改動會大量編輯   | 用 `sed -i 's/Fetch: func(ctx context\.Context, baseDate string, opts url\.Values)/Fetch: func(ctx context.Context, client *twse.Client, baseDate string, opts url.Values)/'` 批次處理 |
-| Middleware 順序錯誤導致 crumb cookie 在 UA 之後才注入         | Task 2 Step 1 的測試明確驗證順序;production 註冊順序固定在 `cmd/yfin/main.go`                                                                                                         |
-| Body-cap 預設值太嚴,TWSE 偶有大 payload 回應                  | `HostProfile.MaxBody` 預設 0(unlimited),scrape 顯式設 8 MiB                                                                                                                            |
+| 風險                                                         | 緩解                                                                                                                                                                                   |
+| ------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Task 3 刪除 scrape 自己的 retry/limiter,可能打破既有整合測試 | 階段式:Task 1+2 完成後先跑 scrape integration;Task 3 才刪除自有的元件                                                                                                                  |
+| `config.HTTPClient()` 可能被其他 package 引用                | Step 5 grep 確認;若仍有依賴,改為呼叫 `httpx.NewClient`                                                                                                                                 |
+| TWSE 23 個 endpoint 檔案 `Fetcher` signature 改動會大量編輯  | 用 `sed -i 's/Fetch: func(ctx context\.Context, baseDate string, opts url\.Values)/Fetch: func(ctx context.Context, client *twse.Client, baseDate string, opts url.Values)/'` 批次處理 |
+| Middleware 順序錯誤導致 crumb cookie 在 UA 之後才注入        | Task 2 Step 1 的測試明確驗證順序;production 註冊順序固定在 `cmd/yfin/main.go`                                                                                                          |
+| Body-cap 預設值太嚴,TWSE 偶有大 payload 回應                 | `HostProfile.MaxBody` 預設 0(unlimited),scrape 顯式設 8 MiB                                                                                                                            |
 
 ---
 
