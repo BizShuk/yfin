@@ -10,8 +10,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bizshuk/yfinance-go/facade"
-	"github.com/bizshuk/yfinance-go/utils/bus"
+	"github.com/bizshuk/yfin/facade"
+	"github.com/bizshuk/yfin/utils/bus"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 )

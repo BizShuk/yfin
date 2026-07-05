@@ -1,6 +1,6 @@
 package facade
 
-import "github.com/bizshuk/yfinance-go/svc/norm"
+import "github.com/bizshuk/yfin/svc/norm"
 
 // CompanyInfo is the public-shaped company information.
 type CompanyInfo struct {

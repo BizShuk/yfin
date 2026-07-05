@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bizshuk/yfinance-go/facade"
-	"github.com/bizshuk/yfinance-go/svc/norm"
+	"github.com/bizshuk/yfin/facade"
+	"github.com/bizshuk/yfin/svc/norm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -336,4 +336,3 @@ func TestDataCorrectness_CurrencyConsistency(t *testing.T) {
 	t.Logf("✓ Currency consistency: Quote = %s, Bars = %s",
 		quote.CurrencyCode, bars.Bars[0].CurrencyCode)
 }
-

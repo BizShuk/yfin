@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bizshuk/yfinance-go/utils/httpx"
+	"github.com/bizshuk/yfin/utils/httpx"
 )
 
 // Client interface for web scraping operations

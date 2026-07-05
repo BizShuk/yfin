@@ -9,7 +9,7 @@ import (
 	commonv1 "github.com/AmpyFin/ampy-proto/v2/gen/go/ampy/common/v1"
 	fundamentalsv1 "github.com/AmpyFin/ampy-proto/v2/gen/go/ampy/fundamentals/v1"
 	newsv1 "github.com/AmpyFin/ampy-proto/v2/gen/go/ampy/news/v1"
-	"github.com/bizshuk/yfinance-go/svc/scrape"
+	"github.com/bizshuk/yfin/svc/scrape"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 

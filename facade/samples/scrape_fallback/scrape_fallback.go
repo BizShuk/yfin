@@ -6,8 +6,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/bizshuk/yfinance-go/facade"
-	"github.com/bizshuk/yfinance-go/utils/httpx"
+	"github.com/bizshuk/yfin/facade"
+	"github.com/bizshuk/yfin/utils/httpx"
 )
 
 // scrape_fallback demonstrates the plain-struct SDK surface. As of Step 6 of

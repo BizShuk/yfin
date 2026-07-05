@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bizshuk/yfinance-go/utils/cache"
+	"github.com/bizshuk/yfin/utils/cache"
 	"github.com/spf13/cobra"
 )
 
@@ -23,8 +23,8 @@ type tickerResult struct {
 // runBatchForTicker fetches each command for a single ticker, honoring the
 // tiered cache. fc may be nil in tests (registries that ignore it).
 func runBatchForTicker(ctx context.Context, fc *FetchContext, ticker string,
-	commands []string, force bool, rawDir string, now time.Time) tickerResult {
-
+	commands []string, force bool, rawDir string, now time.Time,
+) tickerResult {
 	res := tickerResult{Ticker: ticker, Commands: map[string]string{}}
 	for _, command := range commands {
 		if cache.ShouldSkip(command, ticker, force, rawDir, now) {

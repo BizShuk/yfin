@@ -1,4 +1,4 @@
-module github.com/bizshuk/yfinance-go
+module github.com/bizshuk/yfin
 
 go 1.26.0
 

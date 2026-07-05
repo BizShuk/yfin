@@ -8,7 +8,7 @@ import (
 	barsv1 "github.com/AmpyFin/ampy-proto/v2/gen/go/ampy/bars/v1"
 	fundamentalsv1 "github.com/AmpyFin/ampy-proto/v2/gen/go/ampy/fundamentals/v1"
 	ticksv1 "github.com/AmpyFin/ampy-proto/v2/gen/go/ampy/ticks/v1"
-	"github.com/bizshuk/yfinance-go/svc/norm"
+	"github.com/bizshuk/yfin/svc/norm"
 )
 
 // GoldenBarBatch represents the expected golden format for bar batches

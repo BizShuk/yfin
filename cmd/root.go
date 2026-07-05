@@ -15,14 +15,14 @@ import (
 	sdkconfig "github.com/bizshuk/gosdk/config"
 	"github.com/bizshuk/gosdk/log"
 	"github.com/bizshuk/gosdk/metric"
-	"github.com/bizshuk/yfinance-go/utils/bus"
-	"github.com/bizshuk/yfinance-go/config"
-	"github.com/bizshuk/yfinance-go/svc/emit"
-	"github.com/bizshuk/yfinance-go/utils/httpx"
-	"github.com/bizshuk/yfinance-go/svc/norm"
-	"github.com/bizshuk/yfinance-go/utils/obsv"
-	"github.com/bizshuk/yfinance-go/svc/scrape"
-	"github.com/bizshuk/yfinance-go/svc/yahoo"
+	"github.com/bizshuk/yfin/config"
+	"github.com/bizshuk/yfin/svc/emit"
+	"github.com/bizshuk/yfin/svc/norm"
+	"github.com/bizshuk/yfin/svc/scrape"
+	"github.com/bizshuk/yfin/svc/yahoo"
+	"github.com/bizshuk/yfin/utils/bus"
+	"github.com/bizshuk/yfin/utils/httpx"
+	"github.com/bizshuk/yfin/utils/obsv"
 	"github.com/spf13/cobra"
 )
 
@@ -255,7 +255,6 @@ var versionCmd = &cobra.Command{
 	Long:  `Print version information including build details.`,
 	RunE:  runVersion,
 }
-
 
 func init() {
 	// Global flags
@@ -1378,7 +1377,7 @@ func handleQuoteBusPublishing(ctx context.Context, quote *norm.NormalizedQuote, 
 // handleLocalExport handles local export for bars
 func handleLocalExport(bars *norm.NormalizedBarBatch, symbol string, start, end time.Time, adjusted bool, outFormat, outDir string) error {
 	// Create output directory
-	if err := os.MkdirAll(outDir, 0755); err != nil {
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create output directory: %v", err)
 	}
 
@@ -1397,7 +1396,7 @@ func handleLocalExport(bars *norm.NormalizedBarBatch, symbol string, start, end 
 	filePath := filepath.Join(outDir, "bars", filename)
 
 	// Create bars subdirectory
-	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
 		return fmt.Errorf("failed to create bars directory: %v", err)
 	}
 
@@ -1415,7 +1414,7 @@ func handleLocalExport(bars *norm.NormalizedBarBatch, symbol string, start, end 
 // handleQuoteLocalExport handles local export for quotes
 func handleQuoteLocalExport(quote *norm.NormalizedQuote, ticker, outFormat, outDir string) error {
 	// Create output directory
-	if err := os.MkdirAll(outDir, 0755); err != nil {
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create output directory: %v", err)
 	}
 
@@ -1424,7 +1423,7 @@ func handleQuoteLocalExport(quote *norm.NormalizedQuote, ticker, outFormat, outD
 	filePath := filepath.Join(outDir, "quotes", filename)
 
 	// Create quotes subdirectory
-	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(filePath), 0o755); err != nil {
 		return fmt.Errorf("failed to create quotes directory: %v", err)
 	}
 
@@ -1988,7 +1987,6 @@ func runComprehensiveStatsExtraction(ctx context.Context, client scrape.Client, 
 	// Build URL for key-statistics endpoint
 	url := buildScrapeURL(ticker, "key-statistics")
 	body, meta, err := client.Fetch(extractionCtx, url)
-
 	if err != nil {
 		return fmt.Errorf("failed to fetch %s: %w", url, err)
 	}
@@ -2244,7 +2242,6 @@ func runComprehensiveProfileExtraction(ctx context.Context, client scrape.Client
 	// Build URL for profile endpoint
 	url := buildScrapeURL(ticker, "profile")
 	body, meta, err := client.Fetch(extractionCtx, url)
-
 	if err != nil {
 		return fmt.Errorf("failed to fetch %s: %w", url, err)
 	}

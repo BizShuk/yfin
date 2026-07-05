@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bizshuk/yfinance-go/utils/obsv"
+	"github.com/bizshuk/yfin/utils/obsv"
 )
 
 // Config holds HTTP client configuration

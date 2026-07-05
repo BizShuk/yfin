@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/bizshuk/yfinance-go/config"
+	"github.com/bizshuk/yfin/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -263,7 +263,7 @@ secrets: []
 `
 
 	testConfigPath := "test_env_config.yaml"
-	err := os.WriteFile(testConfigPath, []byte(configContent), 0644)
+	err := os.WriteFile(testConfigPath, []byte(configContent), 0o644)
 	require.NoError(t, err)
 	defer os.Remove(testConfigPath)
 

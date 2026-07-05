@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/bizshuk/yfinance-go/config"
+	"github.com/bizshuk/yfin/config"
 	"github.com/spf13/cobra"
 )
 

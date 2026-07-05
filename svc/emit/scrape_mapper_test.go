@@ -5,7 +5,7 @@ import (
 	"time"
 
 	newsv1 "github.com/AmpyFin/ampy-proto/v2/gen/go/ampy/news/v1"
-	"github.com/bizshuk/yfinance-go/svc/scrape"
+	"github.com/bizshuk/yfin/svc/scrape"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/timestamppb"

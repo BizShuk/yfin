@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/bizshuk/yfinance-go/facade"
+	"github.com/bizshuk/yfin/facade"
 )
 
 // print_data_contents demonstrates the plain-struct SDK surface. As of Step 6

@@ -3,7 +3,7 @@ package facade
 import (
 	"time"
 
-	"github.com/bizshuk/yfinance-go/svc/norm"
+	"github.com/bizshuk/yfin/svc/norm"
 )
 
 // MarketData is a plain Go snapshot of a security's current market state, as
@@ -13,17 +13,17 @@ import (
 //
 // Times are UTC. Volume is share count, not currency-denominated.
 type MarketData struct {
-	Symbol             string     `json:"symbol"`
-	MIC                string     `json:"mic,omitempty"`
-	RegularMarketPrice *float64   `json:"regular_market_price,omitempty"`
-	RegularMarketHigh  *float64   `json:"regular_market_high,omitempty"`
-	RegularMarketLow   *float64   `json:"regular_market_low,omitempty"`
+	Symbol              string    `json:"symbol"`
+	MIC                 string    `json:"mic,omitempty"`
+	RegularMarketPrice  *float64  `json:"regular_market_price,omitempty"`
+	RegularMarketHigh   *float64  `json:"regular_market_high,omitempty"`
+	RegularMarketLow    *float64  `json:"regular_market_low,omitempty"`
 	RegularMarketVolume *int64    `json:"regular_market_volume,omitempty"`
-	FiftyTwoWeekHigh   *float64   `json:"fifty_two_week_high,omitempty"`
-	FiftyTwoWeekLow    *float64   `json:"fifty_two_week_low,omitempty"`
-	PreviousClose      *float64   `json:"previous_close,omitempty"`
-	CurrencyCode       string     `json:"currency_code,omitempty"`
-	EventTime          time.Time  `json:"event_time"`
+	FiftyTwoWeekHigh    *float64  `json:"fifty_two_week_high,omitempty"`
+	FiftyTwoWeekLow     *float64  `json:"fifty_two_week_low,omitempty"`
+	PreviousClose       *float64  `json:"previous_close,omitempty"`
+	CurrencyCode        string    `json:"currency_code,omitempty"`
+	EventTime           time.Time `json:"event_time"`
 }
 
 // FromMarketData converts an internal norm.NormalizedMarketData into the

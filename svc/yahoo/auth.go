@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/bizshuk/yfinance-go/utils/httpx"
+	"github.com/bizshuk/yfin/utils/httpx"
 )
 
 // CrumbManager handles Yahoo's cookie + crumb authentication.

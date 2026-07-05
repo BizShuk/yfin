@@ -14,8 +14,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bizshuk/yfinance-go/svc/norm"
-	"github.com/bizshuk/yfinance-go/svc/yahoo"
+	"github.com/bizshuk/yfin/svc/norm"
+	"github.com/bizshuk/yfin/svc/yahoo"
 )
 
 // fetchDailyBarsNorm fetches daily bars via yahoo.Client and returns the

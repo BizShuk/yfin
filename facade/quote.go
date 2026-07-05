@@ -3,7 +3,7 @@ package facade
 import (
 	"time"
 
-	"github.com/bizshuk/yfinance-go/svc/norm"
+	"github.com/bizshuk/yfin/svc/norm"
 )
 
 // Quote is one real-time-ish quote snapshot.

@@ -7,11 +7,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bizshuk/yfinance-go/svc/emit"
-	"github.com/bizshuk/yfinance-go/utils/httpx"
-	"github.com/bizshuk/yfinance-go/svc/norm"
-	"github.com/bizshuk/yfinance-go/svc/scrape"
-	"github.com/bizshuk/yfinance-go/svc/yahoo"
+	"github.com/bizshuk/yfin/svc/emit"
+	"github.com/bizshuk/yfin/svc/norm"
+	"github.com/bizshuk/yfin/svc/scrape"
+	"github.com/bizshuk/yfin/svc/yahoo"
+	"github.com/bizshuk/yfin/utils/httpx"
 )
 
 // Client provides a high-level interface for fetching Yahoo Finance data

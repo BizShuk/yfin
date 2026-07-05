@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/bizshuk/yfinance-go/utils/httpx"
+	"github.com/bizshuk/yfin/utils/httpx"
 )
 
 // Client provides methods to fetch and normalize Yahoo Finance data

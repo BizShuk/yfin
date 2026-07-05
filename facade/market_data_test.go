@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/bizshuk/yfinance-go/svc/norm"
+	"github.com/bizshuk/yfin/svc/norm"
 )
 
 func TestFromMarketData_Nil(t *testing.T) {
@@ -42,8 +42,8 @@ func TestFromMarketData_TableDriven(t *testing.T) {
 				EventTime:           eventTime,
 			},
 			want: MarketData{
-				Symbol: "AAPL",
-				MIC:    "XNAS",
+				Symbol:              "AAPL",
+				MIC:                 "XNAS",
 				RegularMarketPrice:  ptr(12345.67),
 				RegularMarketHigh:   ptr(12400.00),
 				RegularMarketLow:    ptr(12300.50),
@@ -58,20 +58,20 @@ func TestFromMarketData_TableDriven(t *testing.T) {
 		{
 			name: "all nullable fields nil — nil pointers in output",
 			in: &norm.NormalizedMarketData{
-				Security:             norm.Security{Symbol: "TSLA", MIC: "XNAS"},
-				RegularMarketPrice:   nil,
-				RegularMarketHigh:    nil,
-				RegularMarketLow:     nil,
-				RegularMarketVolume:  nil,
-				FiftyTwoWeekHigh:     nil,
-				FiftyTwoWeekLow:      nil,
-				PreviousClose:        nil,
-				CurrencyCode:         "USD",
-				EventTime:            eventTime,
+				Security:            norm.Security{Symbol: "TSLA", MIC: "XNAS"},
+				RegularMarketPrice:  nil,
+				RegularMarketHigh:   nil,
+				RegularMarketLow:    nil,
+				RegularMarketVolume: nil,
+				FiftyTwoWeekHigh:    nil,
+				FiftyTwoWeekLow:     nil,
+				PreviousClose:       nil,
+				CurrencyCode:        "USD",
+				EventTime:           eventTime,
 			},
 			want: MarketData{
-				Symbol:  "TSLA",
-				MIC:     "XNAS",
+				Symbol:       "TSLA",
+				MIC:          "XNAS",
 				CurrencyCode: "USD",
 				EventTime:    eventTime,
 				// All *float64 / *int64 stay nil — verified via .IsNil() below.
@@ -92,8 +92,8 @@ func TestFromMarketData_TableDriven(t *testing.T) {
 				EventTime:          eventTime,
 			},
 			want: MarketData{
-				Symbol: "BTC-USD",
-				MIC:    "XNAS",
+				Symbol:             "BTC-USD",
+				MIC:                "XNAS",
 				RegularMarketPrice: ptr(6543.2101),
 				RegularMarketHigh:  ptr(6600.0000),
 				RegularMarketLow:   ptr(6500.0000),
@@ -107,11 +107,11 @@ func TestFromMarketData_TableDriven(t *testing.T) {
 		{
 			name: "zero-decimal volume but non-nil pointer",
 			in: &norm.NormalizedMarketData{
-				Security:             norm.Security{Symbol: "INDEX", MIC: "XNAS"},
-				RegularMarketPrice:   &norm.ScaledDecimal{Scaled: 500000, Scale: 2}, // 5000.00
-				RegularMarketVolume:  int64Ptr(0),                                    // explicitly zero
-				CurrencyCode:         "USD",
-				EventTime:            eventTime,
+				Security:            norm.Security{Symbol: "INDEX", MIC: "XNAS"},
+				RegularMarketPrice:  &norm.ScaledDecimal{Scaled: 500000, Scale: 2}, // 5000.00
+				RegularMarketVolume: int64Ptr(0),                                   // explicitly zero
+				CurrencyCode:        "USD",
+				EventTime:           eventTime,
 			},
 			want: MarketData{
 				Symbol:              "INDEX",

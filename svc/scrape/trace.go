@@ -6,7 +6,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/bizshuk/yfinance-go/utils/obsv"
+	"github.com/bizshuk/yfin/utils/obsv"
 )
 
 // Tracer handles OpenTelemetry tracing for scraping operations

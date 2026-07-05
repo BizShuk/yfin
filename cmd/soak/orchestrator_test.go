@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bizshuk/yfinance-go/config"
+	"github.com/bizshuk/yfin/config"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -21,7 +21,7 @@ AAPL
 MSFT
 GOOGL`
 
-	if err := os.WriteFile(universeFile, []byte(universeContent), 0644); err != nil {
+	if err := os.WriteFile(universeFile, []byte(universeContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test universe file: %v", err)
 	}
 
@@ -84,7 +84,7 @@ GOOGL
 # Another comment
 TSLA`
 
-	if err := os.WriteFile(universeFile, []byte(universeContent), 0644); err != nil {
+	if err := os.WriteFile(universeFile, []byte(universeContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test universe file: %v", err)
 	}
 
@@ -153,7 +153,7 @@ func TestOrchestratorShortRun(t *testing.T) {
 
 	universeContent := `AAPL`
 
-	if err := os.WriteFile(universeFile, []byte(universeContent), 0644); err != nil {
+	if err := os.WriteFile(universeFile, []byte(universeContent), 0o644); err != nil {
 		t.Fatalf("Failed to create test universe file: %v", err)
 	}
 

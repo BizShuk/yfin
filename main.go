@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/bizshuk/yfinance-go/cmd"
+	"github.com/bizshuk/yfin/cmd"
 )
 
 func main() {

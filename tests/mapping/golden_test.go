@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/bizshuk/yfinance-go/svc/emit"
-	"github.com/bizshuk/yfinance-go/svc/norm"
-	"github.com/bizshuk/yfinance-go/svc/yahoo"
+	"github.com/bizshuk/yfin/svc/emit"
+	"github.com/bizshuk/yfin/svc/norm"
+	"github.com/bizshuk/yfin/svc/yahoo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/bizshuk/yfinance-go/facade"
+	"github.com/bizshuk/yfin/facade"
 )
 
 // historical_data_example demonstrates the plain-struct SDK surface. As of

@@ -2,8 +2,8 @@
 
 [![Go Version](https://img.shields.io/badge/go-1.23+-blue.svg)](https://golang.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Go Report Card](https://goreportcard.com/badge/github.com/bizshuk/yfinance-go)](https://goreportcard.com/report/github.com/bizshuk/yfinance-go)
-[![GoDoc](https://godoc.org/github.com/bizshuk/yfinance-go?status.svg)](https://godoc.org/github.com/bizshuk/yfinance-go)
+[![Go Report Card](https://goreportcard.com/badge/github.com/bizshuk/yfin)](https://goreportcard.com/report/github.com/bizshuk/yfin)
+[![GoDoc](https://godoc.org/github.com/bizshuk/yfin?status.svg)](https://godoc.org/github.com/bizshuk/yfin)
 
 > ⚠️ **IMPORTANT DISCLAIMER** ⚠️
 >
@@ -44,13 +44,13 @@
 ### As a Go Module
 
 ```bash
-go get github.com/bizshuk/yfinance-go
+go get github.com/bizshuk/yfin
 ```
 
 ### From Source
 
 ```bash
-git clone https://github.com/bizshuk/yfinance-go.git
+git clone https://github.com/bizshuk/yfin.git
 cd yfinance-go
 go build ./cmd/yfin
 ```
@@ -70,7 +70,7 @@ import (
     "log"
     "time"
 
-    "github.com/bizshuk/yfinance-go"
+    "github.com/bizshuk/yfin"
 )
 
 func main() {
@@ -183,8 +183,8 @@ import (
     "log"
     "time"
 
-    "github.com/bizshuk/yfinance-go"
-    "github.com/bizshuk/yfinance-go/facade"
+    "github.com/bizshuk/yfin"
+    "github.com/bizshuk/yfin/facade"
 )
 
 func main() {
@@ -291,7 +291,7 @@ import (
     "sync"
     "time"
 
-    "github.com/bizshuk/yfinance-go"
+    "github.com/bizshuk/yfin"
 )
 
 func main() {
@@ -340,7 +340,7 @@ import (
     "log"
     "time"
 
-    "github.com/bizshuk/yfinance-go"
+    "github.com/bizshuk/yfin"
 )
 
 func main() {
@@ -374,7 +374,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/bizshuk/yfinance-go"
+    "github.com/bizshuk/yfin"
 )
 
 func main() {
@@ -406,7 +406,7 @@ import (
  "log"
  "time"
 
- "github.com/bizshuk/yfinance-go"
+ "github.com/bizshuk/yfin"
 )
 
 func main() {
@@ -570,7 +570,7 @@ The `yfin` CLI tool provides command-line access to all functionality:
 go build -o yfin ./cmd/yfin
 
 # Or install globally
-go install github.com/bizshuk/yfinance-go/cmd/yfin@latest
+go install github.com/bizshuk/yfin/cmd/yfin@latest
 ```
 
 ### Basic Commands
@@ -867,7 +867,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ```bash
 # Clone the repository
-git clone https://github.com/bizshuk/yfinance-go.git
+git clone https://github.com/bizshuk/yfin.git
 cd yfinance-go
 
 # Install dependencies
@@ -909,16 +909,16 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/bizshuk/yfinance-go/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/bizshuk/yfinance-go/discussions)
+- **Issues**: [GitHub Issues](https://github.com/bizshuk/yfin/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/bizshuk/yfin/discussions)
 - **Documentation**: [Complete Documentation](docs/)
-- **API Reference**: [GoDoc](https://godoc.org/github.com/bizshuk/yfinance-go)
+- **API Reference**: [GoDoc](https://godoc.org/github.com/bizshuk/yfin)
 
 ### Getting Help
 
 1. **Check Documentation**: Start with [docs/](docs/) for comprehensive guides
 2. **Review Examples**: See [facade/samples/](facade/samples/) and [cmd/samples/](cmd/samples/) for code samples
-3. **Search Issues**: Check existing [GitHub Issues](https://github.com/bizshuk/yfinance-go/issues)
+3. **Search Issues**: Check existing [GitHub Issues](https://github.com/bizshuk/yfin/issues)
 4. **Troubleshooting**: See [docs/scrape/troubleshooting.md](docs/scrape/troubleshooting.md)
 5. **Runbooks**: For operational issues, see [dashboards/runbooks/](dashboards/runbooks/)
 

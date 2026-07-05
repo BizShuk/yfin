@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bizshuk/yfinance-go/utils/httpx"
+	"github.com/bizshuk/yfin/utils/httpx"
 	"github.com/stretchr/testify/require"
 )
 

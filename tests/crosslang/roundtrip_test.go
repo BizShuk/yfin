@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bizshuk/yfinance-go/svc/emit"
-	"github.com/bizshuk/yfinance-go/svc/norm"
+	"github.com/bizshuk/yfin/svc/emit"
+	"github.com/bizshuk/yfin/svc/norm"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
@@ -53,10 +53,10 @@ func TestCrossLanguageRoundTripBars(t *testing.T) {
 
 			// Write protobuf to file for Python to read
 			outputDir := "_rt"
-			_ = os.MkdirAll(outputDir, 0755)
+			_ = os.MkdirAll(outputDir, 0o755)
 
 			pbFile := filepath.Join(outputDir, "bars_"+tc.currency+".pb")
-			err = os.WriteFile(pbFile, protobufBytes, 0644)
+			err = os.WriteFile(pbFile, protobufBytes, 0o644)
 			require.NoError(t, err)
 
 			// Create metadata file for Python
@@ -64,7 +64,7 @@ func TestCrossLanguageRoundTripBars(t *testing.T) {
 			metadataFile := filepath.Join(outputDir, "bars_"+tc.currency+"_metadata.json")
 			metadataBytes, err := json.Marshal(metadata)
 			require.NoError(t, err)
-			err = os.WriteFile(metadataFile, metadataBytes, 0644)
+			err = os.WriteFile(metadataFile, metadataBytes, 0o644)
 			require.NoError(t, err)
 
 			// Run Python test
@@ -87,10 +87,10 @@ func TestCrossLanguageRoundTripQuotes(t *testing.T) {
 
 	// Write protobuf to file
 	outputDir := "_rt"
-	_ = os.MkdirAll(outputDir, 0755)
+	_ = os.MkdirAll(outputDir, 0o755)
 
 	pbFile := filepath.Join(outputDir, "quote.pb")
-	err = os.WriteFile(pbFile, protobufBytes, 0644)
+	err = os.WriteFile(pbFile, protobufBytes, 0o644)
 	require.NoError(t, err)
 
 	// Create metadata file
@@ -98,7 +98,7 @@ func TestCrossLanguageRoundTripQuotes(t *testing.T) {
 	metadataFile := filepath.Join(outputDir, "quote_metadata.json")
 	metadataBytes, err := json.Marshal(metadata)
 	require.NoError(t, err)
-	err = os.WriteFile(metadataFile, metadataBytes, 0644)
+	err = os.WriteFile(metadataFile, metadataBytes, 0o644)
 	require.NoError(t, err)
 
 	// Run Python test
@@ -119,10 +119,10 @@ func TestCrossLanguageRoundTripFundamentals(t *testing.T) {
 
 	// Write protobuf to file
 	outputDir := "_rt"
-	_ = os.MkdirAll(outputDir, 0755)
+	_ = os.MkdirAll(outputDir, 0o755)
 
 	pbFile := filepath.Join(outputDir, "fundamentals.pb")
-	err = os.WriteFile(pbFile, protobufBytes, 0644)
+	err = os.WriteFile(pbFile, protobufBytes, 0o644)
 	require.NoError(t, err)
 
 	// Create metadata file
@@ -130,7 +130,7 @@ func TestCrossLanguageRoundTripFundamentals(t *testing.T) {
 	metadataFile := filepath.Join(outputDir, "fundamentals_metadata.json")
 	metadataBytes, err := json.Marshal(metadata)
 	require.NoError(t, err)
-	err = os.WriteFile(metadataFile, metadataBytes, 0644)
+	err = os.WriteFile(metadataFile, metadataBytes, 0o644)
 	require.NoError(t, err)
 
 	// Run Python test
@@ -181,10 +181,10 @@ func TestCrossLanguageNumericPrecision(t *testing.T) {
 
 			// Write protobuf to file
 			outputDir := "_rt"
-			_ = os.MkdirAll(outputDir, 0755)
+			_ = os.MkdirAll(outputDir, 0o755)
 
 			pbFile := filepath.Join(outputDir, "precision_"+tc.name+".pb")
-			err = os.WriteFile(pbFile, protobufBytes, 0644)
+			err = os.WriteFile(pbFile, protobufBytes, 0o644)
 			require.NoError(t, err)
 
 			// Create metadata with expected values
@@ -196,7 +196,7 @@ func TestCrossLanguageNumericPrecision(t *testing.T) {
 			metadataFile := filepath.Join(outputDir, "precision_"+tc.name+"_metadata.json")
 			metadataBytes, err := json.Marshal(metadata)
 			require.NoError(t, err)
-			err = os.WriteFile(metadataFile, metadataBytes, 0644)
+			err = os.WriteFile(metadataFile, metadataBytes, 0o644)
 			require.NoError(t, err)
 
 			// Run Python test

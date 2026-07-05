@@ -23,7 +23,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/bizshuk/yfinance-go/config"
+	"github.com/bizshuk/yfin/config"
 )
 
 // BaseURL is the TWSE RESTful endpoint root. It is a `var` (not const) so

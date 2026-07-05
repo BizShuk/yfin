@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	fundamentalsv1 "github.com/AmpyFin/ampy-proto/v2/gen/go/ampy/fundamentals/v1"
-	"github.com/bizshuk/yfinance-go/svc/norm"
+	"github.com/bizshuk/yfin/svc/norm"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 

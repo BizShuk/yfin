@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/bizshuk/yfinance-go/facade"
-	"github.com/bizshuk/yfinance-go/svc/yahoo"
+	"github.com/bizshuk/yfin/facade"
+	"github.com/bizshuk/yfin/svc/yahoo"
 )
 
 // FetchContext bundles everything a command needs to fetch its data.

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bizshuk/yfinance-go/svc/yahoo"
+	"github.com/bizshuk/yfin/svc/yahoo"
 )
 
 // NormalizeBars converts Yahoo Finance bars to normalized bars

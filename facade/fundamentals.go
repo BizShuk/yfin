@@ -4,7 +4,7 @@ import (
 	"time"
 
 	fundamentalsv1 "github.com/AmpyFin/ampy-proto/v2/gen/go/ampy/fundamentals/v1"
-	"github.com/bizshuk/yfinance-go/svc/norm"
+	"github.com/bizshuk/yfin/svc/norm"
 )
 
 // FundamentalsLine is one period-tagged line item (e.g., "revenue",

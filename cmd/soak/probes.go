@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bizshuk/yfinance-go/facade"
+	"github.com/bizshuk/yfin/facade"
 	"go.uber.org/zap"
 )
 

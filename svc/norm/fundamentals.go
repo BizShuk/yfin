@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bizshuk/yfinance-go/svc/yahoo"
+	"github.com/bizshuk/yfin/svc/yahoo"
 )
 
 // NormalizeFundamentals converts Yahoo Finance fundamentals to normalized fundamentals

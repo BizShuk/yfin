@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bizshuk/yfinance-go/svc/twse"
+	"github.com/bizshuk/yfin/svc/twse"
 )
 
 // withTestServer redirects the twse.BaseURL to a local httptest server for

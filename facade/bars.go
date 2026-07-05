@@ -8,7 +8,7 @@ package facade
 import (
 	"time"
 
-	"github.com/bizshuk/yfinance-go/svc/norm"
+	"github.com/bizshuk/yfin/svc/norm"
 )
 
 // Bar is one daily OHLCV bar with float64 prices (decoded from ScaledDecimal).
