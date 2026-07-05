@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -43,7 +44,7 @@ func TestMiddleware_OrderingAndError(t *testing.T) {
 
 	if _, err := c.Do(ctx, req); err == nil {
 		t.Fatalf("expected error from middleware chain, got nil")
-	} else if got := err.Error(); !contains(got, "blocked") {
+	} else if got := err.Error(); !strings.Contains(got, "blocked") {
 		t.Errorf("expected error to mention %q, got %q", "blocked", got)
 	}
 
@@ -153,15 +154,6 @@ func TestCommonEndpointFn(t *testing.T) {
 	}
 }
 
-func contains(haystack, needle string) bool {
-	for i := 0; i+len(needle) <= len(haystack); i++ {
-		if haystack[i:i+len(needle)] == needle {
-			return true
-		}
-	}
-	return false
-}
-
 func TestTWSEMiddleware_SetsUserAgent(t *testing.T) {
 	const ua = "TwseAgent/1.0"
 	req, err := http.NewRequest(http.MethodGet, "http://example.invalid/x", nil)
@@ -227,7 +219,7 @@ func TestYahooMiddleware_PropagatesCrumbError(t *testing.T) {
 		t.Fatalf("build request: %v", err)
 	}
 	err = YahooMiddleware(cm)(req, &Meta{})
-	if err == nil || !contains(err.Error(), "consent flow required") {
+	if err == nil || !strings.Contains(err.Error(), "consent flow required") {
 		t.Errorf("expected wrapped error containing 'consent flow required', got %v", err)
 	}
 }

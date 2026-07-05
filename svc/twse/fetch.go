@@ -77,6 +77,10 @@ func (c *Client) BaseURL() string { return c.baseURL }
 // status validation, gzip, observability) are owned by the injected
 // caller.
 //
+// Non-2xx responses are surfaced by `Caller.Get` as a wrapped error,
+// which FetchJSON re-wraps as `"twse: request failed: ..."`; there is
+// no separate status check in this function.
+//
 // T must either be (or embed) *Response, or implement GetStat() string.
 //
 // This is a free generic function rather than a method on `*Client` only
@@ -94,12 +98,14 @@ func FetchJSON[T any](ctx context.Context, client *Client, path string, query ur
 	}
 	q.Set("response", "json")
 
-	body, meta, err := client.caller.Get(ctx, client.baseURL+path, q)
+	// Compose the absolute URL ourselves and pass it to caller.Get with an
+	// empty Config.BaseURL on the injected caller (see buildTWSEClient) so
+	// caller.Get's `path` argument is used verbatim. The local name
+	// `absURL` documents the boundary contract clearly.
+	absURL := client.baseURL + path
+	body, _, err := client.caller.Get(ctx, absURL, q)
 	if err != nil {
 		return zero, fmt.Errorf("twse: request failed: %w", err)
-	}
-	if meta.Status/100 != 2 {
-		return zero, fmt.Errorf("twse: unexpected status %d", meta.Status)
 	}
 	if len(body) == 0 {
 		return zero, ErrNoData

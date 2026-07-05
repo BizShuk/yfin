@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"testing"
-	"time"
 )
 
 // stubCaller is a Caller implementation for tests that records invocation
@@ -162,5 +161,4 @@ func TestGet_AttemptsOnRetry(t *testing.T) {
 	if meta.Duration <= 0 {
 		t.Errorf("expected Duration > 0, got %v", meta.Duration)
 	}
-	_ = time.Second // keep time import even if unused
 }

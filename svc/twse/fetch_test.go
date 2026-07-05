@@ -6,6 +6,7 @@ package twse
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -138,16 +139,18 @@ func TestFetchJSON_UsesInjectedCaller(t *testing.T) {
 }
 
 // TestFetchJSON_Non2xxReturnsError covers the unhappy path: a 5xx response
-// from the injected caller must surface as a wrapped error.
+// from the injected caller must surface as a wrapped error. The real
+// httpx.Caller.Get returns (nil, meta, error) on non-2xx, so the stub
+// mirrors that contract.
 func TestFetchJSON_Non2xxReturnsError(t *testing.T) {
 	stub := &stubCaller{
-		body: []byte(`<html>oops</html>`),
-		meta: &httpx.Meta{Status: 503, Host: "www.twse.com.tw"},
+		err: fmt.Errorf("httpx: status 503: <html>oops</html>"),
 	}
 	client := NewClientWithURL(stub, "https://www.twse.com.tw/rwd/zh")
 	_, err := FetchJSON[TestResponse](context.Background(), client, "/x", nil)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unexpected status 503")
+	assert.Contains(t, err.Error(), "request failed")
+	assert.Contains(t, err.Error(), "status 503")
 }
 
 // TestClient_NewClientCapturesPackageBaseURL ensures the package-level

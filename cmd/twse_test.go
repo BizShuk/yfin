@@ -50,6 +50,15 @@ func resetTwseCfg(t *testing.T) {
 	twseCfg = twseConfig{}
 }
 
+// setTwseClientForTest swaps the twseClientProvider for the lifetime of
+// one test. Returns a restore function suitable for t.Cleanup.
+func setTwseClientForTest(t *testing.T, client *twse.Client) func() {
+	t.Helper()
+	prev := twseClientProvider
+	twseClientProvider = func() *twse.Client { return client }
+	return func() { twseClientProvider = prev }
+}
+
 // captureStdout captures os.Stdout + os.Stderr for fn's duration.
 func captureStdout(t *testing.T, fn func()) (string, string) {
 	t.Helper()

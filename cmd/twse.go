@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"os"
 	"strings"
-	"testing"
 	"time"
 
 	"github.com/bizshuk/yfin/svc/twse"
@@ -163,16 +162,8 @@ func runTwseEndpoint(cmd *cobra.Command, args []string) error {
 
 // twseClientProvider returns the `*twse.Client` used by every twse
 // command invocation. Production wiring replaces the default with
-// `buildTWSEClient` (see root.go); tests use `setTwseClientForTest`.
+// `buildTWSEClient` (see root.go); tests reassign this variable via
+// `setTwseClientForTest` in cmd/twse_test.go.
 var twseClientProvider = func() *twse.Client {
 	return buildTWSEClient()
-}
-
-// setTwseClientForTest swaps the provider for the lifetime of one test.
-// Returns a restore function suitable for t.Cleanup.
-func setTwseClientForTest(t *testing.T, client *twse.Client) func() {
-	t.Helper()
-	prev := twseClientProvider
-	twseClientProvider = func() *twse.Client { return client }
-	return func() { twseClientProvider = prev }
 }

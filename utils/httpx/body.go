@@ -1,4 +1,4 @@
-// body.go — Gzip auto-decode + per-response body size cap shared by `Caller.Call`.
+// body.go — Gzip auto-decode + per-response body size cap shared by `Caller.Get`.
 // Capacity: 1 sentinel, 1 helper.
 package httpx
 
@@ -10,7 +10,7 @@ import (
 	"net/http"
 )
 
-// ErrBodyTooLarge is returned by readBody (and therefore Caller.Call) when a
+// ErrBodyTooLarge is returned by readBody (and therefore Caller.Get) when a
 // response body, after gzip decoding, exceeds Config.MaxBodyBytes.
 var ErrBodyTooLarge = errors.New("httpx: response body exceeds MaxBodyBytes")
 

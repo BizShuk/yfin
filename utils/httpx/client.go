@@ -33,7 +33,7 @@ type Config struct {
 	UserAgent        string
 	// MaxBodyBytes caps the size of a single response body (after gzip
 	// decompression). 0 means unlimited. When the limit is exceeded
-	// Caller.Call returns ErrBodyTooLarge.
+	// Caller.Get returns ErrBodyTooLarge.
 	MaxBodyBytes int64
 }
 

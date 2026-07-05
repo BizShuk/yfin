@@ -16,8 +16,15 @@ import (
 // fresh `Meta` built from `req.URL`.
 type ctxMetaKey struct{}
 
-// Caller is the transport contract for fetching HTTP resources. The path
-// is appended to a per-implementation base URL; query may be nil.
+// Caller is the transport contract for fetching HTTP resources. The
+// path argument is normally appended to a per-implementation base URL
+// (Config.BaseURL); query may be nil.
+//
+// IMPORTANT: When Config.BaseURL is empty (""), the path argument is
+// used verbatim as an absolute URL — this lets callers like svc/twse
+// pre-compose their own host+path prefix without forcing a second
+// concatenation. Implementations that take a BaseURL must therefore
+// special-case "" to mean "use the caller's string as-is".
 //
 // *Client implements Caller directly; tests can provide a stub.
 type Caller interface {
