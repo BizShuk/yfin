@@ -29,7 +29,7 @@ type TWT43URow struct {
 
 // FetchTWT43U retrieves the daily aggregated buy/sell volume of
 // investment trust companies (投信) for `date`.
-func FetchTWT43U(ctx context.Context, date string, opts url.Values) (any, error) {
+func FetchTWT43U(ctx context.Context, client *Client, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/TWT43U: date is required")
 	}
@@ -40,7 +40,7 @@ func FetchTWT43U(ctx context.Context, date string, opts url.Values) (any, error)
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[TWT43UResponse](ctx, "/fund/TWT43U", q)
+	return FetchJSON[TWT43UResponse](ctx, client, "/fund/TWT43U", q)
 }
 
 // ParseTWT43URow converts one raw `data` row into a typed TWT43URow.

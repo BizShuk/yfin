@@ -40,8 +40,8 @@ func TestFetchFMSRFK_Decode(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newTestClient(t, srv)
-	raw, err := FetchFMSRFK(context.Background(), "2330", "2022", url.Values{})
+	client := newTestClient(t, srv)
+	raw, err := FetchFMSRFK(context.Background(), client, "2330", "2022", url.Values{})
 	if err != nil {
 		t.Fatalf("FetchFMSRFK returned error: %v", err)
 	}
@@ -99,8 +99,8 @@ func TestFetchFMSRFK_NoData(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newTestClient(t, srv)
-	_, err := FetchFMSRFK(context.Background(), "9999", "1900", url.Values{})
+	client := newTestClient(t, srv)
+	_, err := FetchFMSRFK(context.Background(), client, "9999", "1900", url.Values{})
 	if err == nil {
 		t.Fatal("expected error for no-data response, got nil")
 	}

@@ -18,8 +18,8 @@ func TestFetchStockDayAvg_RequiresDate(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newTestClient(t, srv)
-	_, err := FetchStockDayAvg(context.Background(), "", url.Values{"stockNo": []string{"2330"}})
+	client := newTestClient(t, srv)
+	_, err := FetchStockDayAvg(context.Background(), client, "", url.Values{"stockNo": []string{"2330"}})
 	if err == nil {
 		t.Fatal("expected error when date is missing, got nil")
 	}
@@ -35,8 +35,8 @@ func TestFetchStockDayAvg_RequiresStockNo(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newTestClient(t, srv)
-	_, err := FetchStockDayAvg(context.Background(), "20250601", url.Values{})
+	client := newTestClient(t, srv)
+	_, err := FetchStockDayAvg(context.Background(), client, "20250601", url.Values{})
 	if err == nil {
 		t.Fatal("expected error when stockNo is missing, got nil")
 	}
@@ -63,10 +63,10 @@ func TestFetchStockDayAvg_Decode(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newTestClient(t, srv)
+	client := newTestClient(t, srv)
 	opts := url.Values{}
 	opts.Set("stockNo", "2330")
-	raw, err := FetchStockDayAvg(context.Background(), "20250601", opts)
+	raw, err := FetchStockDayAvg(context.Background(), client, "20250601", opts)
 	if err != nil {
 		t.Fatalf("FetchStockDayAvg returned error: %v", err)
 	}

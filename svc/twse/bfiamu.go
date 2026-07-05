@@ -29,7 +29,7 @@ type BFIAMURow struct {
 
 // FetchBFIAMU retrieves per-day index close & change values for `date`.
 // `date` is required (YYYYMMDD).
-func FetchBFIAMU(ctx context.Context, date string, opts url.Values) (any, error) {
+func FetchBFIAMU(ctx context.Context, client *Client, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/BFIAMU: date is required")
 	}
@@ -40,7 +40,7 @@ func FetchBFIAMU(ctx context.Context, date string, opts url.Values) (any, error)
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[BFIAMUResponse](ctx, "/afterTrading/BFIAMU", q)
+	return FetchJSON[BFIAMUResponse](ctx, client, "/afterTrading/BFIAMU", q)
 }
 
 // ParseBFIAMURow converts one raw `data` row into a typed BFIAMURow.

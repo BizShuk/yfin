@@ -33,7 +33,7 @@ type StockDayAvgRow struct {
 
 // FetchStockDayAvg retrieves the per-stock monthly average price for `date`
 // (YYYYMM01). `stockNo` must be supplied via opts.
-func FetchStockDayAvg(ctx context.Context, date string, opts url.Values) (any, error) {
+func FetchStockDayAvg(ctx context.Context, client *Client, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/STOCK_DAY_AVG: date is required")
 	}
@@ -52,7 +52,7 @@ func FetchStockDayAvg(ctx context.Context, date string, opts url.Values) (any, e
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[StockDayAvgResponse](ctx, "/exchangeReport/STOCK_DAY_AVG", q)
+	return FetchJSON[StockDayAvgResponse](ctx, client, "/exchangeReport/STOCK_DAY_AVG", q)
 }
 
 // ParseStockDayAvgRow converts one raw `data` row into a typed StockDayAvgRow.

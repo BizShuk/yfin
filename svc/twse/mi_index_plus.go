@@ -29,7 +29,7 @@ type MIIndexPlusRow struct {
 
 // FetchMI_INDEX_PLUS retrieves the after-hours (盤後定價) index data
 // for `date`.
-func FetchMI_INDEX_PLUS(ctx context.Context, date string, opts url.Values) (any, error) {
+func FetchMI_INDEX_PLUS(ctx context.Context, client *Client, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/MI_INDEX_PLUS: date is required")
 	}
@@ -40,7 +40,7 @@ func FetchMI_INDEX_PLUS(ctx context.Context, date string, opts url.Values) (any,
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[MI_INDEX_PLUSResponse](ctx, "/afterTrading/MI_INDEX_PLUS", q)
+	return FetchJSON[MI_INDEX_PLUSResponse](ctx, client, "/afterTrading/MI_INDEX_PLUS", q)
 }
 
 // ParseMIIndexPlusRow converts one raw `data` row into a typed

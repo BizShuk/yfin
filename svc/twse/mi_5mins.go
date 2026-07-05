@@ -29,7 +29,7 @@ type MI_5MINSRow struct {
 }
 
 // FetchMI_5MINS retrieves the every-5-seconds order/trade statistics for `date`.
-func FetchMI_5MINS(ctx context.Context, date string, opts url.Values) (any, error) {
+func FetchMI_5MINS(ctx context.Context, client *Client, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/MI_5MINS: date is required")
 	}
@@ -40,7 +40,7 @@ func FetchMI_5MINS(ctx context.Context, date string, opts url.Values) (any, erro
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[MI_5MINSResponse](ctx, "/afterTrading/MI_5MINS", q)
+	return FetchJSON[MI_5MINSResponse](ctx, client, "/afterTrading/MI_5MINS", q)
 }
 
 // ParseMI_5MINSRow converts one raw `data` row into a typed MI_5MINSRow.

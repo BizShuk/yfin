@@ -32,8 +32,8 @@ func TestFetchTWT43U_Decode(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newTestClient(t, srv)
-	raw, err := FetchTWT43U(context.Background(), "20260620", nil)
+	client := newTestClient(t, srv)
+	raw, err := FetchTWT43U(context.Background(), client, "20260620", nil)
 	if err != nil {
 		t.Fatalf("FetchTWT43U returned error: %v", err)
 	}
@@ -75,8 +75,8 @@ func TestFetchTWT43U_NoData(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newTestClient(t, srv)
-	_, err := FetchTWT43U(context.Background(), "20260620", url.Values{})
+	client := newTestClient(t, srv)
+	_, err := FetchTWT43U(context.Background(), client, "20260620", url.Values{})
 	if err == nil {
 		t.Fatal("expected error for no-data response, got nil")
 	}

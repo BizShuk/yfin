@@ -31,7 +31,7 @@ type BWIBBUdRow struct {
 // FetchBWIBBU_d retrieves the per-stock P/E, dividend yield, and P/B
 // ratio snapshot for `date`. `opts` may include `selectType=ALL`
 // (TWSE expects this).
-func FetchBWIBBU_d(ctx context.Context, date string, opts url.Values) (any, error) {
+func FetchBWIBBU_d(ctx context.Context, client *Client, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/BWIBBU_d: date is required")
 	}
@@ -43,7 +43,7 @@ func FetchBWIBBU_d(ctx context.Context, date string, opts url.Values) (any, erro
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[BWIBBU_dResponse](ctx, "/afterTrading/BWIBBU_d", q)
+	return FetchJSON[BWIBBU_dResponse](ctx, client, "/afterTrading/BWIBBU_d", q)
 }
 
 // ParseBWIBBUdRow converts one raw `data` row into a typed BWIBBUdRow.

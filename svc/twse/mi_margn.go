@@ -33,7 +33,7 @@ type MI_MARGNRow struct {
 
 // FetchMI_MARGN retrieves the margin trading balances for `date`.
 // selectType=ALL is always added by this fetcher.
-func FetchMI_MARGN(ctx context.Context, date string, opts url.Values) (any, error) {
+func FetchMI_MARGN(ctx context.Context, client *Client, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/MI_MARGN: date is required")
 	}
@@ -45,7 +45,7 @@ func FetchMI_MARGN(ctx context.Context, date string, opts url.Values) (any, erro
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[MI_MARGNResponse](ctx, "/marginTrading/MI_MARGN", q)
+	return FetchJSON[MI_MARGNResponse](ctx, client, "/marginTrading/MI_MARGN", q)
 }
 
 // ParseMI_MARGNRow converts one raw `data` row into a typed MI_MARGNRow.

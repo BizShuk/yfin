@@ -18,8 +18,8 @@ func TestFetchBFIAUUSTOCK_RequiresStockNo(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newTestClient(t, srv)
-	_, err := FetchBFIAUUSTOCK(context.Background(), "20260620", url.Values{})
+	client := newTestClient(t, srv)
+	_, err := FetchBFIAUUSTOCK(context.Background(), client, "20260620", url.Values{})
 	if err == nil {
 		t.Fatal("expected error when stockNo is missing, got nil")
 	}
@@ -46,10 +46,10 @@ func TestFetchBFIAUUSTOCK_Decode(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newTestClient(t, srv)
+	client := newTestClient(t, srv)
 	opts := url.Values{}
 	opts.Set("stockNo", "2330")
-	raw, err := FetchBFIAUUSTOCK(context.Background(), "20260620", opts)
+	raw, err := FetchBFIAUUSTOCK(context.Background(), client, "20260620", opts)
 	if err != nil {
 		t.Fatalf("FetchBFIAUUSTOCK returned error: %v", err)
 	}

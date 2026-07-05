@@ -32,8 +32,8 @@ func TestFetchMI_QFIIS_Decode(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newTestClient(t, srv)
-	raw, err := FetchMI_QFIIS(context.Background(), "20260620", url.Values{})
+	client := newTestClient(t, srv)
+	raw, err := FetchMI_QFIIS(context.Background(), client, "20260620", url.Values{})
 	if err != nil {
 		t.Fatalf("FetchMI_QFIIS returned error: %v", err)
 	}
@@ -72,8 +72,8 @@ func TestFetchMI_QFIIS_NoData(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newTestClient(t, srv)
-	_, err := FetchMI_QFIIS(context.Background(), "20260620", url.Values{})
+	client := newTestClient(t, srv)
+	_, err := FetchMI_QFIIS(context.Background(), client, "20260620", url.Values{})
 	if err == nil {
 		t.Fatal("expected error for no-data response, got nil")
 	}

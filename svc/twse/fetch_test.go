@@ -1,4 +1,6 @@
-// fetch_test.go — `FetchJSON` happy-path decode + `ErrNoData` on no-data stat + embedded `Response.GetStat` exposure. Capacity: ~4 test cases via httptest server.
+// fetch_test.go — `FetchJSON` happy-path decode + `ErrNoData` on no-data stat
+// + embedded `Response.GetStat` exposure + a stubCaller verifying the
+// injected transport contract. Capacity: ~5 test cases via stub or httptest.
 package twse
 
 import (
@@ -6,19 +8,35 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
+	"time"
 
+	"github.com/bizshuk/yfin/utils/httpx"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// newTestHttpxClient points the package BaseURL at the httptest server so
-// FetchJSON resolves the path against it, restoring it on cleanup. No client
-// is injected: FetchJSON uses the shared stdlib client from internal/config.
-func newTestHttpxClient(t *testing.T, srv *httptest.Server) {
+// newTestHttpxClient points the test client at a local httptest server.
+// It builds a real `*httpx.Client` whose BaseURL is empty (so the
+// caller's `c.baseURL+path` is the absolute URL) and wraps it in a
+// `*twse.Client` via NewClientWithURL.
+func newTestHttpxClient(t *testing.T, srv *httptest.Server) *Client {
 	t.Helper()
-	old := BaseURL
-	BaseURL = srv.URL
-	t.Cleanup(func() { BaseURL = old })
+	hc := httpx.NewClient(&httpx.Config{
+		BaseURL:          "",
+		Timeout:          5 * time.Second,
+		MaxAttempts:      1,
+		BackoffBaseMs:    1,
+		BackoffJitterMs:  0,
+		MaxDelayMs:       10,
+		QPS:              1000,
+		Burst:            1000,
+		CircuitWindow:    time.Second,
+		FailureThreshold: 1000,
+		ResetTimeout:     time.Second,
+	})
+	return NewClientWithURL(hc, srv.URL)
 }
 
 func TestFetchJSON_Decodes(t *testing.T) {
@@ -28,8 +46,8 @@ func TestFetchJSON_Decodes(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newTestHttpxClient(t, srv)
-	got, err := FetchJSON[TestResponse](context.Background(), "/test/endpoint", nil)
+	client := newTestHttpxClient(t, srv)
+	got, err := FetchJSON[TestResponse](context.Background(), client, "/test/endpoint", nil)
 	require.NoError(t, err)
 	require.Equal(t, "OK", got.Stat)
 	require.Equal(t, "MI_INDEX", got.Title)
@@ -42,8 +60,8 @@ func TestFetchJSON_NoDataReturnsErrNoData(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newTestHttpxClient(t, srv)
-	_, err := FetchJSON[TestResponse](context.Background(), "/test/endpoint", nil)
+	client := newTestHttpxClient(t, srv)
+	_, err := FetchJSON[TestResponse](context.Background(), client, "/test/endpoint", nil)
 	require.Error(t, err)
 	require.True(t, errors.Is(err, ErrNoData))
 }
@@ -54,8 +72,8 @@ func TestFetchJSON_StatAtTopLevel(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newTestHttpxClient(t, srv)
-	got, err := FetchJSON[TestResponse](context.Background(), "/test/endpoint", nil)
+	client := newTestHttpxClient(t, srv)
+	got, err := FetchJSON[TestResponse](context.Background(), client, "/test/endpoint", nil)
 	require.NoError(t, err)
 	require.Equal(t, "OK", got.Stat)
 }
@@ -73,11 +91,73 @@ func TestFetchJSON_EmbeddedStructReportsStat(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newTestHttpxClient(t, srv)
-	got, err := FetchJSON[EmbeddedResponse](context.Background(), "/test/endpoint", nil)
+	client := newTestHttpxClient(t, srv)
+	got, err := FetchJSON[EmbeddedResponse](context.Background(), client, "/test/endpoint", nil)
 	require.NoError(t, err)
 	require.Equal(t, "OK", got.GetStat())
 	require.Equal(t, "20221230", got.Date)
+}
+
+// stubCaller captures the last (path, query) pair fed to it and returns
+// a canned body, bypassing the network. It satisfies httpx.Caller.
+type stubCaller struct {
+	lastPath  string
+	lastQuery url.Values
+	body      []byte
+	meta      *httpx.Meta
+	err       error
+}
+
+func (s *stubCaller) Get(ctx context.Context, path string, q url.Values) ([]byte, *httpx.Meta, error) {
+	s.lastPath = path
+	s.lastQuery = q
+	if s.meta == nil {
+		s.meta = &httpx.Meta{Status: 200, Host: "www.twse.com.tw"}
+	}
+	return s.body, s.meta, s.err
+}
+
+// TestFetchJSON_UsesInjectedCaller verifies the new Client-based
+// FetchJSON plumbs through the injected httpx.Caller without going near
+// the network and writes the right (path, query) into it.
+func TestFetchJSON_UsesInjectedCaller(t *testing.T) {
+	stub := &stubCaller{
+		body: []byte(`{"stat":"OK","data":[],"title":"MI_INDEX"}`),
+	}
+	client := NewClientWithURL(stub, "https://www.twse.com.tw/rwd/zh")
+	_, err := FetchJSON[MI_INDEXResponse](
+		context.Background(),
+		client,
+		"/afterTrading/STOCK_DAY",
+		url.Values{"stockNo": {"2330"}},
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY", stub.lastPath)
+	assert.Equal(t, "2330", stub.lastQuery.Get("stockNo"))
+	assert.Equal(t, "json", stub.lastQuery.Get("response"))
+}
+
+// TestFetchJSON_Non2xxReturnsError covers the unhappy path: a 5xx response
+// from the injected caller must surface as a wrapped error.
+func TestFetchJSON_Non2xxReturnsError(t *testing.T) {
+	stub := &stubCaller{
+		body: []byte(`<html>oops</html>`),
+		meta: &httpx.Meta{Status: 503, Host: "www.twse.com.tw"},
+	}
+	client := NewClientWithURL(stub, "https://www.twse.com.tw/rwd/zh")
+	_, err := FetchJSON[TestResponse](context.Background(), client, "/x", nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unexpected status 503")
+}
+
+// TestClient_NewClientCapturesPackageBaseURL ensures the package-level
+// BaseURL var is the default when NewClient is called (no test override
+// in scope).
+func TestClient_NewClientCapturesPackageBaseURL(t *testing.T) {
+	stub := &stubCaller{}
+	client := NewClient(stub)
+	require.Equal(t, BaseURL, client.BaseURL())
+	require.Same(t, httpx.Caller(stub), client.Caller())
 }
 
 // TestResponse is a sample struct matching the TWSE JSON envelope.

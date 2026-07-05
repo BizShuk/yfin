@@ -1,4 +1,6 @@
-// fetch.go — TWSE REST helper: `BaseURL`, `FetchJSON[T]` generic decoder, `ErrNoData` sentinel + `StatOK`. Capacity: shared transport for 23 endpoint fetchers.
+// fetch.go — TWSE REST helper: `BaseURL`, `Client.FetchJSON[T]` generic decoder,
+// `ErrNoData` sentinel + `StatOK`. Capacity: 1 `Client` per TWSE host +
+// `statGetter` interface used by every endpoint fetcher.
 package twse
 
 import (
@@ -6,51 +8,83 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"net/url"
 	"strings"
 
-	"github.com/bizshuk/yfin/config"
+	"github.com/bizshuk/yfin/utils/httpx"
 )
 
 // BaseURL is the TWSE RESTful endpoint root. It is a `var` (not const) so
-// tests can override it via httptest. It is the single owner of the TWSE
-// host: FetchJSON joins it with each endpoint's path to form the full URL.
+// tests and alternate deployments can override it via `NewClientWithURL`.
+// `NewClient` reads it at construction time; tests that need a per-suite
+// override should construct their Client with `NewClientWithURL`.
 var BaseURL = "https://www.twse.com.tw/rwd/zh"
 
 const (
 	// StatOK is the value of `stat` field when TWSE returned data successfully.
 	StatOK = "OK"
-
-	// userAgent is sent on every request; TWSE rejects the default Go UA.
-	userAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 )
 
-// ErrNoData is returned when TWSE responds with "沒有符合條件的資料" (or any
-// variant that contains the substring statNoData). It is a sentinel so callers
-// can errors.Is it.
-var ErrNoData = errors.New("twse: no data for requested date")
+var (
+	// ErrNoData is returned when TWSE responds with "沒有符合條件的資料" (or any
+	// variant that contains the substring statNoData). It is a sentinel so callers
+	// can errors.Is it.
+	ErrNoData = errors.New("twse: no data for requested date")
+)
 
-// FetchJSON performs a GET on `BaseURL + path` with the supplied query
-// params, then decodes the body into T. It automatically:
+// Client is a TWSE-scoped HTTP client. It owns the base URL and the
+// underlying `httpx.Caller` that performs the actual transport — retry,
+// backoff, rate-limit, circuit-breaker, gzip, body-cap and observability
+// are all delegated to the caller.
+type Client struct {
+	caller  httpx.Caller
+	baseURL string
+}
+
+// NewClient returns a Client whose base URL is captured from the
+// package-level `BaseURL` at the time of call. Pass a caller wired with
+// `httpx.NewClient(...)` that has `TWSEMiddleware` registered on it.
+func NewClient(caller httpx.Caller) *Client {
+	return &Client{caller: caller, baseURL: BaseURL}
+}
+
+// NewClientWithURL returns a Client that targets an explicit base URL.
+// Use this for tests (httptest server), mirror deployments, or any
+// non-default TWSE host.
+func NewClientWithURL(caller httpx.Caller, baseURL string) *Client {
+	if baseURL == "" {
+		baseURL = BaseURL
+	}
+	return &Client{caller: caller, baseURL: baseURL}
+}
+
+// Caller exposes the underlying `httpx.Caller` (rarely needed; mostly for
+// advanced callers that want to issue non-FetchJSON requests).
+func (c *Client) Caller() httpx.Caller { return c.caller }
+
+// BaseURL returns the base URL this client resolves paths against.
+func (c *Client) BaseURL() string { return c.baseURL }
+
+// FetchJSON performs a GET on `client.BaseURL() + path` with the supplied
+// query params, then decodes the body into T. It automatically:
 //   - appends `response=json` to the query string,
 //   - returns ErrNoData when the body is empty (TWSE returns 200 + empty
 //     body for some no-data cases) or when the envelope's `stat` field
 //     contains the "no data" substring.
 //
 // `path` is the endpoint path (e.g. "/afterTrading/MI_INDEX"), appended
-// to BaseURL — this package owns the full URL. The HTTP transport is the
-// process-wide shared client pulled from internal/config (no per-call
-// injection): a single host-agnostic *http.Client serves every endpoint.
-// `query` is optional (nil OK); caller-supplied keys are preserved and
-// `response=json` is always added on top.
+// to the client's base URL. All transport-level concerns (retry, body cap,
+// status validation, gzip, observability) are owned by the injected
+// caller.
 //
 // T must either be (or embed) *Response, or implement GetStat() string.
-// Concrete DTOs typically embed `Response` and gain GetStat() via
-// promotion; if the embedded name is shadowed, the DTO should provide
-// its own GetStat() method.
-func FetchJSON[T any](ctx context.Context, path string, query url.Values) (T, error) {
+//
+// This is a free generic function rather than a method on `*Client` only
+// because Go 1.18+ allows generic methods on generic receivers, not on
+// non-generic ones — the endpoint call sites use
+// `FetchJSON[STOCK_DAYResponse](ctx, client, ...)` which is one keyword
+// away from the method form and remains fully type-safe.
+func FetchJSON[T any](ctx context.Context, client *Client, path string, query url.Values) (T, error) {
 	var zero T
 	q := url.Values{}
 	for k, vs := range query {
@@ -60,31 +94,12 @@ func FetchJSON[T any](ctx context.Context, path string, query url.Values) (T, er
 	}
 	q.Set("response", "json")
 
-	u, err := url.Parse(BaseURL + path)
-	if err != nil {
-		return zero, fmt.Errorf("twse: invalid path %q: %w", path, err)
-	}
-	u.RawQuery = q.Encode()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return zero, err
-	}
-	req.Header.Set("User-Agent", userAgent)
-
-	resp, err := config.HTTPClient().Do(req)
+	body, meta, err := client.caller.Get(ctx, client.baseURL+path, q)
 	if err != nil {
 		return zero, fmt.Errorf("twse: request failed: %w", err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode/100 != 2 {
-		b, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-		return zero, fmt.Errorf("twse: unexpected status %d: %s", resp.StatusCode, string(b))
-	}
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return zero, fmt.Errorf("twse: read body: %w", err)
+	if meta.Status/100 != 2 {
+		return zero, fmt.Errorf("twse: unexpected status %d", meta.Status)
 	}
 	if len(body) == 0 {
 		return zero, ErrNoData

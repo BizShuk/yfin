@@ -18,8 +18,8 @@ func TestFetchBFIMUU_RequiresDate(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newTestClient(t, srv)
-	_, err := FetchBFIMUU(context.Background(), "", url.Values{})
+	client := newTestClient(t, srv)
+	_, err := FetchBFIMUU(context.Background(), client, "", url.Values{})
 	if err == nil {
 		t.Fatal("expected error when date is missing, got nil")
 	}
@@ -45,8 +45,8 @@ func TestFetchBFIMUU_Decode(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newTestClient(t, srv)
-	raw, err := FetchBFIMUU(context.Background(), "20250601", url.Values{})
+	client := newTestClient(t, srv)
+	raw, err := FetchBFIMUU(context.Background(), client, "20250601", url.Values{})
 	if err != nil {
 		t.Fatalf("FetchBFIMUU returned error: %v", err)
 	}

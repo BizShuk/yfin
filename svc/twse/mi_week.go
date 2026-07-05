@@ -29,7 +29,7 @@ type MIWeekRow struct {
 
 // FetchMI_WEEK retrieves the weekly stock market-cap report for `date`.
 // `date` is required (YYYYMMDD).
-func FetchMI_WEEK(ctx context.Context, date string, opts url.Values) (any, error) {
+func FetchMI_WEEK(ctx context.Context, client *Client, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/MI_WEEK: date is required")
 	}
@@ -40,7 +40,7 @@ func FetchMI_WEEK(ctx context.Context, date string, opts url.Values) (any, error
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[MI_WEEKResponse](ctx, "/statistics/MI_WEEK", q)
+	return FetchJSON[MI_WEEKResponse](ctx, client, "/statistics/MI_WEEK", q)
 }
 
 // ParseMIWeekRow converts one raw `data` row into a typed MIWeekRow.

@@ -30,7 +30,7 @@ type BFI82URow struct {
 // FetchBFI82U retrieves the daily aggregated buy/sell amounts of the
 // three main institutional investors (自營商, 投信, 外資及陸資) for `date`.
 // TWSE requires `type=day` for this endpoint.
-func FetchBFI82U(ctx context.Context, date string, opts url.Values) (any, error) {
+func FetchBFI82U(ctx context.Context, client *Client, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/BFI82U: date is required")
 	}
@@ -42,7 +42,7 @@ func FetchBFI82U(ctx context.Context, date string, opts url.Values) (any, error)
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[BFI82UResponse](ctx, "/fund/BFI82U", q)
+	return FetchJSON[BFI82UResponse](ctx, client, "/fund/BFI82U", q)
 }
 
 // ParseBFI82URow converts one raw `data` row into a typed BFI82URow.

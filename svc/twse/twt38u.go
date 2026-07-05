@@ -29,7 +29,7 @@ type TWT38URow struct {
 
 // FetchTWT38U retrieves the daily aggregated buy/sell volume of
 // foreign investors (含陸資) for `date`.
-func FetchTWT38U(ctx context.Context, date string, opts url.Values) (any, error) {
+func FetchTWT38U(ctx context.Context, client *Client, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/TWT38U: date is required")
 	}
@@ -40,7 +40,7 @@ func FetchTWT38U(ctx context.Context, date string, opts url.Values) (any, error)
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[TWT38UResponse](ctx, "/fund/TWT38U", q)
+	return FetchJSON[TWT38UResponse](ctx, client, "/fund/TWT38U", q)
 }
 
 // ParseTWT38URow converts one raw `data` row into a typed TWT38URow.

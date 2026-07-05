@@ -4,22 +4,35 @@ package twse
 import (
 	"context"
 	"encoding/json"
+	"github.com/bizshuk/yfin/utils/httpx"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 )
 
 // newTestClient points the package BaseURL at the httptest server so FetchJSON
 // resolves paths against it, and restores it on cleanup. No client is injected:
 // FetchJSON pulls the shared, host-agnostic stdlib client from internal/config,
 // which happily reaches the test server once BaseURL is overridden.
-func newTestClient(t *testing.T, srv *httptest.Server) {
+func newTestClient(t *testing.T, srv *httptest.Server) *Client {
 	t.Helper()
-	old := BaseURL
-	BaseURL = srv.URL
-	t.Cleanup(func() { BaseURL = old })
+	hc := httpx.NewClient(&httpx.Config{
+		BaseURL:          "",
+		Timeout:          5 * time.Second,
+		MaxAttempts:      1,
+		BackoffBaseMs:    1,
+		BackoffJitterMs:  0,
+		MaxDelayMs:       10,
+		QPS:              1000,
+		Burst:            1000,
+		CircuitWindow:    time.Second,
+		FailureThreshold: 1000,
+		ResetTimeout:     time.Second,
+	})
+	return NewClientWithURL(hc, srv.URL)
 }
 
 func TestFetchMI_INDEX_Decode(t *testing.T) {
@@ -37,10 +50,10 @@ func TestFetchMI_INDEX_Decode(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newTestClient(t, srv)
+	client := newTestClient(t, srv)
 	opts := url.Values{}
 	opts.Set("type", "ALL")
-	raw, err := FetchMI_INDEX(context.Background(), "20260620", opts)
+	raw, err := FetchMI_INDEX(context.Background(), client, "20260620", opts)
 	if err != nil {
 		t.Fatalf("FetchMI_INDEX returned error: %v", err)
 	}
@@ -79,8 +92,8 @@ func TestFetchMI_INDEX_NoData(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newTestClient(t, srv)
-	_, err := FetchMI_INDEX(context.Background(), "20260620", url.Values{})
+	client := newTestClient(t, srv)
+	_, err := FetchMI_INDEX(context.Background(), client, "20260620", url.Values{})
 	if err == nil {
 		t.Fatal("expected error for no-data response, got nil")
 	}

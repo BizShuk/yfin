@@ -1,11 +1,73 @@
-// middleware.go — `Meta` request/response tag struct plus `RequestMiddleware` and `ResponseMiddleware` chains registered via `Client.Use` and `Client.UseAfter`. Capacity: 1 struct, 2 func types, 2 register methods, 2 runners.
+// middleware.go — `Meta` request/response tag struct plus `RequestMiddleware` and `ResponseMiddleware` chains registered via `Client.Use` and `Client.UseAfter`. Capacity: 1 struct, 2 func types, 2 register methods, 2 runners, 3 service-specific middleware factories.
 package httpx
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"time"
 )
+
+// CrumbProvider is the neutral interface YahooMiddleware needs. The real
+// implementation lives in svc/yahoo (which depends on httpx, not the
+// other way around) — passing a CrumbProvider lets utils/httpx stay a
+// leaf package while still wiring Yahoo's auth flow.
+//
+// *yahoo.CrumbManager satisfies this interface; tests may stub it.
+type CrumbProvider interface {
+	Crumb(ctx context.Context) (string, error)
+}
+
+// TWSEMiddleware returns a request middleware that pins User-Agent to
+// the supplied string. Pass an empty string to disable the override
+// (httpx.Client already sets UA from Config.UserAgent). TWSE rejects
+// requests that don't carry a browser-like UA, so production wiring
+// supplies the chrome-on-macOS string.
+func TWSEMiddleware(userAgent string) RequestMiddleware {
+	return func(req *http.Request, meta *Meta) error {
+		if userAgent == "" {
+			return nil
+		}
+		req.Header.Set("User-Agent", userAgent)
+		return nil
+	}
+}
+
+// YahooMiddleware returns a request middleware that injects Yahoo's
+// auth crumb into the outgoing request's URL query (`crumb=<value>`).
+// It calls CrumbProvider.Crumb on every request; CrumbManager caches the
+// value internally so the upstream `/v1/test/getcrumb` round-trip is a
+// once-per-process cost.
+func YahooMiddleware(cm CrumbProvider) RequestMiddleware {
+	return func(req *http.Request, meta *Meta) error {
+		if cm == nil {
+			return nil
+		}
+		crumb, err := cm.Crumb(req.Context())
+		if err != nil {
+			return fmt.Errorf("yahoo crumb: %w", err)
+		}
+		q := req.URL.Query()
+		q.Set("crumb", crumb)
+		req.URL.RawQuery = q.Encode()
+		return nil
+	}
+}
+
+// ScrapeMiddleware returns a request middleware that overrides
+// User-Agent with a browser-like string and sets `Accept` /
+// `Accept-Language` headers. Some hosts (notably finance.yahoo.com)
+// reject requests that don't carry a full set of browser headers.
+func ScrapeMiddleware(userAgent string) RequestMiddleware {
+	return func(req *http.Request, meta *Meta) error {
+		if userAgent != "" {
+			req.Header.Set("User-Agent", userAgent)
+		}
+		req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8")
+		req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+		return nil
+	}
+}
 
 // Meta is the per-request side-channel that middleware reads and writes.
 // It is constructed at the top of `Client.Do` (Host + Endpoint populated

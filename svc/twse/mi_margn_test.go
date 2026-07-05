@@ -32,8 +32,8 @@ func TestFetchMI_MARGN_Decode(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newTestClient(t, srv)
-	raw, err := FetchMI_MARGN(context.Background(), "20260620", url.Values{})
+	client := newTestClient(t, srv)
+	raw, err := FetchMI_MARGN(context.Background(), client, "20260620", url.Values{})
 	if err != nil {
 		t.Fatalf("FetchMI_MARGN returned error: %v", err)
 	}
@@ -90,8 +90,8 @@ func TestFetchMI_MARGN_NoData(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newTestClient(t, srv)
-	_, err := FetchMI_MARGN(context.Background(), "20260620", url.Values{})
+	client := newTestClient(t, srv)
+	_, err := FetchMI_MARGN(context.Background(), client, "20260620", url.Values{})
 	if err == nil {
 		t.Fatal("expected error for no-data response, got nil")
 	}

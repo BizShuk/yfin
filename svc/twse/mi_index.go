@@ -29,7 +29,7 @@ type MIIndexRow struct {
 
 // FetchMI_INDEX retrieves the daily market index close for `date`.
 // `opts` may include a `type=ALL` parameter (TWSE expects this).
-func FetchMI_INDEX(ctx context.Context, date string, opts url.Values) (any, error) {
+func FetchMI_INDEX(ctx context.Context, client *Client, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/MI_INDEX: date is required")
 	}
@@ -41,7 +41,7 @@ func FetchMI_INDEX(ctx context.Context, date string, opts url.Values) (any, erro
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[MI_INDEXResponse](ctx, "/afterTrading/MI_INDEX", q)
+	return FetchJSON[MI_INDEXResponse](ctx, client, "/afterTrading/MI_INDEX", q)
 }
 
 // ParseMIIndexRow converts one raw `data` row into a typed MIIndexRow.

@@ -29,7 +29,7 @@ type FMTQIKRow struct {
 
 // FetchFMTQIK retrieves the TAIEX index and trading volume for `date`.
 // `date` should be YYYYMMDD (month-start or month-end).
-func FetchFMTQIK(ctx context.Context, date string, opts url.Values) (any, error) {
+func FetchFMTQIK(ctx context.Context, client *Client, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/FMTQIK: date is required")
 	}
@@ -40,7 +40,7 @@ func FetchFMTQIK(ctx context.Context, date string, opts url.Values) (any, error)
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[FMTQIKResponse](ctx, "/exchangeReport/FMTQIK", q)
+	return FetchJSON[FMTQIKResponse](ctx, client, "/exchangeReport/FMTQIK", q)
 }
 
 // ParseFMTQIKRow converts one raw `data` row into a typed FMTQIKRow.

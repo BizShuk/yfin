@@ -26,8 +26,8 @@ func TestFetchMI_INDEX_PLUS_Decode(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newTestClient(t, srv)
-	raw, err := FetchMI_INDEX_PLUS(context.Background(), "20260620", url.Values{})
+	client := newTestClient(t, srv)
+	raw, err := FetchMI_INDEX_PLUS(context.Background(), client, "20260620", url.Values{})
 	if err != nil {
 		t.Fatalf("FetchMI_INDEX_PLUS returned error: %v", err)
 	}
@@ -66,8 +66,8 @@ func TestFetchMI_INDEX_PLUS_NoData(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newTestClient(t, srv)
-	_, err := FetchMI_INDEX_PLUS(context.Background(), "20260620", url.Values{})
+	client := newTestClient(t, srv)
+	_, err := FetchMI_INDEX_PLUS(context.Background(), client, "20260620", url.Values{})
 	if err == nil {
 		t.Fatal("expected error for no-data response, got nil")
 	}

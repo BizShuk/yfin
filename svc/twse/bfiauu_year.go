@@ -27,7 +27,7 @@ type BFIAUUYEARRow struct {
 }
 
 // FetchBFIAUUYEAR retrieves the annual block-trade report for `date` (YYYY0101).
-func FetchBFIAUUYEAR(ctx context.Context, date string, opts url.Values) (any, error) {
+func FetchBFIAUUYEAR(ctx context.Context, client *Client, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/BFIAUU_YEAR: date is required")
 	}
@@ -38,7 +38,7 @@ func FetchBFIAUUYEAR(ctx context.Context, date string, opts url.Values) (any, er
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[BFIAUUYEARResponse](ctx, "/block/BFIAUU_YEAR", q)
+	return FetchJSON[BFIAUUYEARResponse](ctx, client, "/block/BFIAUU_YEAR", q)
 }
 
 // ParseBFIAUUYEARRow converts one raw `data` row into a typed BFIAUUYEARRow.

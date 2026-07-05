@@ -1,4 +1,4 @@
-// middleware_test.go — Tests `RequestMiddleware` chain ordering, error propagation, and `ResponseMiddleware` firing on the success path. Capacity: 4 test functions.
+// middleware_test.go — Tests `RequestMiddleware` chain ordering, error propagation, and `ResponseMiddleware` firing on the success path, plus the three service-specific middleware factories (TWSE / Yahoo / Scrape). Capacity: 7 test functions.
 package httpx
 
 import (
@@ -8,6 +8,17 @@ import (
 	"net/http/httptest"
 	"testing"
 )
+
+// stubCrumbProvider is a tiny CrumbProvider used to verify YahooMiddleware
+// without depending on svc/yahoo.
+type stubCrumbProvider struct {
+	crumb string
+	err   error
+}
+
+func (s *stubCrumbProvider) Crumb(ctx context.Context) (string, error) {
+	return s.crumb, s.err
+}
 
 func TestMiddleware_OrderingAndError(t *testing.T) {
 	var order []string
@@ -149,4 +160,94 @@ func contains(haystack, needle string) bool {
 		}
 	}
 	return false
+}
+
+func TestTWSEMiddleware_SetsUserAgent(t *testing.T) {
+	const ua = "TwseAgent/1.0"
+	req, err := http.NewRequest(http.MethodGet, "http://example.invalid/x", nil)
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+	if err := TWSEMiddleware(ua)(req, &Meta{}); err != nil {
+		t.Fatalf("middleware: %v", err)
+	}
+	if got := req.Header.Get("User-Agent"); got != ua {
+		t.Errorf("User-Agent = %q, want %q", got, ua)
+	}
+}
+
+func TestTWSEMiddleware_EmptyUANoOp(t *testing.T) {
+	req, err := http.NewRequest(http.MethodGet, "http://example.invalid/x", nil)
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+	req.Header.Set("User-Agent", "preset")
+	if err := TWSEMiddleware("")(req, &Meta{}); err != nil {
+		t.Fatalf("middleware: %v", err)
+	}
+	if got := req.Header.Get("User-Agent"); got != "preset" {
+		t.Errorf("empty UA overwrote preset, got %q", got)
+	}
+}
+
+func TestYahooMiddleware_InjectsCrumbQuery(t *testing.T) {
+	cm := &stubCrumbProvider{crumb: "abc123"}
+	req, err := http.NewRequest(http.MethodGet, "http://example.invalid/v11/finance/quoteSummary/AAPL?modules=foo", nil)
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+	if err := YahooMiddleware(cm)(req, &Meta{}); err != nil {
+		t.Fatalf("middleware: %v", err)
+	}
+	if got := req.URL.Query().Get("crumb"); got != "abc123" {
+		t.Errorf("crumb = %q, want %q", got, "abc123")
+	}
+	if got := req.URL.Query().Get("modules"); got != "foo" {
+		t.Errorf("pre-existing modules param lost, got %q", got)
+	}
+}
+
+func TestYahooMiddleware_NilProviderNoOp(t *testing.T) {
+	req, err := http.NewRequest(http.MethodGet, "http://example.invalid/x", nil)
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+	if err := YahooMiddleware(nil)(req, &Meta{}); err != nil {
+		t.Fatalf("middleware: %v", err)
+	}
+	if got := req.URL.Query().Get("crumb"); got != "" {
+		t.Errorf("nil provider should not set crumb, got %q", got)
+	}
+}
+
+func TestYahooMiddleware_PropagatesCrumbError(t *testing.T) {
+	cm := &stubCrumbProvider{err: errors.New("consent flow required")}
+	req, err := http.NewRequest(http.MethodGet, "http://example.invalid/x", nil)
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+	err = YahooMiddleware(cm)(req, &Meta{})
+	if err == nil || !contains(err.Error(), "consent flow required") {
+		t.Errorf("expected wrapped error containing 'consent flow required', got %v", err)
+	}
+}
+
+func TestScrapeMiddleware_SetsBrowserHeaders(t *testing.T) {
+	const ua = "ScrapeAgent/1.0"
+	req, err := http.NewRequest(http.MethodGet, "http://example.invalid/x", nil)
+	if err != nil {
+		t.Fatalf("build request: %v", err)
+	}
+	if err := ScrapeMiddleware(ua)(req, &Meta{}); err != nil {
+		t.Fatalf("middleware: %v", err)
+	}
+	if got := req.Header.Get("User-Agent"); got != ua {
+		t.Errorf("User-Agent = %q, want %q", got, ua)
+	}
+	if got := req.Header.Get("Accept"); got == "" {
+		t.Error("expected Accept header set")
+	}
+	if got := req.Header.Get("Accept-Language"); got == "" {
+		t.Error("expected Accept-Language header set")
+	}
 }

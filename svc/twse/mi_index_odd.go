@@ -33,7 +33,7 @@ type MIIndexOddRow struct {
 
 // FetchMI_INDEX_ODD retrieves the odd-lot (零股) trading snapshot for
 // `date`.
-func FetchMI_INDEX_ODD(ctx context.Context, date string, opts url.Values) (any, error) {
+func FetchMI_INDEX_ODD(ctx context.Context, client *Client, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/MI_INDEX_ODD: date is required")
 	}
@@ -44,7 +44,7 @@ func FetchMI_INDEX_ODD(ctx context.Context, date string, opts url.Values) (any, 
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[MI_INDEX_ODDResponse](ctx, "/afterTrading/MI_INDEX_ODD", q)
+	return FetchJSON[MI_INDEX_ODDResponse](ctx, client, "/afterTrading/MI_INDEX_ODD", q)
 }
 
 // ParseMIIndexOddRow converts one raw `data` row into a typed

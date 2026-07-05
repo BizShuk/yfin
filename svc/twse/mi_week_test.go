@@ -36,8 +36,8 @@ func TestFetchMI_WEEK_Decode(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newTestClient(t, srv)
-	raw, err := FetchMI_WEEK(context.Background(), "20221230", url.Values{})
+	client := newTestClient(t, srv)
+	raw, err := FetchMI_WEEK(context.Background(), client, "20221230", url.Values{})
 	if err != nil {
 		t.Fatalf("FetchMI_WEEK returned error: %v", err)
 	}
@@ -88,8 +88,8 @@ func TestFetchMI_WEEK_NoData(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	newTestClient(t, srv)
-	_, err := FetchMI_WEEK(context.Background(), "19000101", url.Values{})
+	client := newTestClient(t, srv)
+	_, err := FetchMI_WEEK(context.Background(), client, "19000101", url.Values{})
 	if err == nil {
 		t.Fatal("expected error for no-data response, got nil")
 	}

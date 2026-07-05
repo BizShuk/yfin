@@ -1,4 +1,4 @@
-// twse.go — `twse` cobra subcommand + `twseNameToFetcher` dispatch map wiring all 21 svc/twse endpoints (`MI_INDEX`/`STOCK_DAY`/`FMSRFK`/`MI_WEEK`/`FMTQIK`/...) behind the `twseFetcher(ctx, date, opts)` uniform contract. Capacity: 1 `twseConfig` + 1 `twseFetcher` type + 1 dispatch map (21 entries) + `runTwseEndpoint` RunE.
+// twse.go — `twse` cobra subcommand + `twseNameToFetcher` dispatch map wiring all 21 svc/twse endpoints (`MI_INDEX`/`STOCK_DAY`/`FMSRFK`/`MI_WEEK`/`FMTQIK`/...) behind the `twseFetcher(ctx, client, date, opts)` uniform contract. Capacity: 1 `twseConfig` + 1 `twseFetcher` type + 1 dispatch map (23 entries) + `runTwseEndpoint` RunE.
 package cmd
 
 import (
@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"testing"
 	"time"
 
 	"github.com/bizshuk/yfin/svc/twse"
@@ -43,13 +44,15 @@ Examples:
 }
 
 // twseFetcher is the uniform function signature used by nameToFetcher.
-// All entries in twseNameToFetcher satisfy this contract: `date` is the
+// All entries in twseNameToFetcher satisfy this contract: `client` is
+// the injected `*twse.Client` (see buildTWSEClient), `date` is the
 // primary date/period key, `opts` carries extra params (e.g. stockNo).
-type twseFetcher func(ctx context.Context, date string, opts url.Values) (any, error)
+type twseFetcher func(ctx context.Context, client *twse.Client, date string, opts url.Values) (any, error)
 
 // twseNameToFetcher maps an endpoint name (Registry key) to its fetcher.
-// For endpoints with a special 2nd positional argument (e.g. FMSRFK needs
-// stockNo before date), we wrap with an adapter that reorders.
+// The single uniform Fetcher signature is `(ctx, client, date, opts)`;
+// FMSRFK is the lone exception that needs `stockNo` between client and
+// date — wrapped inline.
 var twseNameToFetcher = map[string]twseFetcher{
 	"MI_INDEX":      twse.FetchMI_INDEX,
 	"STOCK_DAY":     twse.FetchSTOCK_DAY,
@@ -71,14 +74,14 @@ var twseNameToFetcher = map[string]twseFetcher{
 	"BFIAUU_YEAR":   twse.FetchBFIAUUYEAR,
 	"FMTQIK":        twse.FetchFMTQIK,
 	"STOCK_DAY_AVG": twse.FetchStockDayAvg,
-	// FMSRFK has the signature FetchFMSRFK(ctx, stockNo, date, opts);
+	// FMSRFK has the signature FetchFMSRFK(ctx, client, stockNo, date, opts);
 	// wrap it so the adapter sees a uniform (date, opts) shape.
-	"FMSRFK": func(ctx context.Context, date string, opts url.Values) (any, error) {
+	"FMSRFK": func(ctx context.Context, client *twse.Client, date string, opts url.Values) (any, error) {
 		stockNo := opts.Get("stockNo")
 		if stockNo == "" {
 			return nil, fmt.Errorf("FMSRFK: --stock is required")
 		}
-		return twse.FetchFMSRFK(ctx, stockNo, date, opts)
+		return twse.FetchFMSRFK(ctx, client, stockNo, date, opts)
 	},
 	"BFIAMU":  twse.FetchBFIAMU,
 	"MI_WEEK": twse.FetchMI_WEEK,
@@ -96,8 +99,8 @@ func init() {
 }
 
 // runTwseEndpoint is the RunE for `yfin twse`. It validates flags, builds
-// query opts from the endpoint's NeedsStock/NeedsMonth markers, dispatches
-// via twseNameToFetcher, and prints the JSON envelope.
+// query opts from the endpoint's NeedsStock/NeedsMonth markers, builds a
+// shared `*twse.Client` (real or test), and dispatches the fetcher.
 func runTwseEndpoint(cmd *cobra.Command, args []string) error {
 	ep, ok := twse.Registry[twseCfg.endpoint]
 	if !ok {
@@ -130,13 +133,14 @@ func runTwseEndpoint(cmd *cobra.Command, args []string) error {
 		opts.Set("month", twseCfg.month)
 	}
 
-	// The HTTP transport is the process-wide shared client owned by
-	// internal/config and pulled inside FetchJSON; no client is threaded
-	// through here. The context deadline bounds the request.
+	// The HTTP transport is the injected `*twse.Client`. In production
+	// it's built by `buildTWSEClient` in root.go; tests override by
+	// assigning to `twseClientOverride` before invoking runTwseEndpoint.
 	ctx, cancel := context.WithTimeout(context.Background(), twseCfg.timeout+5*time.Second)
 	defer cancel()
 
-	raw, err := fetcher(ctx, twseCfg.date, opts)
+	client := twseClientProvider()
+	raw, err := fetcher(ctx, client, twseCfg.date, opts)
 	if err != nil {
 		if errors.Is(err, twse.ErrNoData) || strings.Contains(err.Error(), "no data") {
 			fmt.Fprintf(os.Stderr, "INFO: TWSE returned no data for %s on %s\n", twseCfg.endpoint, twseCfg.date)
@@ -155,4 +159,20 @@ func runTwseEndpoint(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	return nil
+}
+
+// twseClientProvider returns the `*twse.Client` used by every twse
+// command invocation. Production wiring replaces the default with
+// `buildTWSEClient` (see root.go); tests use `setTwseClientForTest`.
+var twseClientProvider = func() *twse.Client {
+	return buildTWSEClient()
+}
+
+// setTwseClientForTest swaps the provider for the lifetime of one test.
+// Returns a restore function suitable for t.Cleanup.
+func setTwseClientForTest(t *testing.T, client *twse.Client) func() {
+	t.Helper()
+	prev := twseClientProvider
+	twseClientProvider = func() *twse.Client { return client }
+	return func() { twseClientProvider = prev }
 }

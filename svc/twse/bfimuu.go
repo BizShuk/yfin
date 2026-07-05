@@ -27,7 +27,7 @@ type BFIMUURow struct {
 }
 
 // FetchBFIMUU retrieves the monthly block-trade report for `date` (YYYYMM01).
-func FetchBFIMUU(ctx context.Context, date string, opts url.Values) (any, error) {
+func FetchBFIMUU(ctx context.Context, client *Client, date string, opts url.Values) (any, error) {
 	if date == "" {
 		return nil, fmt.Errorf("twse/BFIMUU: date is required")
 	}
@@ -38,7 +38,7 @@ func FetchBFIMUU(ctx context.Context, date string, opts url.Values) (any, error)
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[BFIMUResponse](ctx, "/block/BFIMUU", q)
+	return FetchJSON[BFIMUResponse](ctx, client, "/block/BFIMUU", q)
 }
 
 // ParseBFIMUURow converts one raw `data` row into a typed BFIMUURow.
