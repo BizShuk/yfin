@@ -21,6 +21,9 @@ type Caller interface {
 // encodes query, performs a GET, validates the response status, and
 // returns the body bytes. The base URL comes from Config.BaseURL and
 // must be set on the Client (use NewClient).
+//
+// On 2xx responses the body is decoded via readBody, which honours
+// gzip Content-Encoding and Config.MaxBodyBytes.
 func (c *Client) Call(ctx context.Context, path string, query url.Values) ([]byte, error) {
 	u, err := url.Parse(c.config.BaseURL + path)
 	if err != nil {
@@ -35,10 +38,10 @@ func (c *Client) Call(ctx context.Context, path string, query url.Values) ([]byt
 	if err != nil {
 		return nil, fmt.Errorf("httpx: request failed: %w", err)
 	}
-	defer resp.Body.Close()
 	if resp.StatusCode/100 != 2 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
+		_ = resp.Body.Close()
 		return nil, fmt.Errorf("httpx: status %d: %s", resp.StatusCode, string(body))
 	}
-	return io.ReadAll(resp.Body)
+	return readBody(resp, c.config.MaxBodyBytes)
 }

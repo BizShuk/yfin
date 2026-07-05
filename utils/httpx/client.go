@@ -31,6 +31,10 @@ type Config struct {
 	FailureThreshold int
 	ResetTimeout     time.Duration
 	UserAgent        string
+	// MaxBodyBytes caps the size of a single response body (after gzip
+	// decompression). 0 means unlimited. When the limit is exceeded
+	// Caller.Call returns ErrBodyTooLarge.
+	MaxBodyBytes int64
 }
 
 // DefaultConfig returns a sensible default configuration
