@@ -132,8 +132,8 @@ func TestMeta_HostAndEndpointPopulated(t *testing.T) {
 	if seen.Host == "" {
 		t.Errorf("expected meta.Host populated from req.URL.Host, got empty")
 	}
-	if seen.Endpoint == "" {
-		t.Errorf("expected meta.Endpoint populated, got empty")
+	if want := "bars_1d"; seen.Endpoint != want {
+		t.Errorf("expected meta.Endpoint = %q (from extractEndpoint(%q)), got %q", want, "/v8/finance/chart/AAPL", seen.Endpoint)
 	}
 }
 

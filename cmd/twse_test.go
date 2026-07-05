@@ -248,3 +248,24 @@ func TestDispatcher_Call_DispatchesViaClient(t *testing.T) {
 		t.Fatal("expected non-nil response")
 	}
 }
+
+// TestBuildTWSEClient is a focused unit test for the composition-root
+// function in cmd/root.go. It exercises the wiring path used by the
+// `yfin twse` subcommand without touching the network: a successful
+// build must yield a non-nil *twse.Client whose BaseURL matches the
+// production package-level value and whose injected Caller is
+// non-nil. Catches regressions in buildTWSEClient (e.g. a future change
+// that flips Config.BaseURL from "" to twse.BaseURL, which would
+// double-concatenate in svc/twse/fetch.go).
+func TestBuildTWSEClient(t *testing.T) {
+	client := buildTWSEClient()
+	if client == nil {
+		t.Fatal("buildTWSEClient returned nil client")
+	}
+	if got, want := client.BaseURL(), twse.BaseURL; got != want {
+		t.Errorf("client.BaseURL() = %q, want %q (package twse.BaseURL)", got, want)
+	}
+	if client.Caller() == nil {
+		t.Error("client.Caller() returned nil; buildTWSEClient must inject a non-nil httpx.Caller")
+	}
+}

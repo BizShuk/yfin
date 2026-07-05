@@ -3,6 +3,7 @@ package scrape
 
 import (
 	"context"
+	"errors"
 	"net/url"
 	"testing"
 	"time"
@@ -11,6 +12,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// errStubCaller is the canned error used by stubCaller when its err
+// field is non-nil. tests inject it to assert error-propagation paths.
+var errStubCaller = errors.New("stub caller error")
 
 // stubCaller is a minimal `httpx.Caller` for tests. It records the
 // number of Get calls and the path/query arguments, returning a canned
@@ -56,7 +61,7 @@ func TestFetch_DelegatesToCallerOnce(t *testing.T) {
 
 // TestFetch_PropagatesCallerError — Caller errors are surfaced.
 func TestFetch_PropagatesCallerError(t *testing.T) {
-	stub := &stubCaller{err: assertAnError{}}
+	stub := &stubCaller{err: errStubCaller}
 	c, err := NewClientWithCaller(stub, DefaultConfig())
 	require.NoError(t, err)
 
@@ -98,11 +103,6 @@ func TestFetch_RobotsIgnoreSkipsCaller(t *testing.T) {
 	// err may or may not be nil depending on caller setup; what we care about is calls.
 	assert.Equal(t, 1, stub.calls, "caller should be invoked once when robots policy is ignore")
 }
-
-// assertAnError is a trivial error type for stubbing.
-type assertAnError struct{}
-
-func (assertAnError) Error() string { return "stub caller error" }
 
 // TestNewClient_NilPoolFallbacksToFreshClient is a regression test for
 // the typed-nil interface bug: when `pool` is nil, the deprecated

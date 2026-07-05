@@ -27,6 +27,13 @@ type ctxMetaKey struct{}
 // special-case "" to mean "use the caller's string as-is".
 //
 // *Client implements Caller directly; tests can provide a stub.
+//
+// Implementer scope: as of this writing the only in-repo implementer is
+// `*Client` itself. External packages should NOT add new implementations
+// without re-checking the empty-BaseURL verbatim-URL contract and the
+// error-wrapping conventions (status, attempts, duration are surfaced
+// through `*Meta`, not the error string) — adding a second
+// implementation would silently diverge callers' observability.
 type Caller interface {
 	Get(ctx context.Context, path string, query url.Values) ([]byte, *Meta, error)
 }
@@ -38,8 +45,11 @@ type Caller interface {
 //
 // On non-2xx responses Get still returns the `*Meta` (with Status, Gzip,
 // Attempts, Duration set) wrapped inside the error path; the body is
-// discarded. The base URL comes from Config.BaseURL and must be set on
-// the Client (use NewClient).
+// discarded after a 1 KiB peek used to enrich the error message. On
+// transport errors the response body is never read — the connection
+// was never fully established, so there is nothing to drain. The base
+// URL comes from Config.BaseURL and must be set on the Client (use
+// NewClient).
 func (c *Client) Get(ctx context.Context, path string, query url.Values) ([]byte, *Meta, error) {
 	u, err := url.Parse(c.config.BaseURL + path)
 	if err != nil {

@@ -84,6 +84,17 @@ func LoadNewsRegexConfig() error {
 // newsMetrics is the news-specific subset of the old scrape.Metrics —
 // outcome counter + parse latency. Kept here (next to the parser it
 // instruments) because they have no use outside ParseNews.
+//
+// IMPORTANT (test-isolation constraint): newNewsMetrics registers
+// `yfin_scrape_news_total` and `yfin_scrape_news_parse_latency_ms`
+// against `prometheus.DefaultRegisterer` via `promauto`, guarded by a
+// package-level `sync.Once`. Tests that reset `DefaultRegisterer` (e.g.
+// `prometheus.DefaultRegisterer = prometheus.NewRegistry()`) MUST
+// invoke `ParseNews` (or otherwise call `newNewsMetrics`) BEFORE the
+// reset, or the once-fired registration will continue pointing at the
+// old registry and the new one will not have these metrics. Changing
+// this contract to accept a `prometheus.Registerer` is deliberately
+// deferred — see progress.md `Minor findings ledger` Task 3 entry.
 type newsMetrics struct{}
 
 var (

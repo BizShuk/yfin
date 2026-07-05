@@ -109,6 +109,7 @@ func (c *Client) UseAfter(mw ...ResponseMiddleware) {
 
 // runRequestMW executes every registered request middleware in order,
 // wrapping the first error with the failing index for diagnosability.
+// Panics are not recovered — keep them simple.
 func (c *Client) runRequestMW(req *http.Request, meta *Meta) error {
 	for i, mw := range c.reqMW {
 		if err := mw(req, meta); err != nil {

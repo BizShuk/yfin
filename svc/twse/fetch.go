@@ -14,10 +14,14 @@ import (
 	"github.com/bizshuk/yfin/utils/httpx"
 )
 
-// BaseURL is the TWSE RESTful endpoint root. It is a `var` (not const) so
-// tests and alternate deployments can override it via `NewClientWithURL`.
-// `NewClient` reads it at construction time; tests that need a per-suite
-// override should construct their Client with `NewClientWithURL`.
+// BaseURL is the TWSE RESTful endpoint root. It is a `var` (not const)
+// purely as a legacy override hook — `NewClient` reads it at
+// construction time. The canonical test path is
+// `NewClientWithURL(caller, srv.URL)`; production wiring (see
+// `cmd/root.go:buildTWSEClient`) calls `NewClient(caller)` and lets
+// `BaseURL` supply the host. Keeping it a `var` (not a `const`) preserves
+// the ad-hoc override hook for legacy test scenarios that mutate the
+// package-level value before constructing a Client.
 var BaseURL = "https://www.twse.com.tw/rwd/zh"
 
 const (
