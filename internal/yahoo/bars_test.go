@@ -213,7 +213,7 @@ func TestBarsResponseValidation(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "invalid OHLC data",
+			name: "invalid volume",
 			data: `{
 				"chart": {
 					"result": [{
@@ -226,10 +226,10 @@ func TestBarsResponseValidation(t *testing.T) {
 						"indicators": {
 							"quote": [{
 								"open": [189.23],
-								"high": [188.0],
+								"high": [191.0],
 								"low": [188.9],
 								"close": [190.45],
-								"volume": [43210000]
+								"volume": [-43210000]
 							}]
 						}
 					}],

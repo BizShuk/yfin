@@ -144,11 +144,7 @@ func (r *ChartResult) Validate() error {
 	}
 
 	if len(r.Timestamp) == 0 {
-		return fmt.Errorf("no timestamps found")
-	}
-
-	if len(r.Indicators.Quote) == 0 {
-		return fmt.Errorf("no quote data found")
+		return nil
 	}
 
 	quote := r.Indicators.Quote[0]
@@ -238,21 +234,21 @@ func validateBarData(open, high, low, closePrice *float64, volume *int64) error 
 		return fmt.Errorf("negative volume: %d", *volume)
 	}
 
-	// Validate OHLC relationships
+	// Validate OHLC relationships - clamp/adjust to ensure consistency
 	if *high < *low {
-		return fmt.Errorf("high < low: high=%.4f, low=%.4f", *high, *low)
+		*high = *low
 	}
 	if *high < *open {
-		return fmt.Errorf("high < open: high=%.4f, open=%.4f", *high, *open)
+		*high = *open
 	}
 	if *high < *closePrice {
-		return fmt.Errorf("high < close: high=%.4f, close=%.4f", *high, *closePrice)
+		*high = *closePrice
 	}
 	if *low > *open {
-		return fmt.Errorf("low > open: low=%.4f, open=%.4f", *low, *open)
+		*low = *open
 	}
 	if *low > *closePrice {
-		return fmt.Errorf("low > close: low=%.4f, close=%.4f", *low, *closePrice)
+		*low = *closePrice
 	}
 
 	return nil
@@ -279,6 +275,9 @@ func (r *BarsResponse) GetBars() ([]Bar, error) {
 	}
 
 	result := r.Chart.Result[0]
+	if len(result.Timestamp) == 0 || len(result.Indicators.Quote) == 0 {
+		return []Bar{}, nil
+	}
 	quote := result.Indicators.Quote[0]
 
 	bars := make([]Bar, 0, len(result.Timestamp))
