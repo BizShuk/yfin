@@ -192,12 +192,12 @@ the plain-struct flip is Step 6. Do not start later steps.
 Required actions:
 1. `git mv client.go facade/client.go`
 2. In facade/client.go change `package yfinance` to `package facade`. Drop any
-   self-import (`github.com/bizshuk/yfinance-go`) since facade doesn't need its own
+   self-import (`github.com/bizshuk/yfin`) since facade doesn't need its own
    package alias. Keep the qualified internal imports (emit, norm, scrape, svc/yahoo,
    utils/httpx) as-is.
 3. Repoint the current Client users:
-   - cmd/yfin/main.go: replace `github.com/bizshuk/yfinance-go` with
-     `github.com/bizshuk/yfinance-go/facade`; `yfinance.NewClient*` → `facade.NewClient*`;
+   - cmd/yfin/main.go: replace `github.com/bizshuk/yfin` with
+     `github.com/bizshuk/yfin/facade`; `yfinance.NewClient*` → `facade.NewClient*`;
      `*yfinance.Client` → `*facade.Client`.
    - examples/standalone/api_usage/api_usage.go
    - examples/standalone/historical_data/historical_data_example.go
@@ -212,7 +212,7 @@ Required actions:
 Verification (must pass):
 - `go build ./...`  — must succeed.
 - `go vet ./...` — must be clean.
-- `grep -rn "\"github.com/bizshuk/yfinance-go\"" --include=*.go .` — must be empty
+- `grep -rn "\"github.com/bizshuk/yfin\"" --include=*.go .` — must be empty
   (the facade path is allowed; only the bare root import must be gone).
 - `go run ./examples/standalone/api_usage` — must compile (network call may fail
   offline; check `go build ./examples/standalone/api_usage` instead if `go run`
@@ -235,7 +235,7 @@ the CLI entry, don't add gosdk yet (that's Step 4). Do not start later steps.
 Required actions:
 1. Create `/main.go` (package main):
        func main() { if err := cmd.Execute(); err != nil { os.Exit(1) } }
-   Import the new cmd package: `github.com/bizshuk/yfinance-go/cmd`.
+   Import the new cmd package: `github.com/bizshuk/yfin/cmd`.
 2. `git mv cmd/yfin/*.go cmd/` (pull every .go file into the new cmd/ directory;
    skip any `.gitkeep` or non-go files).
 3. In every file under cmd/, change `package main` to `package cmd`.

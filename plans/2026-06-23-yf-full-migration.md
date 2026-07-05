@@ -170,7 +170,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/bizshuk/yfinance-go/internal/httpx"
+	"github.com/bizshuk/yfin/internal/httpx"
 	"github.com/stretchr/testify/require"
 )
 
@@ -217,7 +217,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/bizshuk/yfinance-go/internal/httpx"
+	"github.com/bizshuk/yfin/internal/httpx"
 )
 
 // CrumbManager handles Yahoo's cookie + crumb authentication.
@@ -336,7 +336,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bizshuk/yfinance-go/internal/httpx"
+	"github.com/bizshuk/yfin/internal/httpx"
 	"github.com/stretchr/testify/require"
 )
 
@@ -2258,7 +2258,7 @@ package main
 import (
 	"context"
 
-	"github.com/bizshuk/yfinance-go/svc/yahoo"
+	"github.com/bizshuk/yfin/svc/yahoo"
 )
 
 // fetchFunc 取得單一指令的資料並回傳可 JSON 序列化的值。
@@ -2391,8 +2391,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/bizshuk/yfinance-go/internal/cache"
-	"github.com/bizshuk/yfinance-go/svc/yahoo"
+	"github.com/bizshuk/yfin/internal/cache"
+	"github.com/bizshuk/yfin/svc/yahoo"
 	"github.com/spf13/cobra"
 )
 

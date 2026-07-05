@@ -6,7 +6,7 @@ This guide covers different ways to install `yfinance-go` on your system.
 
 ### Download from GitHub Releases
 
-1. Go to the [Releases page](https://github.com/bizshuk/yfinance-go/releases)
+1. Go to the [Releases page](https://github.com/bizshuk/yfin/releases)
 2. Download the appropriate binary for your platform:
    - `yfin_darwin_amd64.tar.gz` - macOS (Intel)
    - `yfin_darwin_arm64.tar.gz` - macOS (Apple Silicon)
@@ -35,7 +35,7 @@ OS="darwin"  # or "linux"
 ARCH="arm64" # or "amd64"
 
 # Download and install
-curl -L "https://github.com/bizshuk/yfinance-go/releases/download/${VERSION}/yfin_${OS}_${ARCH}.tar.gz" | tar xz
+curl -L "https://github.com/bizshuk/yfin/releases/download/${VERSION}/yfin_${OS}_${ARCH}.tar.gz" | tar xz
 sudo mv yfin /usr/local/bin/
 yfin version
 ```
@@ -64,7 +64,7 @@ build date: 2024-01-15
 
 ```bash
 # Clone the repository
-git clone https://github.com/bizshuk/yfinance-go.git
+git clone https://github.com/bizshuk/yfin.git
 cd yfinance-go
 
 # Build the binary
@@ -89,13 +89,13 @@ go build -ldflags="-X main.version=v1.0.0 -X main.commit=$(git rev-parse --short
 If you want to use `yfinance-go` as a Go library:
 
 ```bash
-go get github.com/bizshuk/yfinance-go@v1.0.0
+go get github.com/bizshuk/yfin@v1.0.0
 ```
 
 Then import in your Go code:
 
 ```go
-import "github.com/bizshuk/yfinance-go"
+import "github.com/bizshuk/yfin"
 ```
 
 ## Package Managers
@@ -291,7 +291,7 @@ rm ~/bin/yfin
 
 ```bash
 # Remove from go.mod
-go mod edit -droprequire github.com/bizshuk/yfinance-go
+go mod edit -droprequire github.com/bizshuk/yfin
 
 # Clean up
 go mod tidy
@@ -313,7 +313,7 @@ brew untap yeonlee/yfinance-go
 
 ```bash
 # Download checksums
-curl -L "https://github.com/bizshuk/yfinance-go/releases/download/v1.0.0/checksums.txt" -o checksums.txt
+curl -L "https://github.com/bizshuk/yfin/releases/download/v1.0.0/checksums.txt" -o checksums.txt
 
 # Verify downloaded binary
 shasum -a 256 -c checksums.txt
@@ -337,4 +337,4 @@ After installation, see:
 
 - [Usage Guide](usage.md) - Learn how to use yfinance-go
 - [Versioning Policy](versioning.md) - Understand versioning and compatibility
-- [Configuration](https://github.com/bizshuk/yfinance-go/tree/main/configs) - Configure the tool for your environment
+- [Configuration](https://github.com/bizshuk/yfin/tree/main/configs) - Configure the tool for your environment

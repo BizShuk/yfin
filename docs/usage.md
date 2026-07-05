@@ -408,4 +408,4 @@ yfin config --print-effective
 
 - [Installation Guide](install.md) - How to install yfinance-go
 - [Versioning Policy](versioning.md) - Understanding versions and compatibility
-- [Configuration](https://github.com/bizshuk/yfinance-go/tree/main/configs) - Configuration examples and options
+- [Configuration](https://github.com/bizshuk/yfin/tree/main/configs) - Configuration examples and options

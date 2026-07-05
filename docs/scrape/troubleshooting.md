@@ -340,7 +340,7 @@ yfin scrape --user-agent "Mozilla/5.0..." --ticker AAPL --endpoint key-statistic
    ```yaml
    # Update user-agent to be more generic
    scrape:
-     user_agent: "Mozilla/5.0 (compatible; yfinance-go/1.0; +https://github.com/bizshuk/yfinance-go)"
+     user_agent: "Mozilla/5.0 (compatible; yfinance-go/1.0; +https://github.com/bizshuk/yfin)"
      
    # Or use robots policy override for testing only
    scrape:

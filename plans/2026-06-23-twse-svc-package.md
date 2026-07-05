@@ -84,7 +84,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/bizshuk/yfinance-go/internal/httpx"
+	"github.com/bizshuk/yfin/internal/httpx"
 	"github.com/stretchr/testify/require"
 )
 
@@ -176,7 +176,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bizshuk/yfinance-go/internal/httpx"
+	"github.com/bizshuk/yfin/internal/httpx"
 )
 
 const (
@@ -320,7 +320,7 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/bizshuk/yfinance-go/internal/httpx"
+	"github.com/bizshuk/yfin/internal/httpx"
 )
 
 // Fetcher is the per-endpoint contract: build a query, call FetchJSON, return
@@ -460,7 +460,7 @@ import (
 	"net/url"
 	"strconv"
 
-	"github.com/bizshuk/yfinance-go/internal/httpx"
+	"github.com/bizshuk/yfin/internal/httpx"
 )
 
 // MIIndexResponse is the JSON envelope for /afterTrading/MI_INDEX.
@@ -640,7 +640,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bizshuk/yfinance-go/svc/twse"
+	"github.com/bizshuk/yfin/svc/twse"
 	"github.com/stretchr/testify/require"
 )
 
@@ -689,8 +689,8 @@ import (
 	"io"
 	"net/url"
 
-	"github.com/bizshuk/yfinance-go/internal/httpx"
-	"github.com/bizshuk/yfinance-go/svc/twse"
+	"github.com/bizshuk/yfin/internal/httpx"
+	"github.com/bizshuk/yfin/svc/twse"
 	"github.com/spf13/cobra"
 )
 
@@ -788,7 +788,7 @@ import (
 	"context"
 	"testing"
 
-	"github.com/bizshuk/yfinance-go/svc/twse"
+	"github.com/bizshuk/yfin/svc/twse"
 	"github.com/stretchr/testify/require"
 )
 

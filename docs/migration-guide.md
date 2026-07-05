@@ -16,7 +16,7 @@ This guide helps you migrate from Python's `yfinance` library to Go's `yfinance-
 
 | Feature | Python yfinance | Go yfinance-go | Notes |
 |---------|-----------------|----------------|-------|
-| **Installation** | `pip install yfinance` | `go get github.com/bizshuk/yfinance-go` | Go requires Go 1.23+ |
+| **Installation** | `pip install yfinance` | `go get github.com/bizshuk/yfin` | Go requires Go 1.23+ |
 | **Basic Usage** | `yf.Ticker("AAPL")` | `yfinance.NewClient()` | Different API design |
 | **Historical Data** | `ticker.history()` | `FetchDailyBars()` | Similar functionality |
 | **Real-time Quotes** | `ticker.info` | `FetchQuote()` | Go has structured types |
@@ -51,7 +51,7 @@ news = ticker.news
 
 **Go yfinance-go**:
 ```go
-import "github.com/bizshuk/yfinance-go"
+import "github.com/bizshuk/yfin"
 
 // Create client
 client := yfinance.NewClient()
@@ -151,7 +151,7 @@ import (
     "log"
     "time"
 
-    "github.com/bizshuk/yfinance-go"
+    "github.com/bizshuk/yfin"
 )
 
 func main() {
@@ -225,7 +225,7 @@ import (
     "sync"
     "time"
 
-    "github.com/bizshuk/yfinance-go"
+    "github.com/bizshuk/yfin"
 )
 
 func main() {
@@ -298,7 +298,7 @@ import (
     "log"
     "time"
 
-    "github.com/bizshuk/yfinance-go"
+    "github.com/bizshuk/yfin"
 )
 
 func main() {
@@ -384,7 +384,7 @@ import (
     "log"
     "time"
 
-    "github.com/bizshuk/yfinance-go"
+    "github.com/bizshuk/yfin"
 )
 
 type PriceData struct {
@@ -654,7 +654,7 @@ func validateQuote(quote *yfinance.NormalizedQuote) error {
 
 ## Migration Checklist
 
-- [ ] **Install Go yfinance-go**: `go get github.com/bizshuk/yfinance-go`
+- [ ] **Install Go yfinance-go**: `go get github.com/bizshuk/yfin`
 - [ ] **Update imports**: Replace `import yfinance as yf` with Go imports
 - [ ] **Change API calls**: Replace ticker properties with method calls
 - [ ] **Update data access**: Replace dictionary access with struct field access
