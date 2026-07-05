@@ -33,13 +33,13 @@ AMPY-PROTO is AmpyFin's standardized protocol for financial data communication. 
 
 ```bash
 # Basic usage - generate ampy-proto messages for a ticker
-./yfin scrape --preview-proto --ticker AAPL --config configs/effective.yaml
+./yfin scrape --preview-proto --ticker AAPL --config config/effective.yaml
 
 # Specific endpoints
-./yfin scrape --preview-proto --ticker AAPL --endpoints financials,balance-sheet --config configs/effective.yaml
+./yfin scrape --preview-proto --ticker AAPL --endpoints financials,balance-sheet --config config/effective.yaml
 
 # All endpoints
-./yfin scrape --preview-proto --ticker AAPL --endpoints financials,balance-sheet,cash-flow,key-statistics,analysis,analyst-insights,profile,news --config configs/effective.yaml
+./yfin scrape --preview-proto --ticker AAPL --endpoints financials,balance-sheet,cash-flow,key-statistics,analysis,analyst-insights,profile,news --config config/effective.yaml
 ```
 
 ### Example Output
@@ -612,7 +612,7 @@ func (fs *FinancialSystem) getFundamentals(ticker string) ([]byte, error) {
     cmd := exec.Command("./yfin", "scrape", "--preview-proto", 
         "--ticker", ticker, 
         "--endpoints", "financials,balance-sheet",
-        "--config", "configs/effective.yaml")
+        "--config", "config/effective.yaml")
     
     output, err := cmd.Output()
     if err != nil {
@@ -626,7 +626,7 @@ func (fs *FinancialSystem) getNews(ticker string) ([]byte, error) {
     cmd := exec.Command("./yfin", "scrape", "--preview-proto", 
         "--ticker", ticker, 
         "--endpoints", "news",
-        "--config", "configs/effective.yaml")
+        "--config", "config/effective.yaml")
     
     output, err := cmd.Output()
     if err != nil {
@@ -640,7 +640,7 @@ func (fs *FinancialSystem) getProfile(ticker string) (*ProfileData, error) {
     cmd := exec.Command("./yfin", "scrape", "--preview-proto", 
         "--ticker", ticker, 
         "--endpoints", "profile",
-        "--config", "configs/effective.yaml")
+        "--config", "config/effective.yaml")
     
     output, err := cmd.Output()
     if err != nil {
@@ -736,7 +736,7 @@ func (mr *MessageRouter) StreamTicker(ticker string) error {
     cmd := exec.Command("./yfin", "scrape", "--preview-proto", 
         "--ticker", ticker, 
         "--endpoints", "financials,balance-sheet,cash-flow,news",
-        "--config", "configs/effective.yaml")
+        "--config", "config/effective.yaml")
     
     stdout, err := cmd.StdoutPipe()
     if err != nil {
@@ -908,7 +908,7 @@ func (pc *ProtoClient) GetFundamentals(ticker string) ([]byte, error) {
     cmd.Args = []string{"./yfin", "scrape", "--preview-proto", 
         "--ticker", ticker, 
         "--endpoints", "financials",
-        "--config", "configs/effective.yaml"}
+        "--config", "config/effective.yaml"}
     
     return cmd.Output()
 }
@@ -959,10 +959,10 @@ func (pm *ProtoMetrics) RecordMessage(processingTime time.Duration, err error) {
 
 ```bash
 # Enable debug logging
-./yfin scrape --preview-proto --ticker AAPL --endpoints financials --config configs/effective.yaml --debug
+./yfin scrape --preview-proto --ticker AAPL --endpoints financials --config config/effective.yaml --debug
 
 # Check specific endpoint
-./yfin scrape --preview-proto --ticker AAPL --endpoints balance-sheet --config configs/effective.yaml --verbose
+./yfin scrape --preview-proto --ticker AAPL --endpoints balance-sheet --config config/effective.yaml --verbose
 ```
 
 ## Summary

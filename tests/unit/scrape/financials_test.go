@@ -3,7 +3,7 @@ package scrape_test
 import (
 	"testing"
 
-	"github.com/AmpyFin/yfinance-go/internal/scrape"
+	"github.com/bizshuk/yfinance-go/svc/scrape"
 )
 
 func TestLoadFinancialsRegexConfig(t *testing.T) {

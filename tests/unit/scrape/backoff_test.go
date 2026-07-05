@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/AmpyFin/yfinance-go/internal/scrape"
+	"github.com/bizshuk/yfinance-go/svc/scrape"
 )
 
 func TestBackoffPolicy_CalculateDelay(t *testing.T) {

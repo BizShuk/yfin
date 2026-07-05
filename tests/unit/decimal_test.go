@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/AmpyFin/yfinance-go/internal/norm"
+	"github.com/bizshuk/yfinance-go/svc/norm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

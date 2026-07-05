@@ -81,16 +81,16 @@ The scraping system now supports comprehensive ampy-proto message generation for
 
 ```bash
 # Generate ampy-proto fundamentals messages for comprehensive financial data
-./yfin scrape --preview-proto --ticker AAPL --endpoints financials,balance-sheet,cash-flow,key-statistics --config configs/effective.yaml
+./yfin scrape --preview-proto --ticker AAPL --endpoints financials,balance-sheet,cash-flow,key-statistics --config config/effective.yaml
 
 # Generate ampy-proto messages for analyst coverage and insights
-./yfin scrape --preview-proto --ticker AAPL --endpoints analysis,analyst-insights --config configs/effective.yaml
+./yfin scrape --preview-proto --ticker AAPL --endpoints analysis,analyst-insights --config config/effective.yaml
 
 # Generate ampy-proto messages for news and company profile
-./yfin scrape --preview-proto --ticker AAPL --endpoints news,profile --config configs/effective.yaml
+./yfin scrape --preview-proto --ticker AAPL --endpoints news,profile --config config/effective.yaml
 
 # Generate all available ampy-proto messages for comprehensive analysis
-./yfin scrape --preview-proto --ticker AAPL --endpoints financials,balance-sheet,cash-flow,key-statistics,analysis,analyst-insights,profile,news --config configs/effective.yaml
+./yfin scrape --preview-proto --ticker AAPL --endpoints financials,balance-sheet,cash-flow,key-statistics,analysis,analyst-insights,profile,news --config config/effective.yaml
 ```
 
 #### AMPY-PROTO Message Structure
@@ -121,13 +121,13 @@ The comprehensive statistics command provides enhanced key statistics with dynam
 
 ```bash
 # Apple Inc. - Complete valuation metrics with historical data
-./yfin comprehensive-stats --ticker AAPL --config configs/effective.yaml
+./yfin comprehensive-stats --ticker AAPL --config config/effective.yaml
 
 # Taiwan Semiconductor - Global semiconductor leader
-./yfin comprehensive-stats --ticker TSM --config configs/effective.yaml
+./yfin comprehensive-stats --ticker TSM --config config/effective.yaml
 
 # Samsung Electronics (Israel listing) - Consumer electronics giant
-./yfin comprehensive-stats --ticker SMSN.IL --config configs/effective.yaml
+./yfin comprehensive-stats --ticker SMSN.IL --config config/effective.yaml
 ```
 
 ### Single Endpoint Scraping
@@ -135,50 +135,50 @@ The comprehensive statistics command provides enhanced key statistics with dynam
 #### Key Statistics
 ```bash
 # Basic key statistics extraction
-./yfin scrape --ticker AAPL --endpoints key-statistics --preview-json --config configs/effective.yaml
-./yfin scrape --ticker TSM --endpoints key-statistics --preview-json --config configs/effective.yaml
-./yfin scrape --ticker SMSN.IL --endpoints key-statistics --preview-json --config configs/effective.yaml
+./yfin scrape --ticker AAPL --endpoints key-statistics --preview-json --config config/effective.yaml
+./yfin scrape --ticker TSM --endpoints key-statistics --preview-json --config config/effective.yaml
+./yfin scrape --ticker SMSN.IL --endpoints key-statistics --preview-json --config config/effective.yaml
 ```
 
 #### Financial Statements
 ```bash
 # Income statement data
-./yfin scrape --ticker AAPL --endpoints financials --preview-json --config configs/effective.yaml
-./yfin scrape --ticker TSM --endpoints financials --preview-json --config configs/effective.yaml
-./yfin scrape --ticker SMSN.IL --endpoints financials --preview-json --config configs/effective.yaml
+./yfin scrape --ticker AAPL --endpoints financials --preview-json --config config/effective.yaml
+./yfin scrape --ticker TSM --endpoints financials --preview-json --config config/effective.yaml
+./yfin scrape --ticker SMSN.IL --endpoints financials --preview-json --config config/effective.yaml
 ```
 
 #### Analyst Coverage
 ```bash
 # Analyst insights and recommendations
-./yfin scrape --ticker AAPL --endpoints analyst-insights --preview-json --config configs/effective.yaml
-./yfin scrape --ticker TSM --endpoints analyst-insights --preview-json --config configs/effective.yaml
-./yfin scrape --ticker SMSN.IL --endpoints analyst-insights --preview-json --config configs/effective.yaml
+./yfin scrape --ticker AAPL --endpoints analyst-insights --preview-json --config config/effective.yaml
+./yfin scrape --ticker TSM --endpoints analyst-insights --preview-json --config config/effective.yaml
+./yfin scrape --ticker SMSN.IL --endpoints analyst-insights --preview-json --config config/effective.yaml
 
 # Earnings estimates and forecasts
-./yfin scrape --ticker AAPL --endpoints analysis --preview-json --config configs/effective.yaml
-./yfin scrape --ticker TSM --endpoints analysis --preview-json --config configs/effective.yaml
-./yfin scrape --ticker SMSN.IL --endpoints analysis --preview-json --config configs/effective.yaml
+./yfin scrape --ticker AAPL --endpoints analysis --preview-json --config config/effective.yaml
+./yfin scrape --ticker TSM --endpoints analysis --preview-json --config config/effective.yaml
+./yfin scrape --ticker SMSN.IL --endpoints analysis --preview-json --config config/effective.yaml
 ```
 
 #### Company Profiles
 ```bash
 # Company overview and executive information
-./yfin scrape --ticker AAPL --endpoints profile --preview-json --config configs/effective.yaml
-./yfin scrape --ticker TSM --endpoints profile --preview-json --config configs/effective.yaml
-./yfin scrape --ticker SMSN.IL --endpoints profile --preview-json --config configs/effective.yaml
+./yfin scrape --ticker AAPL --endpoints profile --preview-json --config config/effective.yaml
+./yfin scrape --ticker TSM --endpoints profile --preview-json --config config/effective.yaml
+./yfin scrape --ticker SMSN.IL --endpoints profile --preview-json --config config/effective.yaml
 ```
 
 #### News and Market Updates
 ```bash
 # Latest news with beautiful table preview
-./yfin scrape --preview-news --ticker AAPL --config configs/effective.yaml
-./yfin scrape --preview-news --ticker TSM --config configs/effective.yaml
-./yfin scrape --preview-news --ticker MSFT --config configs/effective.yaml
+./yfin scrape --preview-news --ticker AAPL --config config/effective.yaml
+./yfin scrape --preview-news --ticker TSM --config config/effective.yaml
+./yfin scrape --preview-news --ticker MSFT --config config/effective.yaml
 
 # News data as JSON for programmatic access
-./yfin scrape --ticker AAPL --endpoints news --preview-json --config configs/effective.yaml
-./yfin scrape --ticker TSM --endpoints news --preview-json --config configs/effective.yaml
+./yfin scrape --ticker AAPL --endpoints news --preview-json --config config/effective.yaml
+./yfin scrape --ticker TSM --endpoints news --preview-json --config config/effective.yaml
 ```
 
 ## News Scraping Deep Dive
@@ -189,7 +189,7 @@ The `--preview-news` flag provides a beautiful, human-readable table format for 
 
 ```bash
 # Apple news with table preview
-./yfin scrape --preview-news --ticker AAPL --config configs/effective.yaml
+./yfin scrape --preview-news --ticker AAPL --config config/effective.yaml
 ```
 
 **Example Output:**
@@ -296,21 +296,21 @@ Each news article contains comprehensive metadata:
 #### Multi-Ticker News Analysis
 ```bash
 # Compare news across semiconductor sector
-./yfin scrape --preview-news --ticker AAPL --config configs/effective.yaml
-./yfin scrape --preview-news --ticker TSM --config configs/effective.yaml
-./yfin scrape --preview-news --ticker NVDA --config configs/effective.yaml
+./yfin scrape --preview-news --ticker AAPL --config config/effective.yaml
+./yfin scrape --preview-news --ticker TSM --config config/effective.yaml
+./yfin scrape --preview-news --ticker NVDA --config config/effective.yaml
 ```
 
 #### News as JSON for Integration
 ```bash
 # Get structured news data for programmatic use
-./yfin scrape --ticker AAPL --endpoints news --preview-json --config configs/effective.yaml
+./yfin scrape --ticker AAPL --endpoints news --preview-json --config config/effective.yaml
 ```
 
 #### News + Analyst Coverage
 ```bash
 # Combine news sentiment with analyst recommendations
-./yfin scrape --ticker AAPL --endpoints news,analyst-insights --preview-json --config configs/effective.yaml
+./yfin scrape --ticker AAPL --endpoints news,analyst-insights --preview-json --config config/effective.yaml
 ```
 
 ### News Data Processing
@@ -465,30 +465,30 @@ func setupNewsAlerts(ticker string, keywords []string) {
 
 ```bash
 # Comprehensive financial analysis
-./yfin scrape --ticker AAPL --endpoints analyst-insights,analysis,key-statistics,financials --preview-json --config configs/effective.yaml
+./yfin scrape --ticker AAPL --endpoints analyst-insights,analysis,key-statistics,financials --preview-json --config config/effective.yaml
 
 # Complete semiconductor sector analysis
-./yfin scrape --ticker TSM --endpoints profile,key-statistics,financials,analyst-insights --preview-json --config configs/effective.yaml
+./yfin scrape --ticker TSM --endpoints profile,key-statistics,financials,analyst-insights --preview-json --config config/effective.yaml
 
 # Consumer electronics market analysis
-./yfin scrape --ticker SMSN.IL --endpoints profile,key-statistics,analysis,financials --preview-json --config configs/effective.yaml
+./yfin scrape --ticker SMSN.IL --endpoints profile,key-statistics,analysis,financials --preview-json --config config/effective.yaml
 
 # Balance sheet and cash flow analysis
-./yfin scrape --ticker AAPL --endpoints balance-sheet,cash-flow,financials --preview-json --config configs/effective.yaml
+./yfin scrape --ticker AAPL --endpoints balance-sheet,cash-flow,financials --preview-json --config config/effective.yaml
 
 # News and analyst coverage for market sentiment
-./yfin scrape --ticker AAPL --endpoints news,analyst-insights,analysis --preview-json --config configs/effective.yaml
+./yfin scrape --ticker AAPL --endpoints news,analyst-insights,analysis --preview-json --config config/effective.yaml
 ```
 
 ### Connectivity Testing
 
 ```bash
 # Test scraping connectivity without parsing
-./yfin scrape --check --ticker AAPL --endpoint profile --config configs/effective.yaml
-./yfin scrape --check --ticker TSM --endpoint key-statistics --config configs/effective.yaml
+./yfin scrape --check --ticker AAPL --endpoint profile --config config/effective.yaml
+./yfin scrape --check --ticker TSM --endpoint key-statistics --config config/effective.yaml
 
 # Preview raw HTML without JSON extraction
-./yfin scrape --ticker SMSN.IL --endpoint key-statistics --check --config configs/effective.yaml
+./yfin scrape --ticker SMSN.IL --endpoint key-statistics --check --config config/effective.yaml
 ```
 
 ## Key Financial Data Available by Endpoint
@@ -925,7 +925,7 @@ The ampy-proto protocol enables standardized communication between financial sys
 
 ```bash
 # Get debt information in ampy-proto format
-./yfin scrape --preview-proto --ticker AAPL --endpoints balance-sheet --config configs/effective.yaml
+./yfin scrape --preview-proto --ticker AAPL --endpoints balance-sheet --config config/effective.yaml
 ```
 
 **System Communication Example:**
@@ -962,7 +962,7 @@ func analyzeDebtLevels(protoMessage *fundamentalsv1.FundamentalsSnapshot) DebtAn
 
 ```bash
 # Get revenue data in ampy-proto format
-./yfin scrape --preview-proto --ticker AAPL --endpoints financials --config configs/effective.yaml
+./yfin scrape --preview-proto --ticker AAPL --endpoints financials --config config/effective.yaml
 ```
 
 **System Communication Example:**
@@ -999,7 +999,7 @@ func analyzeRevenue(protoMessage *fundamentalsv1.FundamentalsSnapshot) RevenueAn
 
 ```bash
 # Get news data in ampy-proto format
-./yfin scrape --preview-proto --ticker AAPL --endpoints news --config configs/effective.yaml
+./yfin scrape --preview-proto --ticker AAPL --endpoints news --config config/effective.yaml
 ```
 
 **System Communication Example:**
@@ -1073,7 +1073,7 @@ func streamToSystems(ticker string) {
     cmd := exec.Command("./yfin", "scrape", "--preview-proto", 
         "--ticker", ticker, 
         "--endpoints", "financials,balance-sheet,news",
-        "--config", "configs/effective.yaml")
+        "--config", "config/effective.yaml")
     
     output, err := cmd.Output()
     if err != nil {
@@ -1221,21 +1221,21 @@ The system ensures continuous data flow for financial applications and analysis,
 ### Basic News Commands
 ```bash
 # Preview news in table format
-./yfin scrape --preview-news --ticker AAPL --config configs/effective.yaml
+./yfin scrape --preview-news --ticker AAPL --config config/effective.yaml
 
 # Get news as JSON
-./yfin scrape --ticker AAPL --endpoints news --preview-json --config configs/effective.yaml
+./yfin scrape --ticker AAPL --endpoints news --preview-json --config config/effective.yaml
 
 # Combine news with other data
-./yfin scrape --ticker AAPL --endpoints news,analyst-insights --preview-json --config configs/effective.yaml
+./yfin scrape --ticker AAPL --endpoints news,analyst-insights --preview-json --config config/effective.yaml
 ```
 
 ### Multi-Ticker News Analysis
 ```bash
 # Compare news across sector
-./yfin scrape --preview-news --ticker AAPL --config configs/effective.yaml
-./yfin scrape --preview-news --ticker TSM --config configs/effective.yaml
-./yfin scrape --preview-news --ticker NVDA --config configs/effective.yaml
+./yfin scrape --preview-news --ticker AAPL --config config/effective.yaml
+./yfin scrape --preview-news --ticker TSM --config config/effective.yaml
+./yfin scrape --preview-news --ticker NVDA --config config/effective.yaml
 ```
 
 ### News Data Fields

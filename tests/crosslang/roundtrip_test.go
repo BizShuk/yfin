@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/AmpyFin/yfinance-go/internal/emit"
-	"github.com/AmpyFin/yfinance-go/internal/norm"
+	"github.com/bizshuk/yfinance-go/svc/emit"
+	"github.com/bizshuk/yfinance-go/svc/norm"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )

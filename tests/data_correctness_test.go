@@ -8,15 +8,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/AmpyFin/yfinance-go"
-	"github.com/AmpyFin/yfinance-go/internal/norm"
+	"github.com/bizshuk/yfinance-go/facade"
+	"github.com/bizshuk/yfinance-go/svc/norm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // TestDataCorrectness_RealPrices validates that we get correct price data from real API calls
 func TestDataCorrectness_RealPrices(t *testing.T) {
-	client := yfinance.NewClient()
+	client := facade.NewClient()
 	ctx := context.Background()
 
 	testCases := []struct {
@@ -70,7 +70,7 @@ func TestDataCorrectness_RealPrices(t *testing.T) {
 
 // TestDataCorrectness_HistoricalData validates historical bar data correctness
 func TestDataCorrectness_HistoricalData(t *testing.T) {
-	client := yfinance.NewClient()
+	client := facade.NewClient()
 	ctx := context.Background()
 
 	testCases := []struct {
@@ -147,7 +147,7 @@ func TestDataCorrectness_HistoricalData(t *testing.T) {
 
 // TestDataCorrectness_AnalystData validates analyst/insights data from scraping
 func TestDataCorrectness_AnalystData(t *testing.T) {
-	client := yfinance.NewClient()
+	client := facade.NewClient()
 	ctx := context.Background()
 
 	testCases := []struct {
@@ -204,7 +204,7 @@ func TestDataCorrectness_AnalystData(t *testing.T) {
 
 // TestDataCorrectness_MICInference validates that MIC is correctly inferred for different exchanges
 func TestDataCorrectness_MICInference(t *testing.T) {
-	client := yfinance.NewClient()
+	client := facade.NewClient()
 	ctx := context.Background()
 
 	testCases := []struct {
@@ -252,7 +252,7 @@ func TestDataCorrectness_MICInference(t *testing.T) {
 
 // TestDataCorrectness_PricePrecision validates that price precision is maintained correctly
 func TestDataCorrectness_PricePrecision(t *testing.T) {
-	client := yfinance.NewClient()
+	client := facade.NewClient()
 	ctx := context.Background()
 
 	// Fetch quote for a stock with known price range
@@ -284,7 +284,7 @@ func TestDataCorrectness_PricePrecision(t *testing.T) {
 
 // TestDataCorrectness_NoFakeData validates that we're not returning fake or placeholder data
 func TestDataCorrectness_NoFakeData(t *testing.T) {
-	client := yfinance.NewClient()
+	client := facade.NewClient()
 	ctx := context.Background()
 
 	// Fetch data for a real symbol
@@ -314,7 +314,7 @@ func TestDataCorrectness_NoFakeData(t *testing.T) {
 
 // TestDataCorrectness_CurrencyConsistency validates currency consistency across data types
 func TestDataCorrectness_CurrencyConsistency(t *testing.T) {
-	client := yfinance.NewClient()
+	client := facade.NewClient()
 	ctx := context.Background()
 
 	symbol := "AAPL"

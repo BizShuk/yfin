@@ -340,7 +340,7 @@ yfin scrape --user-agent "Mozilla/5.0..." --ticker AAPL --endpoint key-statistic
    ```yaml
    # Update user-agent to be more generic
    scrape:
-     user_agent: "Mozilla/5.0 (compatible; yfinance-go/1.0; +https://github.com/AmpyFin/yfinance-go)"
+     user_agent: "Mozilla/5.0 (compatible; yfinance-go/1.0; +https://github.com/bizshuk/yfinance-go)"
      
    # Or use robots policy override for testing only
    scrape:
@@ -372,10 +372,10 @@ configuration validation failed: qps value 15.0 exceeds maximum allowed value of
 **Diagnosis Steps:**
 ```bash
 # 1. Validate configuration
-yfin config --file configs/prod.yaml --validate
+yfin config --file config/prod.yaml --validate
 
 # 2. Check effective configuration
-yfin config --file configs/prod.yaml --print-effective
+yfin config --file config/prod.yaml --print-effective
 
 # 3. Test with default values
 yfin scrape --ticker AAPL --endpoint key-statistics  # Uses defaults

@@ -18,8 +18,8 @@ The soak testing system provides end-to-end validation of the entire data pipeli
 ### Basic Smoke Test (10 minutes)
 ```bash
 ./bin/yfin soak \
-  --config configs/example.dev.yaml \
-  --universe-file testdata/universe/soak.txt \
+  --config config/example.dev.yaml \
+  --universe-file tests/testdata/universe/soak.txt \
   --endpoints key-statistics,financials,analysis,profile,news \
   --fallback auto \
   --duration 10m \
@@ -31,8 +31,8 @@ The soak testing system provides end-to-end validation of the entire data pipeli
 ### Full Production Soak Test (2 hours)
 ```bash
 ./bin/yfin soak \
-  --config configs/example.prod.yaml \
-  --universe-file testdata/universe/soak.txt \
+  --config config/example.prod.yaml \
+  --universe-file tests/testdata/universe/soak.txt \
   --endpoints key-statistics,financials,analysis,profile,news \
   --fallback auto \
   --duration 2h \
@@ -44,8 +44,8 @@ The soak testing system provides end-to-end validation of the entire data pipeli
 ### With Publishing Enabled
 ```bash
 ./bin/yfin soak \
-  --config configs/example.dev.yaml \
-  --universe-file testdata/universe/soak.txt \
+  --config config/example.dev.yaml \
+  --universe-file tests/testdata/universe/soak.txt \
   --endpoints news \
   --fallback auto \
   --duration 30m \
@@ -88,7 +88,7 @@ The soak testing system provides end-to-end validation of the entire data pipeli
 
 ## Ticker Universe
 
-The soak test uses a diverse ticker universe defined in `testdata/universe/soak.txt`:
+The soak test uses a diverse ticker universe defined in `tests/testdata/universe/soak.txt`:
 
 - **US Large Cap**: AAPL, MSFT, GOOGL, AMZN, META, etc.
 - **US Mid/Small Cap**: ROKU, PLTR, RBLX, COIN, SNOW, etc.
@@ -243,8 +243,8 @@ news: 1,454 requests, 1,444 successes, 10 failures, avg latency: 1.5s
 ```bash
 # Short validation (30 minutes)
 ./bin/yfin soak \
-  --config configs/ci.yaml \
-  --universe-file testdata/universe/soak.txt \
+  --config config/ci.yaml \
+  --universe-file tests/testdata/universe/soak.txt \
   --endpoints key-statistics,news \
   --duration 30m \
   --concurrency 4 \
@@ -256,8 +256,8 @@ news: 1,454 requests, 1,444 successes, 10 failures, avg latency: 1.5s
 ```bash
 # Comprehensive test (1 hour)
 ./bin/yfin soak \
-  --config configs/staging.yaml \
-  --universe-file testdata/universe/soak.txt \
+  --config config/staging.yaml \
+  --universe-file tests/testdata/universe/soak.txt \
   --endpoints key-statistics,financials,analysis,profile,news \
   --duration 1h \
   --concurrency 8 \

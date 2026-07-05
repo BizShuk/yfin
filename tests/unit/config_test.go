@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/AmpyFin/yfinance-go/internal/config"
+	"github.com/bizshuk/yfinance-go/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

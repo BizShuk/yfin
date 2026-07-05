@@ -100,4 +100,4 @@ test-results/
 # Coverage files
 coverage.out
 coverage_obsv.out
-yf/*
+skills/*

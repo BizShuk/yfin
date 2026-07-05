@@ -18,9 +18,10 @@ Instead, please report them via one of the following methods:
 
 ### Preferred Method: Email
 
-Send an email to: **security@ampyfin.com**
+Send an email to: **<security@ampyfin.com>**
 
 Include the following information:
+
 - Type of vulnerability
 - Affected component(s)
 - Steps to reproduce
@@ -30,6 +31,7 @@ Include the following information:
 ### Alternative: Private Security Advisory
 
 If you have a GitHub account, you can create a private security advisory:
+
 1. Go to the repository's Security tab
 2. Click "Report a vulnerability"
 3. Fill out the security advisory form
@@ -45,10 +47,11 @@ If you have a GitHub account, you can create a private security advisory:
 ### For Users
 
 1. **Keep dependencies updated**:
-   ```bash
-   go get -u ./...
-   go mod tidy
-   ```
+
+    ```bash
+    go get -u ./...
+    go mod tidy
+    ```
 
 2. **Use latest version** of yfinance-go
 
@@ -65,16 +68,16 @@ If you have a GitHub account, you can create a private security advisory:
 3. **Validate all inputs** from external sources
 
 4. **Follow secure coding practices**:
-   - Avoid SQL injection (N/A for this project)
-   - Sanitize user inputs
-   - Use parameterized queries
-   - Implement proper error handling
+    - Avoid SQL injection (N/A for this project)
+    - Sanitize user inputs
+    - Use parameterized queries
+    - Implement proper error handling
 
 5. **Keep dependencies updated**:
-   ```bash
-   go get -u all
-   go mod tidy
-   ```
+    ```bash
+    go get -u all
+    go mod tidy
+    ```
 
 ## Known Security Considerations
 
@@ -105,6 +108,7 @@ If you have a GitHub account, you can create a private security advisory:
 ## Security Updates
 
 Security updates will be:
+
 - Released as patch versions (e.g., 1.1.1 → 1.1.2)
 - Documented in CHANGELOG.md
 - Tagged with security labels on GitHub
@@ -131,6 +135,7 @@ Before submitting code, ensure:
 ## Security Audit
 
 We periodically:
+
 - Review dependencies for known vulnerabilities
 - Audit code for security issues
 - Update security best practices
@@ -139,11 +144,18 @@ We periodically:
 ## Questions?
 
 For security-related questions that are not vulnerabilities:
+
 - Open a GitHub Discussion
 - Check existing documentation
 - Review GitHub Issues (non-security)
 
 ---
 
-**Thank you for helping keep yfinance-go secure!**
+**Thank you for helping keep yfinance-go secure!**- Open a GitHub Discussion
 
+- Check existing documentation
+- Review GitHub Issues (non-security)
+
+---
+
+**Thank you for helping keep yfinance-go secure!**

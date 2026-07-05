@@ -2,8 +2,8 @@
 
 [![Go Version](https://img.shields.io/badge/go-1.23+-blue.svg)](https://golang.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Go Report Card](https://goreportcard.com/badge/github.com/AmpyFin/yfinance-go)](https://goreportcard.com/report/github.com/AmpyFin/yfinance-go)
-[![GoDoc](https://godoc.org/github.com/AmpyFin/yfinance-go?status.svg)](https://godoc.org/github.com/AmpyFin/yfinance-go)
+[![Go Report Card](https://goreportcard.com/badge/github.com/bizshuk/yfinance-go)](https://goreportcard.com/report/github.com/bizshuk/yfinance-go)
+[![GoDoc](https://godoc.org/github.com/bizshuk/yfinance-go?status.svg)](https://godoc.org/github.com/bizshuk/yfinance-go)
 
 > ⚠️ **IMPORTANT DISCLAIMER** ⚠️
 >
@@ -32,7 +32,7 @@
 
 ✅ **Standardized Data Formats** - Consistent `ampy-proto` message structures  
 ✅ **High Precision Decimals** - Scaled decimal arithmetic for financial accuracy  
-✅ **Robust Rate Limiting** - Built-in backoff, circuit breakers, and session rotation  
+✅ **Robust Rate Limiting** - Built-in backoff, circuit breakers, and QPS rate limiting  
 ✅ **Multi-Currency Support** - Automatic currency conversion with FX providers  
 ✅ **Production Ready** - Comprehensive error handling, observability, and monitoring  
 ✅ **Easy Integration** - Simple API with both library and CLI interfaces
@@ -44,13 +44,13 @@
 ### As a Go Module
 
 ```bash
-go get github.com/AmpyFin/yfinance-go
+go get github.com/bizshuk/yfinance-go
 ```
 
 ### From Source
 
 ```bash
-git clone https://github.com/AmpyFin/yfinance-go.git
+git clone https://github.com/bizshuk/yfinance-go.git
 cd yfinance-go
 go build ./cmd/yfin
 ```
@@ -70,7 +70,7 @@ import (
     "log"
     "time"
 
-    "github.com/AmpyFin/yfinance-go"
+    "github.com/bizshuk/yfinance-go"
 )
 
 func main() {
@@ -106,9 +106,6 @@ func main() {
 ```go
 // Default client with standard configuration
 client := yfinance.NewClient()
-
-// Client with session rotation (recommended for production)
-client := yfinance.NewClientWithSessionRotation()
 ```
 
 ### Available Functions
@@ -168,6 +165,54 @@ companyInfo, err := client.FetchCompanyInfo(ctx, "AAPL", runID)
 ```go
 fundamentals, err := client.FetchFundamentalsQuarterly(ctx, "AAPL", runID)
 ```
+
+---
+
+## 🗂️ Facade Layer (Reflection-free Plain Go Structs)
+
+The `facade` package re-exports normalized Yahoo Finance models (bars, quotes, company info) as clean, plain Go structs (using standard `float64` types instead of the internal `ScaledDecimal` representations). This allows external consumers to easily consume and serialize the data without needing to handle custom scaled math or internal imports.
+
+### Usage Example
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+
+    "github.com/bizshuk/yfinance-go"
+    "github.com/bizshuk/yfinance-go/facade"
+)
+
+func main() {
+    client := yfinance.NewClient()
+    ctx := context.Background()
+
+    // Fetch internal normalized bar batch
+    internalBatch, err := client.FetchDailyBars(ctx, "AAPL", time.Now().AddDate(0, 0, -5), time.Now(), true, "run-id")
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Convert to plain facade struct
+    batch := facade.FromBarBatch(internalBatch)
+
+    fmt.Printf("Symbol: %s\n", batch.Symbol)
+    for _, bar := range batch.Bars {
+        // Close is a float64 directly
+        fmt.Printf("Date: %s, Close: %.2f\n", bar.Date, bar.Close)
+    }
+}
+```
+
+### Available Conversions
+
+- `facade.FromBarBatch(*norm.NormalizedBarBatch) *facade.BarBatch` (contains float64 prices: `Open`, `High`, `Low`, `Close`, and formatted `Date` as `"YYYY-MM-DD"`)
+- `facade.FromQuote(*norm.NormalizedQuote) *facade.Quote` (contains float64 price: `Price`, standard `EventTime`)
+- `facade.FromCompanyInfo(*norm.NormalizedCompanyInfo) *facade.CompanyInfo` (contains general metadata as clean strings)
 
 ---
 
@@ -246,7 +291,7 @@ import (
     "sync"
     "time"
 
-    "github.com/AmpyFin/yfinance-go"
+    "github.com/bizshuk/yfinance-go"
 )
 
 func main() {
@@ -295,7 +340,7 @@ import (
     "log"
     "time"
 
-    "github.com/AmpyFin/yfinance-go"
+    "github.com/bizshuk/yfinance-go"
 )
 
 func main() {
@@ -329,7 +374,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/AmpyFin/yfinance-go"
+    "github.com/bizshuk/yfinance-go"
 )
 
 func main() {
@@ -361,7 +406,7 @@ import (
  "log"
  "time"
 
- "github.com/AmpyFin/yfinance-go"
+ "github.com/bizshuk/yfinance-go"
 )
 
 func main() {
@@ -399,7 +444,7 @@ func main() {
 
 ## 🐍→🦫 Batch Mode (Python yf parity)
 
-`yfin batch` 對等複刻 `yf/scripts/all_ticker_yf.py`,以 Go 重做整套批次抓取 + 分級快取管線:
+`yfin batch` 對等複刻 `skills/scripts/all_ticker_yf.py`,以 Go 重做整套批次抓取 + 分級快取管線:
 
 - 30 個資料維度(含 quoteSummary 新增的 holders / insider / upgrades / calendar / sec-filings / sustainability / isin / options / actions / metadata)對齊 Python 的 30 指令。
 - 認證:Yahoo 免費 cookie + crumb,無需付費訂閱即可走 `v10/finance/quoteSummary` 與 `v7/finance/options/`。
@@ -407,7 +452,7 @@ func main() {
 - 快取分級沿用 Python 的 `REFRESH_MAP`(`daily` / `monthly` / `quarterly` / `annually`)。
 
 ```bash
-# 預設:抓 yf/references/ticker_list.csv 中所有 ticker × 30 指令
+# 預設:抓 skills/references/ticker_list.csv 中所有 ticker × 30 指令
 go run ./cmd/yfin batch
 
 # 單股 / 強制重抓 / 調整並行
@@ -416,7 +461,7 @@ go run ./cmd/yfin batch --ticker 2330.TW --force
 go run ./cmd/yfin batch --max-workers 5
 ```
 
-對應 Python 端:在 `yf/SKILL.md` 末尾的 `## Go client 對等能力 (Go parity)` 段。
+對應 Python 端:在 `skills/SKILL.md` 末尾的 `## Go client 對等能力 (Go parity)` 段。
 
 ### Cross-Verify Parity Matrix(30 指令)
 
@@ -424,27 +469,27 @@ go run ./cmd/yfin batch --max-workers 5
 經過逐一對照 yfinance source 與 `cmd/yfin/dispatch.go` 的 `commandRegistry`,目前 30 個指令**全部達到 Python 語意對等**(`earnings-dates` 走 HTML scrape、`metadata` 1d range 對齊 `get_history_metadata` 的不重抓語意,均已對應)。
 `─────────────────────────────────────────────────`
 
-| 指令 | 來源 (Python) | Go 端實作 | 對齊 |
-| --- | --- | --- | --- |
-| info | 5 quoteSummary 模組 | `(*yahoo.Client).FetchInfo` | ✅ |
-| history | chart 30d/daily | `(*yfinance.Client).FetchDailyBars` 30d | ✅ |
-| actions | chart events | `(*yahoo.Client).FetchActions` | ✅ |
-| income / balance / cashflow | scrape HTML | `ScrapeFinancials/BalanceSheet/CashFlow` | ✅ |
-| major-holders / institutional-holders / mutualfund-holders | quoteSummary 7 模組(單次 HTTP) | `FetchHolders`(同 4 模組) | ✅ |
-| insider-transactions / insider-roster | quoteSummary | `FetchInsider` | ✅ |
-| insider-purchases | netSharePurchaseActivity 整形為 label/value table | `InsiderPurchaseSummaryTable` | ✅ |
-| recommendations / recommendations-summary | 同源(quoteSummary) | `FetchRecommendationTrend` | ✅ |
-| upgrades | quoteSummary | `FetchUpgrades` | ✅ |
-| earnings-dates | **HTML scrape** `/calendar/earnings?symbol=` | `(*yahoo.Client).FetchEarningsDates` | ✅ |
-| earnings-history / eps-trend / eps-revisions / earnings-estimates / revenue-estimates / growth-estimates | quoteSummary | `ScrapeAnalysis` | ✅ |
-| price-targets | quoteSummary | `ScrapeAnalystInsights` | ✅ |
-| news | scrape HTML/JSON | `ScrapeNews` | ✅ |
-| calendar | quoteSummary `calendarEvents` | `FetchCalendar` | ✅ |
-| sec-filings | quoteSummary | `FetchSecFilings` | ✅ |
-| sustainability | quoteSummary `esgScores` | `FetchESG` | ✅ |
-| isin | business-insider | `FetchISIN` | ✅ |
-| options | `/v7/finance/options/` | `FetchOptions` | ✅ |
-| metadata | 1d chart(不重抓) | `FetchMetadata`(1d range) | ✅ |
+| 指令                                                                                                     | 來源 (Python)                                     | Go 端實作                                | 對齊 |
+| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------- | ---- |
+| info                                                                                                     | 5 quoteSummary 模組                               | `(*yahoo.Client).FetchInfo`              | ✅   |
+| history                                                                                                  | chart 30d/daily                                   | `(*yfinance.Client).FetchDailyBars` 30d  | ✅   |
+| actions                                                                                                  | chart events                                      | `(*yahoo.Client).FetchActions`           | ✅   |
+| income / balance / cashflow                                                                              | scrape HTML                                       | `ScrapeFinancials/BalanceSheet/CashFlow` | ✅   |
+| major-holders / institutional-holders / mutualfund-holders                                               | quoteSummary 7 模組(單次 HTTP)                    | `FetchHolders`(同 4 模組)                | ✅   |
+| insider-transactions / insider-roster                                                                    | quoteSummary                                      | `FetchInsider`                           | ✅   |
+| insider-purchases                                                                                        | netSharePurchaseActivity 整形為 label/value table | `InsiderPurchaseSummaryTable`            | ✅   |
+| recommendations / recommendations-summary                                                                | 同源(quoteSummary)                                | `FetchRecommendationTrend`               | ✅   |
+| upgrades                                                                                                 | quoteSummary                                      | `FetchUpgrades`                          | ✅   |
+| earnings-dates                                                                                           | **HTML scrape** `/calendar/earnings?symbol=`      | `(*yahoo.Client).FetchEarningsDates`     | ✅   |
+| earnings-history / eps-trend / eps-revisions / earnings-estimates / revenue-estimates / growth-estimates | quoteSummary                                      | `ScrapeAnalysis`                         | ✅   |
+| price-targets                                                                                            | quoteSummary                                      | `ScrapeAnalystInsights`                  | ✅   |
+| news                                                                                                     | scrape HTML/JSON                                  | `ScrapeNews`                             | ✅   |
+| calendar                                                                                                 | quoteSummary `calendarEvents`                     | `FetchCalendar`                          | ✅   |
+| sec-filings                                                                                              | quoteSummary                                      | `FetchSecFilings`                        | ✅   |
+| sustainability                                                                                           | quoteSummary `esgScores`                          | `FetchESG`                               | ✅   |
+| isin                                                                                                     | business-insider                                  | `FetchISIN`                              | ✅   |
+| options                                                                                                  | `/v7/finance/options/`                            | `FetchOptions`                           | ✅   |
+| metadata                                                                                                 | 1d chart(不重抓)                                  | `FetchMetadata`(1d range)                | ✅   |
 
 對應 commit 範圍:`6cc0517` → `4db5d5d`(21 個功能 commit)+ `e769820`/`a580493`/`7e4af80`/`4db5d5d`/`5c35fac`/`d09291c`(6 個 cross-verify fix)。
 
@@ -500,15 +545,15 @@ go run ./cmd/yfin batch --max-workers 5
 
 ### Operator Runbooks
 
-- **[Scrape Fallback Runbook](runbooks/scrape-fallback.md)** - Operational procedures
-- **[Incident Response Playbook](runbooks/incident-playbook.md)** - Emergency response procedures
+- **[Scrape Fallback Runbook](dashboards/runbooks/scrape-fallback.md)** - Operational procedures
+- **[Incident Response Playbook](dashboards/runbooks/incident-playbook.md)** - Emergency response procedures
 
 ### Examples & Code Samples
 
-- **[Library Examples](examples/library/)** - Go code examples and patterns
-- **[CLI Examples](examples/cli/)** - Ready-to-run shell scripts
-- **[API Usage Example](examples/api_usage.go)** - Basic API usage
-- **[Historical Data Example](examples/historical_data_example.go)** - Time series data
+- **[Library Examples](facade/samples/)** - Go code examples and patterns
+- **[CLI Examples](cmd/samples/)** - Ready-to-run shell scripts
+- **[API Usage Example](facade/samples/api_usage/api_usage.go)** - Basic API usage
+- **[Historical Data Example](facade/samples/historical_data/historical_data_example.go)** - Time series data
 
 ---
 
@@ -516,7 +561,7 @@ go run ./cmd/yfin batch --max-workers 5
 
 The `yfin` CLI tool provides command-line access to all functionality:
 
-> **Note:** All CLI commands require a configuration file. Use `--config configs/effective.yaml` or set up your own config file.
+> **Note:** All CLI commands require a configuration file. Use `--config config/effective.yaml` or set up your own config file.
 
 ### Installation
 
@@ -525,49 +570,49 @@ The `yfin` CLI tool provides command-line access to all functionality:
 go build -o yfin ./cmd/yfin
 
 # Or install globally
-go install github.com/AmpyFin/yfinance-go/cmd/yfin@latest
+go install github.com/bizshuk/yfinance-go/cmd/yfin@latest
 ```
 
 ### Basic Commands
 
 ```bash
 # Fetch daily bars for a single symbol
-yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --adjusted split_dividend --preview --config configs/effective.yaml
+yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --adjusted split_dividend --preview --config config/effective.yaml
 
 # Fetch data for multiple symbols from a file
-yfin pull --universe-file symbols.txt --start 2024-01-01 --end 2024-12-31 --publish --env prod --config configs/effective.yaml
+yfin pull --universe-file symbols.txt --start 2024-01-01 --end 2024-12-31 --publish --env prod --config config/effective.yaml
 
 # Get current quote
-yfin quote --tickers AAPL --preview --config configs/effective.yaml
+yfin quote --tickers AAPL --preview --config config/effective.yaml
 
 # Get fundamentals (requires paid subscription)
-yfin fundamentals --ticker AAPL --preview --config configs/effective.yaml
+yfin fundamentals --ticker AAPL --preview --config config/effective.yaml
 ```
 
 ### Scraping Commands
 
 ```bash
 # Scrape key statistics (not available through free API)
-yfin scrape --ticker AAPL --endpoint key-statistics --preview --config configs/effective.yaml
+yfin scrape --ticker AAPL --endpoint key-statistics --preview --config config/effective.yaml
 
 # Multiple endpoints with JSON preview
-yfin scrape --ticker AAPL --endpoints key-statistics,financials,analysis --preview-json --config configs/effective.yaml
+yfin scrape --ticker AAPL --endpoints key-statistics,financials,analysis --preview-json --config config/effective.yaml
 
 # News articles preview
-yfin scrape --ticker AAPL --endpoint news --preview-news --config configs/effective.yaml
+yfin scrape --ticker AAPL --endpoint news --preview-news --config config/effective.yaml
 
 # Health check for endpoints
-yfin scrape --ticker AAPL --endpoint key-statistics --check --config configs/effective.yaml
+yfin scrape --ticker AAPL --endpoint key-statistics --check --config config/effective.yaml
 ```
 
 ### Soak Testing Commands
 
 ```bash
 # Quick smoke test (10 minutes)
-yfin soak --universe-file testdata/universe/soak.txt --endpoints key-statistics,news --duration 10m --concurrency 8 --qps 5 --preview --config configs/effective.yaml
+yfin soak --universe-file tests/testdata/universe/soak.txt --endpoints key-statistics,news --duration 10m --concurrency 8 --qps 5 --preview --config config/effective.yaml
 
 # Full production soak test (2 hours)
-yfin soak --universe-file testdata/universe/soak.txt --endpoints key-statistics,financials,analysis,profile,news --duration 2h --concurrency 12 --qps 5 --preview --config configs/effective.yaml
+yfin soak --universe-file tests/testdata/universe/soak.txt --endpoints key-statistics,financials,analysis,profile,news --duration 2h --concurrency 12 --qps 5 --preview --config config/effective.yaml
 ```
 
 ### CLI Options
@@ -665,7 +710,6 @@ These data types require paid Yahoo Finance subscriptions through the API, but a
 - **Rate Limiting** - Built-in QPS limits and burst control
 - **Circuit Breakers** - Automatic failure detection and recovery
 - **Retry Logic** - Exponential backoff with jitter
-- **Session Rotation** - Prevents IP blocking and rate limits
 - **Scrape Fallback** - Automatic API→scrape fallback with robots.txt compliance
 - **Observability** - Comprehensive metrics, logs, and tracing
 - **Soak Testing** - Built-in load testing and robustness validation
@@ -791,27 +835,27 @@ observability:
 
 ```bash
 # Make scripts executable
-chmod +x examples/cli/*.sh
+chmod +x cmd/samples/*.sh
 
 # Run AAPL preview examples
-./examples/cli/preview_aapl.sh
+./cmd/samples/preview_aapl.sh
 
 # Run soak testing examples
-./examples/cli/soak_smoke.sh
+./cmd/samples/soak_smoke.sh
 
 # Run batch processing examples
-./examples/cli/batch_processing.sh
+./cmd/samples/batch_processing.sh
 ```
 
 ### Build Library Examples
 
 ```bash
 # Build and run library examples
-go build -o examples/library/scrape_fallback examples/library/scrape_fallback.go
-./examples/library/scrape_fallback
+go build -o /tmp/scrape_fallback facade/samples/scrape_fallback/scrape_fallback.go
+/tmp/scrape_fallback
 ```
 
-📖 **[All Examples →](examples/)**
+📖 **[Library Samples →](facade/samples/)** · **[CLI Samples →](cmd/samples/)**
 
 ---
 
@@ -823,7 +867,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ```bash
 # Clone the repository
-git clone https://github.com/AmpyFin/yfinance-go.git
+git clone https://github.com/bizshuk/yfinance-go.git
 cd yfinance-go
 
 # Install dependencies
@@ -865,46 +909,18 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/AmpyFin/yfinance-go/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/AmpyFin/yfinance-go/discussions)
+- **Issues**: [GitHub Issues](https://github.com/bizshuk/yfinance-go/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/bizshuk/yfinance-go/discussions)
 - **Documentation**: [Complete Documentation](docs/)
-- **API Reference**: [GoDoc](https://godoc.org/github.com/AmpyFin/yfinance-go)
+- **API Reference**: [GoDoc](https://godoc.org/github.com/bizshuk/yfinance-go)
 
 ### Getting Help
 
 1. **Check Documentation**: Start with [docs/](docs/) for comprehensive guides
-2. **Review Examples**: See [examples/](examples/) for code samples
-3. **Search Issues**: Check existing [GitHub Issues](https://github.com/AmpyFin/yfinance-go/issues)
+2. **Review Examples**: See [facade/samples/](facade/samples/) and [cmd/samples/](cmd/samples/) for code samples
+3. **Search Issues**: Check existing [GitHub Issues](https://github.com/bizshuk/yfinance-go/issues)
 4. **Troubleshooting**: See [docs/scrape/troubleshooting.md](docs/scrape/troubleshooting.md)
-5. **Runbooks**: For operational issues, see [runbooks/](runbooks/)
-
----
-
-**⭐ If you find this project useful, please give it a star on GitHub!**---
-
-## 🙏 Acknowledgments
-
-- **Yahoo Finance** for providing publicly accessible financial data
-- **AmpyFin** for the ampy-proto schemas and infrastructure
-- **Go Community** for excellent libraries and tools
-- **Contributors** who help improve this project
-
----
-
-## 📞 Support
-
-- **Issues**: [GitHub Issues](https://github.com/AmpyFin/yfinance-go/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/AmpyFin/yfinance-go/discussions)
-- **Documentation**: [Complete Documentation](docs/)
-- **API Reference**: [GoDoc](https://godoc.org/github.com/AmpyFin/yfinance-go)
-
-### Getting Help
-
-1. **Check Documentation**: Start with [docs/](docs/) for comprehensive guides
-2. **Review Examples**: See [examples/](examples/) for code samples
-3. **Search Issues**: Check existing [GitHub Issues](https://github.com/AmpyFin/yfinance-go/issues)
-4. **Troubleshooting**: See [docs/scrape/troubleshooting.md](docs/scrape/troubleshooting.md)
-5. **Runbooks**: For operational issues, see [runbooks/](runbooks/)
+5. **Runbooks**: For operational issues, see [dashboards/runbooks/](dashboards/runbooks/)
 
 ---
 

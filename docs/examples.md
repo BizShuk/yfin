@@ -25,7 +25,7 @@ import (
     "log"
     "time"
 
-    "github.com/AmpyFin/yfinance-go"
+    "github.com/bizshuk/yfinance-go"
 )
 
 func main() {
@@ -67,7 +67,7 @@ import (
     "log"
     "time"
 
-    "github.com/AmpyFin/yfinance-go"
+    "github.com/bizshuk/yfinance-go"
 )
 
 func main() {
@@ -113,7 +113,7 @@ import (
     "log"
     "time"
 
-    "github.com/AmpyFin/yfinance-go"
+    "github.com/bizshuk/yfinance-go"
 )
 
 func main() {
@@ -211,7 +211,7 @@ import (
     "sort"
     "time"
 
-    "github.com/AmpyFin/yfinance-go"
+    "github.com/bizshuk/yfinance-go"
 )
 
 type FinancialMetric struct {
@@ -274,7 +274,7 @@ import (
     "strings"
     "time"
 
-    "github.com/AmpyFin/yfinance-go"
+    "github.com/bizshuk/yfinance-go"
 )
 
 type NewsSummary struct {
@@ -357,7 +357,7 @@ import (
     "strings"
     "time"
 
-    "github.com/AmpyFin/yfinance-go"
+    "github.com/bizshuk/yfinance-go"
 )
 
 // Error classification
@@ -439,7 +439,7 @@ import (
     "log"
     "time"
 
-    "github.com/AmpyFin/yfinance-go"
+    "github.com/bizshuk/yfinance-go"
 )
 
 type StockData struct {
@@ -550,7 +550,7 @@ import (
     "sync"
     "time"
 
-    "github.com/AmpyFin/yfinance-go"
+    "github.com/bizshuk/yfinance-go"
 )
 
 type BatchResult struct {
@@ -656,7 +656,7 @@ import (
     "os"
     "time"
 
-    "github.com/AmpyFin/yfinance-go"
+    "github.com/bizshuk/yfinance-go"
 )
 
 type ReportData struct {
@@ -836,7 +836,7 @@ import (
     "log"
     "time"
 
-    "github.com/AmpyFin/yfinance-go"
+    "github.com/bizshuk/yfinance-go"
 )
 
 type DataPipeline struct {
@@ -993,7 +993,7 @@ import (
     "sync"
     "time"
 
-    "github.com/AmpyFin/yfinance-go"
+    "github.com/bizshuk/yfinance-go"
 )
 
 type OptimizedBatchProcessor struct {

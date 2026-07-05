@@ -48,7 +48,7 @@ yfin scrape [flags]
 
 ```bash
 # Scrape key statistics for Apple
-yfin scrape --config configs/dev.yaml --ticker AAPL --endpoint key-statistics --preview
+yfin scrape --config config/dev.yaml --ticker AAPL --endpoint key-statistics --preview
 
 # Expected output:
 # Key Statistics for AAPL:
@@ -70,7 +70,7 @@ yfin scrape --config configs/dev.yaml --ticker AAPL --endpoint key-statistics --
 
 ```bash
 # Preview multiple endpoints for comprehensive data
-yfin scrape --config configs/dev.yaml --ticker MSFT --preview-json --endpoints key-statistics,financials,analysis,profile
+yfin scrape --config config/dev.yaml --ticker MSFT --preview-json --endpoints key-statistics,financials,analysis,profile
 
 # Expected output:
 # {
@@ -108,7 +108,7 @@ yfin scrape --config configs/dev.yaml --ticker MSFT --preview-json --endpoints k
 
 ```bash
 # Scrape and preview news articles
-yfin scrape --config configs/dev.yaml --ticker TSLA --preview-news
+yfin scrape --config config/dev.yaml --ticker TSLA --preview-news
 
 # Expected output:
 # News Articles for TSLA (15 articles found):
@@ -139,13 +139,13 @@ yfin scrape --config configs/dev.yaml --ticker TSLA --preview-news
 
 ```bash
 # Force API-only mode (will fail if API unavailable)
-yfin scrape --config configs/prod.yaml --ticker AAPL --endpoint quote --fallback api-only
+yfin scrape --config config/prod.yaml --ticker AAPL --endpoint quote --fallback api-only
 
 # Force scrape-only mode (bypass API entirely)
-yfin scrape --config configs/prod.yaml --ticker AAPL --endpoint key-statistics --fallback scrape-only
+yfin scrape --config config/prod.yaml --ticker AAPL --endpoint key-statistics --fallback scrape-only
 
 # Automatic fallback (recommended for production)
-yfin scrape --config configs/prod.yaml --ticker AAPL --endpoint financials --fallback auto
+yfin scrape --config config/prod.yaml --ticker AAPL --endpoint financials --fallback auto
 ```
 
 **Why this example**: Shows how to control data source selection for different operational scenarios.
@@ -162,7 +162,7 @@ yfin scrape --config configs/prod.yaml --ticker AAPL --endpoint financials --fal
 echo -e "AAPL\nMSFT\nGOOGL\nTSLA\nAMZN" > universe.txt
 
 # Process multiple tickers
-yfin scrape --config configs/prod.yaml --universe-file universe.txt --endpoint key-statistics --preview-proto
+yfin scrape --config config/prod.yaml --universe-file universe.txt --endpoint key-statistics --preview-proto
 
 # Expected output:
 # Processing 5 tickers...
@@ -189,7 +189,7 @@ yfin scrape --config configs/prod.yaml --universe-file universe.txt --endpoint k
 
 ```bash
 # Check endpoint accessibility
-yfin scrape --config configs/prod.yaml --ticker AAPL --endpoint profile --check
+yfin scrape --config config/prod.yaml --ticker AAPL --endpoint profile --check
 
 # Expected output:
 # Endpoint Health Check for AAPL/profile:
@@ -220,8 +220,8 @@ Comprehensive load testing and robustness validation.
 
 ```bash
 # Short smoke test (10 minutes)
-yfin soak --config configs/dev.yaml \
-  --universe-file testdata/universe/soak.txt \
+yfin soak --config config/dev.yaml \
+  --universe-file tests/testdata/universe/soak.txt \
   --endpoints key-statistics,financials,analysis,profile,news \
   --fallback auto \
   --duration 10m \
@@ -266,7 +266,7 @@ news: 605 req, 98.5% success, avg 1.4s
 
 ```bash
 # Full production soak test (2 hours)
-yfin soak --config configs/prod.yaml \
+yfin soak --config config/prod.yaml \
   --universe-file production-universe.txt \
   --endpoints key-statistics,financials,analysis,profile,news \
   --fallback auto \
@@ -282,7 +282,7 @@ yfin soak --config configs/prod.yaml \
 
 ```bash
 # Test with actual message publishing
-yfin soak --config configs/staging.yaml \
+yfin soak --config config/staging.yaml \
   --universe-file small-universe.txt \
   --endpoints news \
   --fallback auto \
@@ -300,10 +300,10 @@ yfin soak --config configs/staging.yaml \
 
 ```bash
 # Enable debug logging
-yfin scrape --config configs/dev.yaml --log-level debug --ticker AAPL --endpoint key-statistics
+yfin scrape --config config/dev.yaml --log-level debug --ticker AAPL --endpoint key-statistics
 
 # Expected debug output:
-# [DEBUG] Loading configuration from configs/dev.yaml
+# [DEBUG] Loading configuration from config/dev.yaml
 # [DEBUG] Creating HTTP client with timeout 30s
 # [DEBUG] Checking robots.txt for finance.yahoo.com
 # [DEBUG] Robots.txt allows /quote/AAPL/key-statistics
@@ -319,7 +319,7 @@ yfin scrape --config configs/dev.yaml --log-level debug --ticker AAPL --endpoint
 
 ```bash
 # Override robots.txt restrictions (use with caution)
-yfin scrape --config configs/test.yaml --ticker AAPL --endpoint profile --force --preview
+yfin scrape --config config/test.yaml --ticker AAPL --endpoint profile --force --preview
 
 # Warning output:
 # ⚠️  WARNING: --force flag overrides robots.txt restrictions
@@ -333,7 +333,7 @@ yfin scrape --config configs/test.yaml --ticker AAPL --endpoint profile --force 
 
 ```bash
 # Simulate requests without actually making them
-yfin scrape --config configs/prod.yaml --ticker AAPL --endpoint key-statistics --dry-run
+yfin scrape --config config/prod.yaml --ticker AAPL --endpoint key-statistics --dry-run
 
 # Expected output:
 # DRY RUN MODE - No actual requests will be made
@@ -355,12 +355,12 @@ yfin scrape --config configs/prod.yaml --ticker AAPL --endpoint key-statistics -
 
 ```bash
 # Use environment-specific configs
-yfin scrape --config configs/dev.yaml     # Development
-yfin scrape --config configs/staging.yaml # Staging  
-yfin scrape --config configs/prod.yaml    # Production
+yfin scrape --config config/dev.yaml     # Development
+yfin scrape --config config/staging.yaml # Staging  
+yfin scrape --config config/prod.yaml    # Production
 
 # Validate config before use
-yfin config --file configs/prod.yaml --validate
+yfin config --file config/prod.yaml --validate
 ```
 
 ### 2. Rate Limiting
@@ -409,7 +409,7 @@ for ticker in $TICKERS; do
   echo "Processing $ticker..."
   
   yfin scrape \
-    --config configs/prod.yaml \
+    --config config/prod.yaml \
     --ticker "$ticker" \
     --endpoints key-statistics,financials,news \
     --fallback auto \
@@ -442,7 +442,7 @@ for endpoint in $ENDPOINTS; do
   echo "Checking $endpoint..."
   
   yfin scrape \
-    --config configs/prod.yaml \
+    --config config/prod.yaml \
     --ticker "$TICKER" \
     --endpoint "$endpoint" \
     --check \
@@ -464,7 +464,7 @@ done
 
 UNIVERSE_FILE="$1"
 ENDPOINT="$2"
-CONFIG="${3:-configs/prod.yaml}"
+CONFIG="${3:-config/prod.yaml}"
 
 if [ ! -f "$UNIVERSE_FILE" ]; then
   echo "Error: Universe file not found: $UNIVERSE_FILE"

@@ -150,13 +150,10 @@ jobs:
 
       - name: Prepare release body
         run: |
-          # Create release body with proper tag substitution
-          sed "s/\${{ github.ref_name }}/${{ github.ref_name }}/g" scripts/release_notes_header.md > release_body.md
-          echo "" >> release_body.md
           if [ -n "${{ steps.notes.outputs.body }}" ]; then
-            echo "${{ steps.notes.outputs.body }}" >> release_body.md
+            echo "${{ steps.notes.outputs.body }}" > release_body.md
           else
-            echo "## Changes" >> release_body.md
+            echo "## Changes" > release_body.md
             echo "- Bug fixes and improvements" >> release_body.md
           fi
 

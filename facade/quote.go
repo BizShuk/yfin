@@ -3,7 +3,7 @@ package facade
 import (
 	"time"
 
-	"github.com/AmpyFin/yfinance-go/internal/norm"
+	"github.com/bizshuk/yfinance-go/svc/norm"
 )
 
 // Quote is one real-time-ish quote snapshot.

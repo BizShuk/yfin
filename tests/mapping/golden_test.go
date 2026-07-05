@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/AmpyFin/yfinance-go/internal/emit"
-	"github.com/AmpyFin/yfinance-go/internal/norm"
-	"github.com/AmpyFin/yfinance-go/internal/yahoo"
+	"github.com/bizshuk/yfinance-go/svc/emit"
+	"github.com/bizshuk/yfinance-go/svc/norm"
+	"github.com/bizshuk/yfinance-go/svc/yahoo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -43,7 +43,7 @@ func TestMappingRegressionBars(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Read source data
-			sourceData, err := os.ReadFile(filepath.Join("../../testdata/source/yahoo/bars", tt.sourceFile))
+			sourceData, err := os.ReadFile(filepath.Join("../testdata/source/yahoo/bars", tt.sourceFile))
 			if err != nil {
 				t.Skipf("Source file not found: %v", err)
 				return
@@ -126,7 +126,7 @@ func TestMappingRegressionBars(t *testing.T) {
 
 func TestMappingRegressionQuotes(t *testing.T) {
 	// Read source data
-	sourceData, err := os.ReadFile("../../testdata/source/yahoo/quotes/MSFT_quote_sample.json")
+	sourceData, err := os.ReadFile("../testdata/source/yahoo/quotes/MSFT_quote_sample.json")
 	if err != nil {
 		t.Skipf("Source file not found: %v", err)
 		return
@@ -200,7 +200,7 @@ func TestMappingRegressionQuotes(t *testing.T) {
 
 func TestMappingRegressionFundamentals(t *testing.T) {
 	// Read source data
-	sourceData, err := os.ReadFile("../../testdata/source/yahoo/fundamentals/AAPL_quarterly_sample.json")
+	sourceData, err := os.ReadFile("../testdata/source/yahoo/fundamentals/AAPL_quarterly_sample.json")
 	if err != nil {
 		t.Skipf("Source file not found: %v", err)
 		return

@@ -19,7 +19,7 @@ CLI Flags > Environment Variables > Config File > Defaults
 scrape:
   # Basic settings
   enabled: true
-  user_agent: "yfinance-go/1.0 (+https://github.com/AmpyFin/yfinance-go)"
+  user_agent: "yfinance-go/1.0 (+https://github.com/bizshuk/yfinance-go)"
   timeout_ms: 30000
   
   # Rate limiting
@@ -113,7 +113,7 @@ circuit_breaker:
 
 #### `scrape.user_agent`
 - **Type**: `string`
-- **Default**: `"yfinance-go/1.0 (+https://github.com/AmpyFin/yfinance-go)"`
+- **Default**: `"yfinance-go/1.0 (+https://github.com/bizshuk/yfinance-go)"`
 - **Description**: User-Agent header for HTTP requests
 - **Best Practice**: Include contact information for responsible scraping
 - **Example**:

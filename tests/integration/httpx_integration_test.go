@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/AmpyFin/yfinance-go/internal/httpx"
+	"github.com/bizshuk/yfinance-go/utils/httpx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
