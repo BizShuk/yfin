@@ -50,7 +50,7 @@ func (c *Client) UseAfter(mw ...ResponseMiddleware) {
 func (c *Client) runRequestMW(req *http.Request, meta *Meta) error {
 	for i, mw := range c.reqMW {
 		if err := mw(req, meta); err != nil {
-			return fmt.Errorf("%w[%d]: %v", ErrMiddleware, i, err)
+			return fmt.Errorf("middleware[%d]: %w", i, err)
 		}
 	}
 	return nil

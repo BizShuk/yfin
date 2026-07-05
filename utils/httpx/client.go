@@ -105,13 +105,13 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 	// Attempts / Gzip are filled by the response path in later tasks.
 	meta := &Meta{Host: req.URL.Host, Endpoint: extractEndpoint(req.URL.Path)}
 
+	// Set User-Agent as a baseline; request middleware may override.
+	req.Header.Set("User-Agent", c.config.UserAgent)
+
 	// Run request middleware (UA / crumb / browser headers) once per call.
 	if err := c.runRequestMW(req, meta); err != nil {
 		return nil, err
 	}
-
-	// Set User-Agent as a baseline; request middleware may override.
-	req.Header.Set("User-Agent", c.config.UserAgent)
 
 	// Extract endpoint from URL path for observability
 	endpoint := meta.Endpoint
