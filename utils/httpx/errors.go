@@ -16,6 +16,7 @@ var (
 	ErrCircuitOpen       = errors.New("circuit breaker is open")
 	ErrTimeout           = errors.New("request timeout")
 	ErrContextCanceled   = errors.New("context canceled")
+	ErrMiddleware        = errors.New("middleware rejected request")
 )
 
 // HTTPError wraps HTTP status errors with additional context

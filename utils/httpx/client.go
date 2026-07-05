@@ -64,6 +64,8 @@ type Client struct {
 	jar            *cookiejar.Jar
 	rateLimiter    *RateLimiter
 	circuitBreaker *CircuitBreaker
+	reqMW          []RequestMiddleware
+	respMW         []ResponseMiddleware
 }
 
 // NewClient creates a new HTTP client with the given configuration
@@ -98,11 +100,21 @@ func NewClient(config *Config) *Client {
 
 // Do executes an HTTP request with retry, backoff, rate limiting, and circuit breaker
 func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, error) {
-	// Set User-Agent
+	// Build the per-request side-channel that middleware reads / writes.
+	// Host + Endpoint are populated eagerly; Status / Bytes / Duration /
+	// Attempts / Gzip are filled by the response path in later tasks.
+	meta := &Meta{Host: req.URL.Host, Endpoint: extractEndpoint(req.URL.Path)}
+
+	// Run request middleware (UA / crumb / browser headers) once per call.
+	if err := c.runRequestMW(req, meta); err != nil {
+		return nil, err
+	}
+
+	// Set User-Agent as a baseline; request middleware may override.
 	req.Header.Set("User-Agent", c.config.UserAgent)
 
 	// Extract endpoint from URL path for observability
-	endpoint := extractEndpoint(req.URL.Path)
+	endpoint := meta.Endpoint
 
 	// Start fetch span
 	ctx, span := obsv.StartIngestFetchSpan(ctx, endpoint, "", "", req.URL.String(), 0)
@@ -164,6 +176,7 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 					obsv.RecordRequest(endpoint, "success", fmt.Sprintf("%d", resp.StatusCode))
 					obsv.RecordRequestLatency(endpoint, time.Since(startTime))
 					obsv.UpdateIngestFetchSpan(span, resp.StatusCode, resp.ContentLength, time.Since(startTime))
+					c.runResponseMW(resp, meta)
 					return resp, nil
 				} else {
 					// Failure that we can't retry (e.g., 400, 404, etc.)
