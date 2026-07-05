@@ -5,6 +5,7 @@ import (
 	"context"
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/bizshuk/yfin/utils/httpx"
 	"github.com/stretchr/testify/assert"
@@ -102,3 +103,29 @@ func TestFetch_RobotsIgnoreSkipsCaller(t *testing.T) {
 type assertAnError struct{}
 
 func (assertAnError) Error() string { return "stub caller error" }
+
+// TestNewClient_NilPoolFallbacksToFreshClient is a regression test for
+// the typed-nil interface bug: when `pool` is nil, the deprecated
+// NewClient must construct a fresh `*httpx.Client` rather than wrap the
+// nil pointer in an `httpx.Caller` interface variable (which makes
+// `caller == nil` falsely false and lets the nil escape into the
+// returned Client, panicking on the first Fetch call when it
+// dereferences `c.config.BaseURL` inside (*httpx.Client).Get).
+func TestNewClient_NilPoolFallbacksToFreshClient(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.RobotsPolicy = string(RobotsIgnore) // bypass robots.txt check
+	c, err := NewClient(cfg, nil)
+	require.NoError(t, err)
+	require.NotNil(t, c)
+
+	// Tight deadline so the test fails fast regardless of network.
+	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+	defer cancel()
+
+	var panicVal interface{}
+	func() {
+		defer func() { panicVal = recover() }()
+		_, _, _ = c.Fetch(ctx, "https://finance.yahoo.com/quote/AAPL")
+	}()
+	assert.Nil(t, panicVal, "Fetch must not panic on a typed-nil caller; fresh-client fallback should run when pool is nil")
+}

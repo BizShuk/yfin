@@ -52,8 +52,10 @@ func NewClient(config *Config, pool *httpx.Client) (Client, error) {
 	if config == nil {
 		config = DefaultConfig()
 	}
-	var caller httpx.Caller = pool
-	if caller == nil {
+	var caller httpx.Caller
+	if pool != nil {
+		caller = pool
+	} else {
 		caller = httpx.NewClient(&httpx.Config{
 			BaseURL:          "https://finance.yahoo.com",
 			Timeout:          time.Duration(config.TimeoutMs) * time.Millisecond,
