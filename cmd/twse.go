@@ -135,7 +135,7 @@ func runTwseEndpoint(cmd *cobra.Command, args []string) error {
 
 	// The HTTP transport is the injected `*twse.Client`. In production
 	// it's built by `buildTWSEClient` in root.go; tests override by
-	// assigning to `twseClientOverride` before invoking runTwseEndpoint.
+	// reassigning `twseClientProvider` before invoking runTwseEndpoint.
 	ctx, cancel := context.WithTimeout(context.Background(), twseCfg.timeout+5*time.Second)
 	defer cancel()
 
