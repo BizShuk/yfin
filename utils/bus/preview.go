@@ -1,4 +1,4 @@
-// PreviewPublisher renders human-readable previews of bus messages without publishing.
+// — `PreviewPublisher` renders human-readable previews of bus messages without publishing. Capacity: 3 message kinds (`BarBatchMessage`/`QuoteMessage`/`FundamentalsMessage`) × 2 output formats (text/JSON).
 
 package bus
 

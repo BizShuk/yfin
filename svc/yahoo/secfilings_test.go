@@ -1,3 +1,4 @@
+// Tests `DecodeSecFilings`: decodes `secFilings` JSON rows (date, type, title, edgarUrl, epochDate) and rejects an empty `quoteSummary.result`.
 package yahoo
 
 import (

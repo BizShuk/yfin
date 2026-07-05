@@ -1,4 +1,4 @@
-// Normalizes Yahoo bars into the canonical bar-batch model.
+// bars.go — converts `svc/yahoo.Bar` slices + `ChartMeta` into the canonical `NormalizedBarBatch`, mapping timestamps via `ToUTCDayBoundaries`, scaling prices via `ToScaledDecimalWithCurrency`, auto-detecting the split/dividend adjustment policy when `AdjClose` is present, and tagging the run with `ampy.bars.v1:1.0.0` schema metadata.
 
 package norm
 

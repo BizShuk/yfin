@@ -1,3 +1,5 @@
+// golden_test.go — golden-file snapshot tests that emit bars/quotes/fundamentals and diff against checked-in JSON under `tests/testdata/golden/ampy/`. Capacity: 3 golden snapshot tests (AAPL bars, MSFT quote, AAPL fundamentals).
+
 package emit
 
 import (

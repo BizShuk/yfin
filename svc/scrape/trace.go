@@ -1,5 +1,4 @@
-// OpenTelemetry tracing helpers for scraping spans.
-
+//  — OpenTelemetry tracing wrapper for scrape fetch spans via obsv.StartIngestFetchSpan. Capacity: 1 service name (yfinance-go/scrape).
 package scrape
 
 import (

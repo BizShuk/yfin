@@ -1,3 +1,4 @@
+// Tests `ParseEarningsDatesHTML`: filters rows by symbol, parses numeric cells (with `-` / `N/A` -> nil), and preserves the chronological row order.
 package yahoo
 
 import (

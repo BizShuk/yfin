@@ -1,3 +1,4 @@
+// mi_qfiis_test.go — `FetchMI_QFIIS` decode verifying selectType=ALL + 4-column foreign-holding row + no-data. Capacity: 2 test cases.
 package twse
 
 import (

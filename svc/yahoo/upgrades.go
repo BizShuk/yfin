@@ -1,5 +1,4 @@
-// Fetches and decodes Yahoo analyst upgrades/downgrades.
-
+// Fetches/decodes Yahoo analyst upgrade/downgrade history via the `upgradeDowngradeHistory` module. Capacity: 2 structs (`UpgradeRow`, internal `upgradesResult`) + `DecodeUpgrades`, `FetchUpgrades`.
 package yahoo
 
 import (

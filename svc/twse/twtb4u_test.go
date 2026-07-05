@@ -1,3 +1,4 @@
+// twtb4u_test.go — `FetchTWTB4U` decode (path/date/query verified) + no-data + empty-date validation. Capacity: 3 test cases.
 package twse
 
 import (

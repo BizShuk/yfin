@@ -1,5 +1,4 @@
-// Fetches and decodes a flattened Yahoo info map.
-
+// Fetches/decodes a flattened `info` map by merging five quoteSummary modules (`assetProfile`, `summaryDetail`, `defaultKeyStatistics`, `financialData`, `quoteType`) and collapsing `{raw,...}` wrappers via `flattenValue`. Capacity: 1 var (`InfoModules`, 5 entries) + `DecodeInfo`, `FetchInfo`, internal `flattenValue`.
 package yahoo
 
 import (

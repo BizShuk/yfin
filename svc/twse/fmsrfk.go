@@ -1,9 +1,4 @@
-// fmsrfk.go 對應 `/exchangeReport/FMSRFK` 端點。
-// 用途:個股月成交資訊(年度月份、最高最低、加權均價、週轉率)。
-// 對應 README.tsme.md「大盤統計」章節;需指定 stockNo。
-// 範例:
-//   curl "https://www.twse.com.tw/rwd/zh/exchangeReport/FMSRFK?date=2022&stockNo=2330&response=json"
-
+// fmsrfk.go — `FMSRFK` (/exchangeReport/FMSRFK) per-stock monthly aggregate (year-month/high/low/weighted avg + volume + turnover %). Capacity: 1 stock × 12 monthly rows per year-long request.
 package twse
 
 import (

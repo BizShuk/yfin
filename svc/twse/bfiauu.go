@@ -1,9 +1,4 @@
-// bfiauu.go 對應 `/block/BFIAUU` 端點(已合併舊版 bfiauu_block)。
-// 用途:鉅額交易日成交資訊(序號、買賣證券商、成交價、買進價)。
-// 對應 README.tsme.md「鉅額交易」章節。
-// 範例:
-//   curl "https://www.twse.com.tw/rwd/zh/block/BFIAUU?date=20221230&response=json"
-
+// bfiauu.go — `BFIAUU` (/block/BFIAUU) per-day block-trade (鉅額交易) records (seq/code/brokers/volume/price/time). Capacity: 0-200 trades per response (variable by market activity).
 package twse
 
 import (

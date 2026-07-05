@@ -1,4 +1,4 @@
-// Maps scraped financials DTOs into ampy fundamentals protobufs.
+// map_financials.go — maps scraped `FinancialsDTO`/`ComprehensiveFinancialsDTO` and the key-statistics/analysis/insights/balance-sheet/cash-flow variants into ampy `fundamentals.v1.FundamentalsSnapshot` messages. Capacity: 8 DTO->proto mappers + ~6 helpers (`mapFinancialLine`, `extractCurrentPeriodLines`, `createLineItem`, `normalizeFinancialKey`, `normalizeMIC`, `parseRevenueEstimateString`, `validateMonotonicPeriods`).
 
 package emit
 

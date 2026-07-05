@@ -1,3 +1,5 @@
+// — Unit tests for `ChunkPayload`, `EstimateChunkCount`, `ValidateChunkSize`, `GetChunkingInfo` covering empty/exact/oversize payloads. Capacity: 4 test funcs × 13 sub-cases.
+
 package bus
 
 import (

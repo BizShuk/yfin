@@ -1,9 +1,4 @@
-// twt44u.go 對應 `/fund/TWT44U` 端點。
-// 用途:自營商買賣超彙總表(買進、賣出、買賣差額股數)。
-// 對應 README.tsme.md「三大法人」章節。
-// 範例:
-//   curl "https://www.twse.com.tw/rwd/zh/fund/TWT44U?date=20221230&response=json"
-
+// twt44u.go — `TWT44U` (/fund/TWT44U) dealer (自營商) daily aggregated buy/sell/net volume. Capacity: 1 summary row per response.
 package twse
 
 import (

@@ -1,3 +1,4 @@
+// fmtqik_test.go — `FetchFMTQIK` date-required validation + decode verifying date in URL + ParseFMTQIKRow row too-short. Capacity: 3 test cases.
 package twse
 
 import (

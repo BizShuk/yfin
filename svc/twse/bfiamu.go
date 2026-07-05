@@ -1,9 +1,4 @@
-// bfiamu.go 對應 `/afterTrading/BFIAMU` 端點。
-// 用途:每日各類指數成交量值(收盤指數、漲跌、百分比)。
-// 對應 README.tsme.md「盤後交易資訊」附屬指數章節。
-// 範例:
-//   curl "https://www.twse.com.tw/rwd/zh/afterTrading/BFIAMU?date=20221230&response=json"
-
+// bfiamu.go — `BFIAMU` (/afterTrading/BFIAMU) per-day index close + change + change-pct across all major index categories. Capacity: ~50 indices per response.
 package twse
 
 import (

@@ -1,9 +1,4 @@
-// twtb4u.go 對應 `/afterTrading/TWTB4U` 端點。
-// 用途:當日沖銷交易標的及統計(成交股數、買賣成交金額)。
-// 對應 README.tsme.md「盤後交易資訊」第 7 個端點。
-// 範例:
-//   curl "https://www.twse.com.tw/rwd/zh/afterTrading/TWTB4U?date=20221230&response=json"
-
+// twtb4u.go — `TWTB4U` (/afterTrading/TWTB4U) daily day-trade (當日沖銷) targets and buy/sell amount stats per stock. Capacity: ~1900 stocks per response.
 package twse
 
 import (

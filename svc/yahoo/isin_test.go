@@ -1,3 +1,4 @@
+// Tests `parseISIN`: extracts the ISIN from a pipe-delimited Business-Insider search line on hit, returns an error on miss.
 package yahoo
 
 import (

@@ -1,5 +1,4 @@
-// Fetches and decodes Yahoo recommendation-trend data.
-
+// Fetches/decodes Yahoo analyst recommendation trends via the `recommendationTrend` module. Capacity: 2 structs (`RecommendationTrendRow`, internal `recTrendResult`) + `DecodeRecommendationTrend`, `FetchRecommendationTrend`.
 package yahoo
 
 import (

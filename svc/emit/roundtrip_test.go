@@ -1,3 +1,5 @@
+// roundtrip_test.go — proto round-trip tests: `Emit*` -> `proto.Marshal` -> `proto.Unmarshal` -> `proto.Equal` for bars, quotes, fundamentals. Capacity: 3 round-trip tests covering `EmitBarBatch`, `EmitQuote`, `EmitFundamentals`.
+
 package emit
 
 import (

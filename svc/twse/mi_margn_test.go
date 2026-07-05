@@ -1,3 +1,4 @@
+// mi_margn_test.go — `FetchMI_MARGN` decode verifying selectType=ALL + 10-column margin/short row + no-data. Capacity: 2 test cases.
 package twse
 
 import (

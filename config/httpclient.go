@@ -1,4 +1,4 @@
-// HTTPClient returns the process-wide shared stdlib HTTP client used by service packages.
+// HTTPClient returns the process-wide shared stdlib HTTP client used by service packages. Capacity: 1 `HTTPClient` singleton + 1 `HTTPTimeout` constant + 1 `sync.Once` initializer.
 
 package config
 

@@ -1,3 +1,4 @@
+// obsv_test.go — Unit tests for the `obsv` surface: `Init` / `Shutdown` round-trip, fallback `Logger` / `Tracer`, named-span factories, span-name constants, log attribute builders, no-op metric recorders when global state is nil. Capacity: ~16 test functions.
 package obsv
 
 import (

@@ -1,3 +1,5 @@
+// holders.go — ownership data types `NormalizedHolder` (single entity: organization + percent-held/position/value) and `NormalizedHolders` (security + insiders/institutions percentages + institutional + mutual-fund rosters + as-of + `Meta`).
+
 package norm
 
 import "time"

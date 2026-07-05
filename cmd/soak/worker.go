@@ -1,5 +1,6 @@
 // Worker executes soak fetch requests and publishes results.
 
+// worker.go — soak worker loop: rate-limited random `(ticker, endpoint)` generation, dispatches via `api-only`/`scrape-only`/`auto` fallback policies, records success/failure/rate-limit/robots counters and per-endpoint latency. Capacity: 1 `Worker` + 1 `WorkRequest` + ~10 execution methods (`Run`/`generateWorkRequest`/`executeRequest`/`executeAPIRequest`/`executeScrapeRequest`/`executeAutoFallbackRequest`/`executeScrapeProfile`/`isAPIEndpoint`/`shouldFallbackToScrape`/`isRateLimitError`/`isRobotsError`/`contains`/`indexOfSubstring`).
 package main
 
 import (

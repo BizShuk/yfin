@@ -1,3 +1,4 @@
+// Tests `DecodeInfo`: merges fields from multiple quoteSummary modules into a flat map (verifying `marketCap`/`trailingPE` scalar collapse via `flattenValue`) and rejects an empty `quoteSummary.result`.
 package yahoo
 
 import (

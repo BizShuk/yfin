@@ -1,3 +1,5 @@
+// quotes_test.go — unit tests for `NormalizeQuote` validation paths (`TestNormalizeQuoteValidation`: missing symbol, missing currency, invalid security, scaling roundtrip).
+
 package norm
 
 import (

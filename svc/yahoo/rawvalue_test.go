@@ -1,3 +1,4 @@
+// Tests `RawValue` / `RawInt` JSON round-trip: decodes populated `{raw,fmt,longFmt}` payloads, leaves `Raw` nil on `{}`, and handles the int variant.
 package yahoo
 
 import (

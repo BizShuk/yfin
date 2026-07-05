@@ -1,5 +1,6 @@
 // CorrectnessProbes validate fetched data during soak runs.
 
+// probes.go — `CorrectnessProbes` validator that runs 5 per-ticker checks (market_cap/pe_ratio/employee_count/sector/currency) comparing API vs scrape values within per-probe tolerances, then aggregates pass/fail. Capacity: 1 `CorrectnessProbes` + 1 `ProbeResult` + 5 probe methods + 8 placeholder extractors + `normalizeSectorName`.
 package main
 
 import (

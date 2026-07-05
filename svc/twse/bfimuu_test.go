@@ -1,3 +1,4 @@
+// bfimuu_test.go — `FetchBFIMUU` date-required validation + decode verifying date=YYYYMM01 in URL + ParseBFIMUURow row too-short. Capacity: 3 test cases.
 package twse
 
 import (

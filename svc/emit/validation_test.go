@@ -1,3 +1,5 @@
+// validation_test.go — table-driven tests for every validator in `validation.go`. Capacity: 6 test functions covering `ValidateSecurity`, `ValidateTimeWindow`, `ValidateDecimal`, `ValidateCurrency`, `ValidateAdjustments`, `ValidateFundamentals`.
+
 package emit
 
 import (

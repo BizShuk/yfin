@@ -1,4 +1,4 @@
-// Maps scraped news items into ampy news protobufs (URL and source cleaning).
+// map_news.go — maps scraped `NewsItem` slices into ampy `news.v1.NewsItem` protobufs with URL canonicalisation, source normalization, and empty-title filtering. Capacity: 2 entrypoints (`MapNewsItems`, `mapSingleNewsItem`) + 6 helpers for URL/UUID/date cleanup.
 
 package emit
 

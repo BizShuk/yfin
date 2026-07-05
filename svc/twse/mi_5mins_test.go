@@ -1,3 +1,4 @@
+// mi_5mins_test.go — `FetchMI_5MINS` decode verifying request path + 7-column cumulative row + no-data. Capacity: 2 test cases.
 package twse
 
 import (

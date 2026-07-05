@@ -1,3 +1,7 @@
+// news.go — `NewsItem` plain SDK struct (Title / URL / Source / Summary /
+// PublishedAt / Symbols) + unexported `fromProtoNews` proto → SDK converter
+// (drops proto-only fields like Id / SentimentScoreBp / IngestTime / Meta to
+// keep the public surface minimal). Capacity: 1 struct + 1 internal converter.
 package facade
 
 import (

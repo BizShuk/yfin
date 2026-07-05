@@ -1,3 +1,5 @@
+// fx_interface.go — `FXConverter` contract for currency translation (`ConvertValue(ctx, value, fromCurrency, toCurrency, at)` returns `ScaledDecimal` + `FXMeta`) and the accompanying `FXMeta` provenance struct (provider, base, symbols, as-of, rate scale, cache hit, attempts, backoff profile, stale flag).
+
 package norm
 
 import (

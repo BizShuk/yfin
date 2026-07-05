@@ -1,3 +1,4 @@
+// tests/unit — 24-hour bar time-window validation, including DST boundaries and UTC-only enforcement. Capacity: 8 window cases (valid, short/long end, misaligned event, DST spring/fall) + 3 nanosecond edge cases + 3 timezone cases.
 package unit
 
 import (

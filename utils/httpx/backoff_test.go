@@ -1,3 +1,4 @@
+// backoff_test.go — Tests `Client.calculateBackoff` for first-attempt bounds, exponential growth across attempts, `MaxDelayMs` cap, and jitter variance. Capacity: 3 test functions.
 package httpx
 
 import (

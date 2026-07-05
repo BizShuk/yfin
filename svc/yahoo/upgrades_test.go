@@ -1,3 +1,4 @@
+// Tests `DecodeUpgrades`: decodes analyst `upgradeDowngradeHistory` rows (firm, from/toGrade, action, epochGradeDate) and rejects an empty `quoteSummary.result`.
 package yahoo
 
 import (

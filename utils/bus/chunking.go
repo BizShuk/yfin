@@ -1,4 +1,4 @@
-// ChunkingStrategy splits oversized payloads into size-bounded chunks for the bus.
+// — `ChunkingStrategy` splits oversized payloads into size-bounded chunks for the bus. Capacity: chunk count = ⌈len / `MaxPayloadBytes`⌉, ceiling enforced via `MaxPayloadBytes` (default 1 MiB).
 
 package bus
 

@@ -1,3 +1,7 @@
+// bars.go — `Bar` / `BarBatch` plain SDK structs + `FromBarBatch`
+// ScaledDecimal → float64 converter + `formatUTC` helper. Capacity:
+// 2 structs + 1 converter + 1 helper.
+
 // Package facade re-exports the yfinance-go normalized bar/quote/company-info
 // types as plain Go structs so external consumers (e.g. data/stock) can avoid
 // reflection against the internal/norm package. The facade lives inside the

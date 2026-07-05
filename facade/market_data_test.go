@@ -1,3 +1,8 @@
+// market_data_test.go — `FromMarketData` ScaledDecimal → `*float64` round-trip
+// tests: 1 nil-input case + 4 table-driven cases (full-population precision
+// round-trip, all-nil nullable fields, scale-4 crypto/FX, zero-volume non-nil
+// pointer). Capacity: 5 sub-tests + 3 helpers (`int64Ptr`, `ptr`,
+// `checkFloatPtr`).
 package facade
 
 import (

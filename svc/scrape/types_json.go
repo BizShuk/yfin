@@ -1,3 +1,4 @@
+//  — Yahoo-format value types and coercion helpers (Scaled precision decimal, Currency, YahooNum/Int/String, plus string-to-int/float parsers). Capacity: 4 value types + 4 coercion helpers.
 package scrape
 
 import (

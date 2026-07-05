@@ -1,4 +1,4 @@
-// ShouldSkip decides whether a cached raw artifact is fresh enough to skip refetching.
+// — `ShouldSkip` decides whether a cached raw artifact is fresh enough to skip refetching; backed by `RefreshMap` mapping command → tier. Capacity: 5 tiers (daily/weekly/monthly/quarterly/annually), 32 commands mapped.
 
 package cache
 

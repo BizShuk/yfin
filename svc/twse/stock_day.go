@@ -1,9 +1,4 @@
-// stock_day.go 對應 `/afterTrading/STOCK_DAY` 端點。
-// 用途:個股日成交資訊(開高低收、成交量、成交金額、成交筆數)。
-// 對應 README.tsme.md「盤後交易資訊」第 2 個端點;需指定 stockNo。
-// 範例:
-//   curl "https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY?date=20221230&stockNo=2330&response=json"
-
+// stock_day.go — `STOCK_DAY` (/afterTrading/STOCK_DAY) per-stock daily trade info (OHLCV + amount + trade count + change spread). Capacity: 1 stock × 1 day per request (stockNo required).
 package twse
 
 import (

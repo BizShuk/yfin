@@ -1,5 +1,4 @@
-// Fetches and extracts Yahoo chart metadata.
-
+// Fetches/extracts Yahoo chart metadata via a 1-day `/v8/finance/chart` call (matches Python yfinance's `get_history_metadata`). Capacity: 2 structs (`ChartMetadata`, internal `metaResult`) + `ExtractMetadata`, `FetchMetadata`.
 package yahoo
 
 import (

@@ -1,4 +1,4 @@
-// EnvelopeBuilder constructs and validates ampy bus envelopes (incl. chunked) and computes schema hashes.
+// — `EnvelopeBuilder` constructs and validates ampy-bus envelopes (incl. chunked) and computes schema hashes. Capacity: 14 `Envelope` fields, 1 chunked-extension pair (`chunk_index`/`total_chunks`), SHA-256 truncated to 8 bytes.
 
 package bus
 

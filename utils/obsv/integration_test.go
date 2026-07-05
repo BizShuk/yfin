@@ -1,3 +1,4 @@
+// integration_test.go — Integration: full `Init` lifecycle with metrics + tracing enabled / disabled, end-to-end span hierarchy `run -> fetch -> decode -> normalize -> emit -> publish -> fx`, log attribute propagation with trace context. Capacity: 5 integration scenarios.
 package obsv
 
 import (

@@ -1,3 +1,5 @@
+// — Unit tests for `RetryPolicy.ExecuteWithRetry`, `calculateDelay` jitter bounds, `CircuitBreaker` state transitions, `IsRetryableError`. Capacity: 5 test funcs × 12 sub-cases.
+
 package bus
 
 import (

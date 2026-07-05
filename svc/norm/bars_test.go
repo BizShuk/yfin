@@ -1,3 +1,5 @@
+// bars_test.go — unit tests for `NormalizeBars` validation paths (`TestNormalizeBarsValidation`: empty bars, nil meta, invalid security, etc.) and `ToUTCDayBoundaries` timestamp-to-UTC-day mapping (`TestToUTCDayBoundaries`).
+
 package norm
 
 import (

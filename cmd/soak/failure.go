@@ -1,5 +1,6 @@
 // FailureServer injects HTTP failures for soak testing.
 
+// failure.go — `FailureServer` HTTP failure-injector on `:8080` serving 6 probability-weighted scenarios (`rate_limit`/`server_error`/`bad_gateway`/`service_unavailable`/`timeout`/`auth_required`) plus `/health`/`/stats`/`/scenarios` introspection endpoints. Capacity: 1 `FailureServer` + 1 `FailureScenario` + 1 `FailureStats` + 10 lifecycle/dispatch methods (`NewFailureServer`/`Start`/`Stop`/`handleRequest`/`injectFailure`/`selectFailureScenario`/`handleSuccess`/`handleHealth`/`handleStats`/`handleScenarios`/`UpdateFailureRate`/`AddScenario`/`IsActive`).
 package main
 
 import (

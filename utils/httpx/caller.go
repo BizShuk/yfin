@@ -1,5 +1,4 @@
-// Caller is the transport contract; Client.Call performs a GET and returns the body bytes.
-
+// caller.go — `Caller` transport contract plus `Client.Call` GET helper (path + query -> body bytes). Capacity: 1 interface, 1 method.
 package httpx
 
 import (

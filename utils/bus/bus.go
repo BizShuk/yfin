@@ -1,4 +1,4 @@
-// Bus is the high-level facade for publishing bars/quotes/fundamentals to the message bus, with preview support.
+// — `Bus` facade wiring `Publisher` with `RetryPolicy` + `CircuitBreaker`; also hosts `Config` validation/loaders. Capacity: 3 message kinds (`BarBatchMessage`/`QuoteMessage`/`FundamentalsMessage`), 2 publisher backends (NATS/Kafka).
 
 package bus
 

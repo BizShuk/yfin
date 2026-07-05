@@ -1,5 +1,4 @@
-// Scraping HTTP client: fetch with robots checks, retries, metrics and tracing.
-
+//  — Scraping HTTP client: robots.txt checks, token-bucket rate limit, exponential-backoff retries, gzip decode, metrics, tracing. Capacity: 10 conns/host, 0.7 QPS, 4 retries, 8 MiB body cap.
 package scrape
 
 import (

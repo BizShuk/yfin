@@ -1,3 +1,4 @@
+// tests/unit — ScaledDecimal arithmetic: round-half-up, MultiplyAndRound, currency scale lookup, float→scaled conversion, and validation. Capacity: 9-currency scale table + 24 rounding/multiplication/edge cases.
 package unit
 
 import (

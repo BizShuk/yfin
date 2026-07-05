@@ -1,9 +1,4 @@
-// mi_index.go 對應 `/afterTrading/MI_INDEX` 端點。
-// 用途:全市場每日收盤行情(價格指數、漲跌點數、漲跌百分比)。
-// 對應 README.tsme.md「盤後交易資訊」第 1 個端點。
-// 範例:
-//   curl "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX?date=20221230&type=ALL&response=json"
-
+// mi_index.go — `MI_INDEX` (/afterTrading/MI_INDEX) daily market index close + change + change-pct (issuance-weight, OTC, sector breakdowns). Capacity: ~50 indices per response.
 package twse
 
 import (

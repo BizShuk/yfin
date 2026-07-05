@@ -1,4 +1,4 @@
-// TopicBuilder derives bus topic names from key, environment and topic prefix.
+// — `TopicBuilder` derives bus topic names from key, environment and topic prefix; also exposes `ValidateTopic` and `ParseTopic`. Capacity: 12 valid domains, ≥4-segment topic shape (`prefix.env.domain.version.subtopic`).
 
 package bus
 

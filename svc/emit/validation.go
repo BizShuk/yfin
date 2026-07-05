@@ -1,4 +1,4 @@
-// Validation helpers for securities, time windows, decimals and currencies before emit.
+// validation.go — pre-emit validation for securities (`Symbol`/`MIC`), bar time windows (24-hour daily-bar invariant), `ScaledDecimal` bounds, ISO-4217 currency codes, adjustment-policy consistency, and fundamentals line items. Capacity: 6 validators + 1 `ValidationError` struct.
 
 package emit
 

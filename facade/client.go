@@ -1,3 +1,12 @@
+// client.go — high-level Yahoo Finance SDK entry tying `svc/yahoo` chart API,
+// `svc/scrape` HTML pages, and `svc/emit`/`svc/norm` into plain reflection-free
+// structs. Capacity: 1 Client struct (MIC inference cache + `sync.RWMutex`) +
+// 2 constructors (`NewClient`, `NewClientWithConfig`) + 16 fetch/scrape methods
+// (8 `Fetch*` chart-API — Daily/Intraday/Weekly/Monthly bars, Quote,
+// FundamentalsQuarterly, CompanyInfo, MarketData — and 8 `Scrape*` HTML —
+// Financials, BalanceSheet, CashFlow, KeyStatistics, Analysis,
+// AnalystInsights, News, AllFundamentals) + 2 internal helpers
+// (`inferMICForSymbol`, `isAuthenticationError`).
 package facade
 
 import (

@@ -1,9 +1,4 @@
-// twt38u.go 對應 `/fund/TWT38U` 端點。
-// 用途:外資及陸資買賣超彙總表(買進、賣出、買賣差額股數)。
-// 對應 README.tsme.md「外資及陸資」章節。
-// 範例:
-//   curl "https://www.twse.com.tw/rwd/zh/fund/TWT38U?date=20221230&response=json"
-
+// twt38u.go — `TWT38U` (/fund/TWT38U) foreign + mainland investor daily aggregated buy/sell/net volume. Capacity: 1 summary row per response.
 package twse
 
 import (

@@ -1,5 +1,4 @@
-// Parses Yahoo earnings-dates HTML.
-
+// Parses Yahoo `finance.yahoo.com/calendar/earnings` HTML into yfinance-style rows. Capacity: 1 constant URL + `EarningsDateRow` + `ParseEarningsDatesHTML` (table parser, symbol filter, nullable cells) + `FetchEarningsDates`; 6 internal helpers (`collectRows`, `extractText`, `normalizeHeader`, `getCell`, `parseCellFloat`).
 package yahoo
 
 import (

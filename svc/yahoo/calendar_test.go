@@ -1,3 +1,4 @@
+// Tests `DecodeCalendar`: decodes earnings dates + averages + ex-dividend/dividend dates from `calendarEvents` JSON, and rejects an empty `quoteSummary.result`.
 package yahoo
 
 import (

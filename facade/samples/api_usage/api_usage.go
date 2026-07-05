@@ -1,3 +1,8 @@
+// `api_usage.go` — programmatic tour of `facade.Client.Scrape*` covering
+// financials, key statistics, analysis, news, and the all-fundamentals batch.
+// Capacity: ~82 LOC; APIs include `ScrapeFinancials`, `ScrapeKeyStatistics`,
+// `ScrapeAnalysis`, `ScrapeNews`, `ScrapeAllFundamentals` returning plain
+// `facade.FundamentalsSnapshot` / `[]facade.NewsItem` values.
 package main
 
 import (

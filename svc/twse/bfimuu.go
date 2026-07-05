@@ -1,9 +1,4 @@
-// bfimuu.go 對應 `/block/BFIMUU` 端點。
-// 用途:鉅額交易月成交資訊(年月份、成交筆數、股數、金額)。
-// 對應 README.tsme.md「鉅額交易」章節;月份格式 YYYYMM01。
-// 範例:
-//   curl "https://www.twse.com.tw/rwd/zh/block/BFIMUU?date=20221201&response=json"
-
+// bfimuu.go — `BFIMUU` (/block/BFIMUU) monthly block-trade aggregate (period/trades/volume/amount, date = YYYYMM01). Capacity: multi-year monthly rows per response.
 package twse
 
 import (

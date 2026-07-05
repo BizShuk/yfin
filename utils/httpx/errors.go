@@ -1,5 +1,4 @@
-// HTTPError is the typed error returned for non-2xx HTTP responses.
-
+// errors.go — Typed sentinel errors plus `HTTPError` / `TransportError` wrappers and retryable / fatal classification helpers. Capacity: 8 sentinels, 2 error types, 2 classifiers.
 package httpx
 
 import (

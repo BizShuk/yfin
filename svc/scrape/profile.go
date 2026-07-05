@@ -1,5 +1,4 @@
-// Parses Yahoo company-profile HTML into a comprehensive profile DTO.
-
+//  — Parses Yahoo company-profile HTML (assetProfile + quoteResponse script tags) into ComprehensiveProfileDTO with executives and governance risk scores. Capacity: ~22 DTO fields + variable executive list.
 package scrape
 
 import (

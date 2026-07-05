@@ -1,4 +1,4 @@
-// Converts ampy protobuf messages into golden-test JSON structs.
+// golden_marshaler.go — converts emitted ampy protobufs into stable `Golden*` JSON structs for snapshot testing. Capacity: 3 `Golden*` types (bar, quote, fundamentals) + 3 `ToGolden*` converters + 1 `MarshalToGoldenJSON` wrapper that runs through `CanonicalMarshaler`.
 
 package emit
 

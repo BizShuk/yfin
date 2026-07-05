@@ -1,3 +1,4 @@
+// fmsrfk_test.go — `FetchFMSRFK` decode verifying path/stockNo=2330/date=year + multi-row monthly aggregate + no-data. Capacity: 2 test cases.
 package twse
 
 import (

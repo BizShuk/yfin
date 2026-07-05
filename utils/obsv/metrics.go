@@ -1,5 +1,4 @@
-// Prometheus metrics registration and recording for ingestion.
-
+// metrics.go — Prometheus metric definitions (counters / gauges / histograms) and recorder functions for request latency, retries, backoff sleep, circuit-breaker state, decode failures, inflight gauges, and publish throughput. Capacity: 13 metrics, 12 recorders.
 package obsv
 
 import (

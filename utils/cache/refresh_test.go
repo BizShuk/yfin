@@ -1,3 +1,5 @@
+// — Unit tests for `ShouldSkip` covering daily, quarterly, annually tiers and `force=true` cache bypass. Capacity: 3 test funcs × 4 sub-cases.
+
 package cache
 
 import (

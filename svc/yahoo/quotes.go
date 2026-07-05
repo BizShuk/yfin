@@ -1,5 +1,4 @@
-// Decodes Yahoo quote responses.
-
+// Decodes Yahoo Finance quote responses (`QuoteResponse` -> `Quote`). Capacity: ~13 structs (`QuoteResponse`, `QuoteResponseData`, `QuoteResult`, `Quote`) + `DecodeQuoteResponse` / `DecodeQuoteResponseFromReader` with strict `Validate` (bid<=ask, non-negative volume/size, no NaN/Inf prices).
 package yahoo
 
 import (

@@ -1,3 +1,4 @@
+// tests/unit/scrape — BackoffPolicy delay monotonicity, retry-after clamping, policy validation, and stats emission. Capacity: 5-attempt delay series + 5 invalid-policy rejection cases + 4-stat field check.
 package scrape_test
 
 import (

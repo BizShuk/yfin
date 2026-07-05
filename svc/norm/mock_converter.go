@@ -1,4 +1,4 @@
-// MockFXConverter is an in-package FX converter stub for tests.
+// mock_converter.go — `MockFXConverter` test stub implementing `FXConverter`. Defaults to identity (same-currency passthrough with provider=`none`); cross-currency returns an "FX conversion not enabled" error. `ConvertValueFunc` lets tests inject custom behavior.
 
 package norm
 

@@ -1,3 +1,4 @@
+// tests/unit — config loader validation: defaults, validation rules, precedence, redaction, and env interpolation. Capacity: 6 scenarios (defaults, validation, precedence, redaction, env-vars, conversion) covering YAML + loader paths.
 package unit
 
 import (

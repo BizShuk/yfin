@@ -1,3 +1,4 @@
+// `RawValue` / `RawInt` are nullable wrappers around Yahoo's `{raw, fmt, longFmt}` value objects. Capacity: 2 structs (float + int variants) used throughout the package's quoteSummary decoders.
 package yahoo
 
 // RawValue models Yahoo's {raw, fmt, longFmt} value object (float-flavoured).

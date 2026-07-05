@@ -1,3 +1,4 @@
+// twse.go — `twse` cobra subcommand + `twseNameToFetcher` dispatch map wiring all 21 svc/twse endpoints (`MI_INDEX`/`STOCK_DAY`/`FMSRFK`/`MI_WEEK`/`FMTQIK`/...) behind the `twseFetcher(ctx, date, opts)` uniform contract. Capacity: 1 `twseConfig` + 1 `twseFetcher` type + 1 dispatch map (21 entries) + `runTwseEndpoint` RunE.
 package cmd
 
 import (

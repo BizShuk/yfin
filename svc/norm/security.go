@@ -1,4 +1,4 @@
-// Security construction, MIC inference, symbol cleaning and validation.
+// security.go — `Security` construction, Yahoo exchange-to-MIC inference (`ExchangeToMIC`, `InferMIC`), exchange-specific symbol cleanup (`cleanSymbol` strips Tokyo `.T` suffix), and `ValidateSecurity` invariant check. Capacity: 1 exchange map (21 entries) + 4 helpers.
 
 package norm
 

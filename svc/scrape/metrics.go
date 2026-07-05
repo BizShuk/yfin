@@ -1,5 +1,4 @@
-// Prometheus metrics for the scraper.
-
+//  — Prometheus collectors for scrape requests, retries, latency, bytes, robots-denied, backoff, and news. Capacity: 10 metric series under yfin_scrape_* prefix, registered once via sync.Once.
 package scrape
 
 import (

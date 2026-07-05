@@ -1,3 +1,5 @@
+// insider.go — insider-transaction data types `NormalizedInsiderTxn` (filer/text/shares/value/date) and `NormalizedInsider` (security + transaction roster + net-buy-shares rollup + as-of + `Meta`).
+
 package norm
 
 import "time"

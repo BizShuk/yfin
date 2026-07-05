@@ -1,5 +1,4 @@
-// Fetches and decodes Yahoo SEC filings.
-
+// Fetches/decodes Yahoo SEC filing metadata via the `secFilings` module. Capacity: 2 structs (`SecFiling`, internal `secFilingsResult`) + `DecodeSecFilings`, `FetchSecFilings`.
 package yahoo
 
 import (

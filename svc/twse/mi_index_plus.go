@@ -1,9 +1,4 @@
-// mi_index_plus.go 對應 `/afterTrading/MI_INDEX_PLUS` 端點。
-// 用途:盤後定價交易(收盤指數、漲跌)。
-// 對應 README.tsme.md「盤後交易資訊」第 4 個端點。
-// 範例:
-//   curl "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX_PLUS?date=20221230&response=json"
-
+// mi_index_plus.go — `MI_INDEX_PLUS` (/afterTrading/MI_INDEX_PLUS) after-hours fixed-price trading index + change + change-pct. Capacity: ~50 indices per response.
 package twse
 
 import (

@@ -1,3 +1,4 @@
+// Fetches/decodes Yahoo major-holders + institution/fund ownership via the `majorHoldersBreakdown`, `majorDirectHolders`, `institutionOwnership`, `fundOwnership` modules. Capacity: ~6 structs (`HoldersDTO`, `MajorHoldersBreakdown`, `MajorDirectHolder`, `HolderRow`) + `DecodeHolders` / `FetchHolders`.
 package yahoo
 
 import (

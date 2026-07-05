@@ -1,3 +1,4 @@
+// Tests `ExtractActions`: decodes dividends + splits from chart events JSON and tolerates an empty-events payload.
 package yahoo
 
 import (

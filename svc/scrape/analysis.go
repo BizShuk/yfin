@@ -1,5 +1,4 @@
-// Parses Yahoo analysis pages into a comprehensive analysis DTO.
-
+//  — Parses Yahoo analysis pages into earnings/revenue estimates, history, EPS trend/revisions, and growth DTO. Capacity: 6 sub-sections x 4 periods (current_qtr, next_qtr, current_year, next_year).
 package scrape
 
 import (

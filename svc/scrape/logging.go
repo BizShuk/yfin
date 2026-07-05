@@ -1,5 +1,4 @@
-// Structured per-request logger for the scraper.
-
+//  — Structured per-request JSON logger for the scraper. Capacity: 10 event types (request, retry, backoff, robots-denied, rate-limit, robots-fetch, config, error, info, debug).
 package scrape
 
 import (

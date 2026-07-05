@@ -1,3 +1,6 @@
+// company_info.go — `CompanyInfo` plain SDK struct + `FromCompanyInfo`
+// string-passthrough converter (no ScaledDecimal fields; just Security metadata).
+// Capacity: 1 struct + 1 converter.
 package facade
 
 import "github.com/bizshuk/yfin/svc/norm"

@@ -1,3 +1,4 @@
+// bfiauu_stock_test.go — `FetchBFIAUUSTOCK` stockNo-required validation + decode verifying stockNo in URL + ParseBFIAUUSTOCKRow row too-short. Capacity: 3 test cases.
 package twse
 
 import (

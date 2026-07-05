@@ -1,4 +1,4 @@
-// Normalizes Yahoo chart metadata into market-data snapshots.
+// market_data.go — converts `svc/yahoo.ChartMeta` into a `NormalizedMarketData` snapshot carrying regular-market OHLCV, 52-week range, previous close, chart previous close, and pre/post-market flag. Uses `ToScaledDecimalPtr` to lift nullable Yahoo `*float64` prices into `*ScaledDecimal` keyed on currency-aware scales.
 
 package norm
 

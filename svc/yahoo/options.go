@@ -1,3 +1,4 @@
+// Fetches/decodes Yahoo option-chain data via `/v7/finance/options/{symbol}` (no crumb required). Capacity: ~5 structs (`OptionContract`, `OptionExpiry`, `OptionsDTO`, internal `optionsResult`) + `DecodeOptions`, `FetchOptions`.
 package yahoo
 
 import (

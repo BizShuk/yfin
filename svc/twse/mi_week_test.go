@@ -1,3 +1,4 @@
+// mi_week_test.go — `FetchMI_WEEK` decode verifying path/date + multi-row stock market-cap + no-data. Capacity: 2 test cases.
 package twse
 
 import (

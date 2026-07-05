@@ -1,9 +1,4 @@
-// t86.go 對應 `/fund/T86` 端點。
-// 用途:三大法人買賣超日報(外陸資、投信、自營商)。
-// 對應 README.tsme.md「三大法人」章節。
-// 範例:
-//   curl "https://www.twse.com.tw/rwd/zh/fund/T86?date=20221230&selectType=ALL&response=json"
-
+// t86.go — `T86` (/fund/T86) three-institution (foreign+mainland / trust / dealer) daily buy/sell/net volume per stock. Capacity: ~1900 stocks × 3 institutions per response.
 package twse
 
 import (

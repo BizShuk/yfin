@@ -1,3 +1,4 @@
+// ampy_config_test.go — tests for the config loader: `NewLoader` path capture, full file load + env-var interpolation, missing-file error, daily-only interval validation, `GetEffectiveConfig` redaction path, not-loaded guard, and `GetHTTPConfig`/`GetBusConfig`/`GetFXConfig`/`ValidateInterval`/`ValidateAdjustmentPolicy` adapter sanity. Capacity: 11 test functions + 1 `createTestConfigFile` helper.
 package config
 
 import (

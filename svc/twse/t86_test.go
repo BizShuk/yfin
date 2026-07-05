@@ -1,3 +1,4 @@
+// t86_test.go — `FetchT86` decode verifying selectType=ALL + 12-column three-institution row + no-data. Capacity: 2 test cases.
 package twse
 
 import (

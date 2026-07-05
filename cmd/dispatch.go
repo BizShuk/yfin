@@ -1,3 +1,4 @@
+// dispatch.go — `commandRegistry` mapping 30+ Python-style yfinance-style command names (`info`/`history`/`actions`/`income`/`news`/`options`/`isin`/...) to fetch closures over `FetchContext` (`*facade.Client` + `*yahoo.Client`). Capacity: 1 `FetchContext` struct + 1 `fetchFunc` type + 30+ registry entries.
 package cmd
 
 import (

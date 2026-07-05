@@ -1,3 +1,4 @@
+// integration_test.go — Integration: `CircuitBreaker` trips after repeated 5xx failures and returns `ErrCircuitOpen` to subsequent callers. Capacity: 1 integration scenario.
 package httpx
 
 import (

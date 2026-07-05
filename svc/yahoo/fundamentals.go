@@ -1,3 +1,4 @@
+// Decodes Yahoo quarterly fundamentals (`incomeStatementHistoryQuarterly`, `balanceSheetHistoryQuarterly`, `cashflowStatementHistoryQuarterly`) for `Client.FetchFundamentalsQuarterly`. Capacity: ~14 structs (`FundamentalsResponse`, `QuoteSummary`, `FundamentalsResult`, three history wrappers, three statement structs, `IncomeStatement`, `BalanceSheet`, `CashflowStatement`, `DateValue`, `Value`, `Fundamentals`) + `DecodeFundamentalsResponse` / `DecodeFundamentalsResponseFromReader` with per-statement `Validate`.
 package yahoo
 
 import (

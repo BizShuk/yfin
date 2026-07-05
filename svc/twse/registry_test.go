@@ -1,3 +1,4 @@
+// registry_test.go — `Registry` completeness check (23 entries across 5 boards) + per-endpoint metadata spot-checks (board/path/needs*). Capacity: 23-entry coverage + 6-case metadata table.
 package twse
 
 import (

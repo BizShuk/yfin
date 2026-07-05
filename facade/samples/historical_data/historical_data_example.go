@@ -1,3 +1,7 @@
+// `historical_data_example.go` — end-to-end look at `facade.Client` historical
+// APIs: daily bars, intraday bars, and a spot quote. Capacity: ~71 LOC; APIs
+// include `FetchDailyBars`, `FetchIntradayBars`, `FetchQuote` returning
+// `facade.BarBatch` and `facade.Quote`.
 package main
 
 import (

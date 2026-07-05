@@ -1,4 +1,4 @@
-// Loads the ampy YAML config and maps it into typed config (HTTP, bus, FX, rate-limit, concurrency).
+// Loads the ampy YAML config and maps it into typed config (HTTP, bus, FX, rate-limit, concurrency). Capacity: 1 `Config` root + ~25 nested config structs (`AppConfig`/`YahooConfig`/`ConcurrencyConfig`/`RateLimitConfig`/`BusConfig`/`ScrapeConfig`/`ObservabilityConfig`/...) + `Loader` with `Load`/`GetEffectiveConfig` + `GetHTTPConfig`/`GetBusConfig`/`GetFXConfig`/`GetScrapeConfig`/`ValidateInterval`/`ValidateAdjustmentPolicy` adapters + `CreateEffectiveConfig` default-writer.
 
 package config
 

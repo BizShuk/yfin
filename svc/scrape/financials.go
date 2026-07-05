@@ -1,5 +1,4 @@
-// Financials scraping DTOs plus regex config and parsing.
-
+//  — Parses Yahoo financials/balance-sheet/cash-flow HTML tables into ComprehensiveFinancialsDTO via YAML-driven regex. Capacity: 30+ current-period fields + 5 historical quarters (Q2_2025 to Q2_2024) x ~25 metrics.
 package scrape
 
 import (

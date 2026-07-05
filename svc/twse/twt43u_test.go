@@ -1,3 +1,4 @@
+// twt43u_test.go — `FetchTWT43U` decode + trust-summary row + no-data. Capacity: 2 test cases.
 package twse
 
 import (

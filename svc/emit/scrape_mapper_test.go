@@ -1,3 +1,5 @@
+// scrape_mapper_test.go — tests for `ScrapeMapper` covering financials mapping, profile JSON fallback, news mapping, and the internal `mapPeriodLine`/`mapNewsItem`/`createMeta` helpers. Capacity: 8 test functions.
+
 package emit
 
 import (

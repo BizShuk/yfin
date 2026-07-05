@@ -1,4 +1,4 @@
-// Normalizes Yahoo quotes into the canonical quote model.
+// quotes.go — converts `svc/yahoo.Quote` into a canonical `NormalizedQuote`, applying currency-scale `ScaledDecimal` conversion to bid/ask/regular-market fields and inferring venue MIC via `InferMIC`. Tags the run with `ampy.ticks.v1:1.0.0` schema metadata.
 
 package norm
 

@@ -1,3 +1,4 @@
+// manifest_check.go — golden-manifest validator CLI: reads `MANIFEST.yaml`, verifies file existence + SHA256 + schema-specific JSON shape for `ampy.bars.v1.BarBatch` / `ampy.ticks.v1.Quote` / `ampy.fundamentals.v1.Snapshot` payloads (including daily-bar time semantics). Capacity: 1 `main` + 7 validator functions (`loadManifest`/`validateItem`/`computeSHA256`/`validateBarBatch`/`validateQuote`/`validateFundamentalSnapshot`/`validateDailyBarTime`) + 8 minimal DTO types.
 package main
 
 import (

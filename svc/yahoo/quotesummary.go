@@ -1,5 +1,4 @@
-// Fetches Yahoo quoteSummary modules with crumb auth and 401 retry.
-
+// `FetchQuoteSummary` fetches raw quoteSummary JSON for a given module list. Capacity: 2 methods (`FetchQuoteSummary`, internal `doQuoteSummary`); single 401 retry after `CrumbManager.Invalidate`.
 package yahoo
 
 import (

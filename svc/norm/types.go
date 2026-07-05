@@ -1,3 +1,5 @@
+// types.go — core `ScaledDecimal` precision type and core `Normalized*` data structures (`Security`, `NormalizedBar`, `NormalizedBarBatch`, `NormalizedQuote`, `NormalizedFundamentalsLine`, `NormalizedFundamentalsSnapshot`, `NormalizedCompanyInfo`, `NormalizedMarketData`, `Meta`) emitted as JSON to `svc/emit`.
+
 package norm
 
 import "time"

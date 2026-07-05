@@ -1,3 +1,9 @@
+// `scrape_fallback.go` — five scrape-fallback patterns: basic call,
+// comprehensive collection, advanced `httpx.Config` tuning across markets,
+// batch ticker processing, and downstream pipeline integration. Capacity:
+// ~391 LOC; APIs include `facade.NewClient`, `facade.NewClientWithConfig`,
+// `httpx.Config`, `ScrapeKeyStatistics`, `ScrapeFinancials`, `ScrapeAnalysis`,
+// `ScrapeNews`.
 package main
 
 import (

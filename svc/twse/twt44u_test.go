@@ -1,3 +1,4 @@
+// twt44u_test.go — `FetchTWT44U` decode + dealer-summary row + no-data. Capacity: 2 test cases.
 package twse
 
 import (

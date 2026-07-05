@@ -1,4 +1,4 @@
-// UTC time and day-boundary conversion helpers for epoch timestamps.
+// time.go — UTC time and day-boundary conversion helpers for Yahoo epoch timestamps. Maps an end-of-day trading-day timestamp to `(start, end, eventTime)` UTC boundaries via `ToUTCDayBoundaries` (subtracts 2-day offset to land on the correct trading session).
 
 package norm
 

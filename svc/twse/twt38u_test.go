@@ -1,3 +1,4 @@
+// twt38u_test.go — `FetchTWT38U` decode verifying path/date/response + 4-column foreign-summary row + no-data. Capacity: 2 test cases.
 package twse
 
 import (

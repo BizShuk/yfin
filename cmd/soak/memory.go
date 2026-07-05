@@ -1,5 +1,6 @@
 // MemoryMonitor samples memory usage and detects leaks during soak runs.
 
+// memory.go — `MemoryMonitor` that samples `runtime.MemStats` + `runtime.NumGoroutine` every 10s (capped at 1000-sample ring), then runs leak analysis via linear growth rate, spike detection, GC behavior, and goroutine count heuristics. Capacity: 1 `MemoryMonitor` + 1 `MemorySample` + 1 `LeakDetectionResult` + 10 analysis methods (`Monitor`/`takeSample`/`takeFinalSample`/`AnalyzeLeaks`/`analyzeMemoryGrowth`/`analyzeGoroutineGrowth`/`detectMemorySpikes`/`analyzeGCBehavior`/`generateRecommendation`/`GetCurrentStats`/`GetSampleHistory`).
 package main
 
 import (

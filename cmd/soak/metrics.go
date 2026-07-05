@@ -1,5 +1,6 @@
 // Prometheus metrics for soak runs.
 
+// metrics.go — Prometheus metric definitions + helpers for soak runs (`yfin_soak_requests_total`/`yfin_soak_request_duration_seconds`/`yfin_soak_fallback_decisions_total`/`yfin_soak_errors_total`/`yfin_soak_rate_limit_hits_total`/`yfin_soak_robots_blocked_total`/`yfin_soak_probes_total`/`yfin_soak_memory_usage_bytes`/`yfin_soak_goroutines_count`/`yfin_soak_worker_utilization`). Capacity: 1 `Metrics` struct + 13 `promauto` collectors + 8 `Record*`/`Update*` helpers.
 package main
 
 import (

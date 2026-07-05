@@ -1,3 +1,5 @@
+// decimals_test.go — tests for `decimals.go` covering `MoneyToScaled`, `PercentToScaled`, `FloatToScaled`, `ScaledToFloat`, `AttachCurrency`, `GetCurrencyInfo`, `RecommendedScale`, `convertScale`, and default config. Capacity: 9 test functions.
+
 package emit
 
 import (

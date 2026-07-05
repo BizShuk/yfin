@@ -1,3 +1,4 @@
+// Tests `DecodeRecommendationTrend`: decodes `strongBuy/buy/hold/sell/strongSell` rows keyed by period, and rejects an empty `quoteSummary.result`.
 package yahoo
 
 import (

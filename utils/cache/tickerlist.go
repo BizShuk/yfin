@@ -1,4 +1,4 @@
-// ReadTickerList loads a newline-delimited ticker list from disk.
+// — `ReadTickerList` loads a newline-delimited ticker list from disk (CSV with ticker as last comma-separated field). Capacity: 1 ticker per line, header line skipped, blank lines tolerated.
 
 package cache
 

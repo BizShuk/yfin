@@ -1,3 +1,5 @@
+// — Shared type declarations for the bus package: `Publisher` interface, `Message`/`Envelope`/`Key`, 3 message structs (`BarBatchMessage`/`QuoteMessage`/`FundamentalsMessage`), `Config` + 4 sub-configs, `PreviewSummary`/`ChunkingInfo`. Capacity: 14 `Envelope` fields, 5 config structs.
+
 package bus
 
 import (

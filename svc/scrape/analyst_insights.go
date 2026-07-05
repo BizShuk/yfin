@@ -1,5 +1,4 @@
-// Parses Yahoo analyst-insights pages into a DTO.
-
+//  — Parses Yahoo analyst-insights HTML (financialData section) for price targets and recommendation metrics. Capacity: 8 fields (current price + 4 targets + recommendation mean/key + analyst count).
 package scrape
 
 import (

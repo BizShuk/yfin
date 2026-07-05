@@ -1,3 +1,4 @@
+// orchestrator_test.go — orchestrator smoke tests: `NewOrchestrator` ticker/endpoint loading, `loadTickerUniverse` (skips `#` comments + blank lines), `parseEndpoints` (trim), and an end-to-end `OrchestratorShortRun` (5s, low QPS, no probes, no failure injection). Capacity: 4 test functions covering construction + helpers + short integration.
 package main
 
 import (

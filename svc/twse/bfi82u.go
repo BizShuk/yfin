@@ -1,9 +1,4 @@
-// bfi82u.go 對應 `/fund/BFI82U` 端點。
-// 用途:三大法人買賣金額統計表(投信、自營商、外資及陸資)。
-// 對應 README.tsme.md「三大法人」章節。
-// 範例:
-//   curl "https://www.twse.com.tw/rwd/zh/fund/BFI82U?date=20221230&type=day&response=json"
-
+// bfi82u.go — `BFI82U` (/fund/BFI82U) three-institution (dealer / trust / foreign+mainland) aggregated buy/sell amounts (day-level). Capacity: 3 institutional summary rows per response.
 package twse
 
 import (

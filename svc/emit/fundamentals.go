@@ -1,4 +1,4 @@
-// Emits normalized fundamentals snapshots into ampy protobuf messages.
+// fundamentals.go — `EmitFundamentals` converts a `norm.NormalizedFundamentalsSnapshot` into an ampy `fundamentals.v1.FundamentalsSnapshot` with per-line-item decimal/currency/period validation. Capacity: 2 emit funcs (`EmitFundamentals`, `emitLineItem`).
 
 package emit
 

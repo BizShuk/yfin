@@ -1,3 +1,4 @@
+// mi_index_test.go — `FetchMI_INDEX` + `ParseMIIndexRow` happy-path decode + no-data `ErrNoData` mapping. Capacity: 2 test cases.
 package twse
 
 import (

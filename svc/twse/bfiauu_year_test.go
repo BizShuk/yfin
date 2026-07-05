@@ -1,3 +1,4 @@
+// bfiauu_year_test.go — `FetchBFIAUUYEAR` date-required validation + decode verifying date=YYYY0101 in URL + row too-short. Capacity: 3 test cases.
 package twse
 
 import (

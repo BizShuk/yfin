@@ -1,3 +1,4 @@
+// Tests `DecodeOptions`: parses `optionChain` JSON into expiration dates + strikes + per-expiry calls/puts, and rejects an empty `optionChain.result`.
 package yahoo
 
 import (

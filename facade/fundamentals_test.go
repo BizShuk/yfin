@@ -1,3 +1,9 @@
+// fundamentals_test.go — `fromProtoFundamentals` ampy-proto → SDK conversion
+// tests: 1 nil-input case + 6 table-driven cases (populated two-line
+// ordering, nil Security → zero-value fallback, nil Decimal → 0.0,
+// nil AsOf → zero time.Time, nil entry inside Lines slice skipped,
+// non-USD zero-decimal-scale) + 1 explicit ordering-preservation test.
+// Capacity: 8 sub-tests total.
 package facade
 
 import (

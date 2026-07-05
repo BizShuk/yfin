@@ -1,3 +1,8 @@
+// fundamentals.go — `FundamentalsLine` / `FundamentalsSnapshot` plain SDK
+// structs + 2 converters: public `FromFundamentalsSnapshot` (norm → SDK) and
+// unexported `fromProtoFundamentals` (ampy-proto → SDK, used by
+// `Client.Scrape*` only). Capacity: 2 structs + 2 converters (1 public,
+// 1 internal).
 package facade
 
 import (

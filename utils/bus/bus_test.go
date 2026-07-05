@@ -1,3 +1,5 @@
+// — Unit tests for `NewBus`, `ValidateConfig`, `GetDefaultConfig`, `GetConfigFromEnv`, disabled-publish guard, preview surfaces and `GetCircuitBreakerStats`. Capacity: 9 test funcs × 10 sub-cases.
+
 package bus
 
 import (

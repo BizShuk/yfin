@@ -1,3 +1,5 @@
+// fundamentals_test.go — unit tests for `NormalizeFundamentals` validation paths (`TestNormalizeFundamentalsValidation`: nil fundamentals, missing lines, scaling roundtrips for revenue/net income/EPS/total assets/liabilities/equity/cashflow).
+
 package norm
 
 import (

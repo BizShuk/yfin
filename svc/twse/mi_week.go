@@ -1,9 +1,4 @@
-// mi_week.go 對應 `/statistics/MI_WEEK` 端點。
-// 用途:股票市值週報(股票代號、發行股數、市值)。
-// 對應 README.tsme.md「大盤統計」章節。
-// 範例:
-//   curl "https://www.twse.com.tw/rwd/zh/statistics/MI_WEEK?date=20221230&response=json"
-
+// mi_week.go — `MI_WEEK` (/statistics/MI_WEEK) weekly stock market-cap report (stock code/name + shares issued + market cap). Capacity: ~1900 stocks per response.
 package twse
 
 import (

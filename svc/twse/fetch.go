@@ -1,16 +1,4 @@
-// Package twse 提供臺灣證券交易所 (Taiwan Stock Exchange, TWSE) 公開
-// REST 端點的擷取、列解析與強型別 DTO。本檔定義 FetchJSON 共用函式與
-// ErrNoData sentinel error。
-//
-// 設計重點:
-//   - 本套件擁有完整 URL:BaseURL (TWSE host) 由本檔持有,FetchJSON 與
-//     各端點的 path 在同一層組裝,host 與 path 不再分屬兩層。
-//   - 傳輸層不經參數注入:FetchJSON 直接向 internal/config 拉取整個程式
-//     共用的 *http.Client (host-agnostic,僅帶 timeout)。
-//   - FetchJSON 統一處理 URL 組裝、response=json 附加、JSON 解碼與
-//     「沒有符合條件的資料」stat 字串偵測。
-//   - 各端點檔 (mi_index.go、t86.go ...) 實作各自的 FetchXxx 函式,
-//     只負責組 query 與呼叫 FetchJSON。
+// fetch.go — TWSE REST helper: `BaseURL`, `FetchJSON[T]` generic decoder, `ErrNoData` sentinel + `StatOK`. Capacity: shared transport for 23 endpoint fetchers.
 package twse
 
 import (

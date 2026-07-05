@@ -1,3 +1,4 @@
+// tests/unit/scrape — verifies LoadFinancialsRegexConfig loads the embedded regex bundle without error. Capacity: 1 init-path smoke test.
 package scrape_test
 
 import (

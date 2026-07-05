@@ -1,3 +1,7 @@
+// `print_data_contents.go` — field-by-field walk of `facade.Quote`,
+// `facade.BarBatch`, news, financials, and key-statistics snapshots, including
+// JSON marshaling. Capacity: ~167 LOC; APIs include `FetchQuote`,
+// `FetchDailyBars`, `ScrapeNews`, `ScrapeFinancials`, `ScrapeKeyStatistics`.
 package main
 
 import (

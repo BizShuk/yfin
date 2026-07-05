@@ -1,4 +1,4 @@
-// CanonicalJSONMarshaler produces deterministic (key-sorted) JSON for checksums and golden files.
+// canonical.go — `CanonicalJSONMarshaler` produces deterministic (recursively key-sorted) JSON for checksums and golden-file comparison. Capacity: 1 `CanonicalJSONMarshaler` type + 1 default `CanonicalMarshaler` instance.
 
 package emit
 

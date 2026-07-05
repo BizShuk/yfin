@@ -1,3 +1,4 @@
+// tests/crosslang — Go→Python protobuf round-trip for bars, quotes, and fundamentals. Capacity: 3 currencies (USD/EUR/JPY) × scale-2 + 4 numeric precision edge cases (12 PB payloads).
 package crosslang
 
 import (

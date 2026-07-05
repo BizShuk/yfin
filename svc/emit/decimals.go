@@ -1,4 +1,4 @@
-// Converts money/percent/float values to and from ampy scaled-decimal protobufs.
+// decimals.go — converts money/percent/float values to and from ampy `common.v1.Decimal` scaled-integer protobufs. Capacity: ~11 funcs (money/percent/float <-> scaled, scale conversion/rounding, NaN/Inf/overflow guards) + 40-ISO-4217 currency registry (`AttachCurrency`, `GetCurrencyInfo`, `RecommendedScale`).
 
 package emit
 

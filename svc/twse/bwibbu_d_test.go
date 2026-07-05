@@ -1,3 +1,4 @@
+// bwibbu_d_test.go — `FetchBWIBBU_d` + `ParseBWIBBUdRow` happy-path + no-data `ErrNoData`. Capacity: 2 test cases (decode + no-data).
 package twse
 
 import (

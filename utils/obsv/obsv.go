@@ -1,5 +1,4 @@
-// Observability init/shutdown (tracing + metrics) and configuration.
-
+// obsv.go — Observability bootstrap (`Init` / `Shutdown`), structured `Logger` / `Tracer` accessors, named-span factories for `run` / `fetch` / `decode` / `normalize` / `emit` / `publish` / `fx`, plus trace-aware log-attr helpers. Capacity: 1 config, 7 span helpers, 1 logger, 1 tracer.
 package obsv
 
 import (

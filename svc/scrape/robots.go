@@ -1,5 +1,4 @@
-// RobotsManager fetches/caches robots.txt and enforces crawl policy.
-
+//  — Fetches and caches robots.txt per host with enforce/warn/ignore policy and TTL refresh. Capacity: per-host cache, 10s fetch timeout, 60s default TTL.
 package scrape
 
 import (

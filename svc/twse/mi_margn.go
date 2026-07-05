@@ -1,9 +1,4 @@
-// mi_margn.go 對應 `/marginTrading/MI_MARGN` 端點。
-// 用途:融資融券餘額(融資/融券買賣、償還、餘額)。
-// 對應 README.tsme.md「融資融券」章節。
-// 範例:
-//   curl "https://www.twse.com.tw/rwd/zh/marginTrading/MI_MARGN?date=20221230&selectType=ALL&response=json"
-
+// mi_margn.go — `MI_MARGN` (/marginTrading/MI_MARGN) per-stock margin + short balance snapshot (buy/sell/repay/balance × 2). Capacity: ~1900 stocks per response.
 package twse
 
 import (

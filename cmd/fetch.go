@@ -4,7 +4,7 @@
 // public facade.Client returns plain SDK structs (facade.BarBatch, facade.Quote,
 // facade.FundamentalsSnapshot, facade.MarketData); the CLI's print*/handle*
 // code still wants the norm.* shape, so it calls these helpers directly
-// instead of going through the SDK surface.
+// instead of going through the SDK surface. Capacity: 5 fetch helpers (`fetchDailyBarsNorm`/`fetchQuoteNorm`/`fetchFundamentalsNorm`/`fetchMarketDataNorm`/`isPaidYahooAuthError`).
 
 package cmd
 

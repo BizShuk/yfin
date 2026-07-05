@@ -1,5 +1,4 @@
-// Client is a resilient HTTP client (retry, backoff, rate limiting, circuit breaker).
-
+// client.go — Resilient `Client` with token-bucket `RateLimiter` and 3-state `CircuitBreaker`; `Config` knobs + exponential-backoff-with-jitter retry loop. Capacity: 1 client, 1 limiter, 1 breaker, ~14 Config fields.
 package httpx
 
 import (

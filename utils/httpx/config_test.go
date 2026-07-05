@@ -1,3 +1,4 @@
+// config_test.go — Tests `DefaultConfig` populates all required fields and that a fully-populated `Config` struct round-trips arbitrary values. Capacity: 2 test functions.
 package httpx
 
 import (

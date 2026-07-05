@@ -1,3 +1,4 @@
+// Fetches/decodes Yahoo insider activity (`insiderTransactions`, `netSharePurchaseActivity`, `insiderHolders`) and builds a yfinance-style summary table. Capacity: ~6 structs (`InsiderDTO`, `InsiderTransaction`, `NetSharePurchaseActivity`, `InsiderHolder`, `InsiderPurchaseTable`) + `DecodeInsider`, `FetchInsider`, `InsiderPurchaseSummaryTable`.
 package yahoo
 
 import (

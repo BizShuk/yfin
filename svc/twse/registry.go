@@ -1,3 +1,4 @@
+// registry.go — endpoint descriptor (`Endpoint` + `Fetcher` signature) and global `Registry` map (code → descriptor) for CLI/help/dispatch. Capacity: 23 entries across 5 boards (afterTrading/marginTrading/fund/block/statistics).
 package twse
 
 import (

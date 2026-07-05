@@ -1,5 +1,4 @@
-// Parses Yahoo news HTML into news items.
-
+//  — Parses Yahoo news HTML into deduplicated NewsItem list, JSON-first with HTML regex fallback. Capacity: 25 articles max, 5 fixtures (AAPL/MSFT/TSM/missing-fields/duplicates).
 package scrape
 
 import (

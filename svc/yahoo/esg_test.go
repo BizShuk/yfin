@@ -1,3 +1,4 @@
+// Tests `DecodeESG`: decodes total/environment/social/governance scores + rating year + controversy, and rejects an empty `quoteSummary.result`.
 package yahoo
 
 import (

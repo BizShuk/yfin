@@ -1,4 +1,4 @@
-// Maps scraped company-profile DTOs into normalized profile structures.
+// map_profile.go — maps scraped `ComprehensiveProfileDTO` into a `ProfileMappingResult` carrying canonical JSON + security/meta envelopes (ampy `reference.v1` proto is not generated, so JSON is the fallback format). Capacity: 1 mapper (`MapProfileDTO`) + 2 helpers (`normalizeProfileData`, `normalizeMIC`).
 
 package emit
 

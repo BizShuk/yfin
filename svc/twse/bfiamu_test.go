@@ -1,3 +1,4 @@
+// bfiamu_test.go — `FetchBFIAMU` decode verifying path/date/response=json + multi-row index close/change with negative change-pct coverage + no-data. Capacity: 2 test cases.
 package twse
 
 import (

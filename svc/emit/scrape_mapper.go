@@ -1,4 +1,4 @@
-// ScrapeMapper orchestrates mapping of scraped DTOs into ampy protobufs.
+// scrape_mapper.go — `ScrapeMapper` orchestrates `scrape`-package DTOs into ampy protobufs (fundamentals/profile/news), threading `RunID`/`Producer`/`Source`/`TraceID` config through every emission. Capacity: 1 mapper struct + 4 map methods (`MapFinancials`, `MapProfile`, `MapNews`) + 3 internal helpers (`mapPeriodLine`, `mapNewsItem`, `createMeta`).
 
 package emit
 

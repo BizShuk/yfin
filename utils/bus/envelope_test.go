@@ -1,3 +1,5 @@
+// — Unit tests for `BuildEnvelope`, `BuildChunkedEnvelope`, `ValidateEnvelope`, `ComputeSchemaHash`. Capacity: 5 test funcs × 4 sub-cases.
+
 package bus
 
 import (

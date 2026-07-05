@@ -1,9 +1,4 @@
-// mi_index_odd.go 對應 `/afterTrading/MI_INDEX_ODD` 端點。
-// 用途:零股交易行情單(成交股數、成交金額、開高低收)。
-// 對應 README.tsme.md「盤後交易資訊」第 5 個端點。
-// 範例:
-//   curl "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX_ODD?date=20221230&response=json"
-
+// mi_index_odd.go — `MI_INDEX_ODD` (/afterTrading/MI_INDEX_ODD) odd-lot (零股) trading snapshot per stock (volume/amount/OHLC). Capacity: ~1900 stocks per response.
 package twse
 
 import (

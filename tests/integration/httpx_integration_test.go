@@ -1,3 +1,4 @@
+// tests/integration — exercises the httpx HTTP adapter against httptest servers (no network). Capacity: 4 scenarios (retries-with-backoff, circuit breaker, rate-limiting at 2 QPS, 5-status error matrix).
 package integration
 
 import (

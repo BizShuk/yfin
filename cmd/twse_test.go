@@ -1,3 +1,4 @@
+// twse_test.go — twse CLI tests using httptest-backed fake TWSE: `MI_INDEX` happy path, empty-data fallback, unknown endpoint, missing `--stock`, `FMSRFK` stock-no dispatch, and a registry-coverage check over `twseNameToFetcher`. Capacity: 6 test functions + 2 test helpers (`withTestServer`/`captureStdout`/`resetTwseCfg`).
 package cmd
 
 import (

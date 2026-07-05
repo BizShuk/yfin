@@ -1,3 +1,4 @@
+// dispatch_test.go — single registry-coverage test asserting all 30 expected command names are present in `commandRegistry`. Capacity: 1 test function over a 30-name allow-list.
 package cmd
 
 import (

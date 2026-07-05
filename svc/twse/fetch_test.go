@@ -1,3 +1,4 @@
+// fetch_test.go — `FetchJSON` happy-path decode + `ErrNoData` on no-data stat + embedded `Response.GetStat` exposure. Capacity: ~4 test cases via httptest server.
 package twse
 
 import (

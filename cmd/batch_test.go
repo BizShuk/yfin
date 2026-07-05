@@ -1,3 +1,4 @@
+// batch_test.go — tests for `runBatchForTicker`: stub registry verifies success writes JSON, cache hit on re-run yields `skipped`, and failure path writes `_failed/<ticker>.<cmd>.err`. Capacity: 2 test functions + 1 stub registry helper + 1 `errBoom` sentinel.
 package cmd
 
 import (

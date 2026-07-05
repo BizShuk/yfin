@@ -1,3 +1,4 @@
+// bfi82u_test.go — `FetchBFI82U` decode verifying path + date + type=day + response=json + 3-institution rows + no-data. Capacity: 2 test cases.
 package twse
 
 import (

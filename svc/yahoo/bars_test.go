@@ -1,3 +1,4 @@
+// Tests bars decoding + validation: `TestDecodeBarsResponse` loads 5 fixture files (`AAPL`, `SAP EUR`, `TM JPY`, `TSLA split window`) and asserts OHLC + volume invariants on the first bar; `TestBarsResponseValidation` covers happy path + missing-symbol/currency + negative-volume error paths.
 package yahoo
 
 import (

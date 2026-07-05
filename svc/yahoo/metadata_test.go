@@ -1,3 +1,4 @@
+// Tests `ExtractMetadata` (chart-meta field decode + empty-result error) and `FetchMetadata` (asserts the chart call uses a < 7-day range so cached metadata is reused cheaply).
 package yahoo
 
 import (

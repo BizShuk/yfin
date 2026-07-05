@@ -1,3 +1,4 @@
+// mi_index_plus_test.go — `FetchMI_INDEX_PLUS` decode + no-data `ErrNoData`. Capacity: 2 test cases.
 package twse
 
 import (

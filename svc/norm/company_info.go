@@ -1,4 +1,4 @@
-// Normalizes Yahoo chart metadata into company info.
+// company_info.go — converts `svc/yahoo.ChartMeta` into a `NormalizedCompanyInfo` record (long/short name, exchange MIC via `InferMIC`, currency, instrument type, first-trade-date, timezone) tagged with `yfinance-go` source/producer metadata.
 
 package norm
 

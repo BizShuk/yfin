@@ -1,5 +1,4 @@
-// Yahoo Finance API client (bars, quotes, fundamentals via chart/quoteSummary).
-
+// `Client` is the Yahoo Finance HTTP entry point. Capacity: ~14 methods covering `/v8/finance/chart` (daily/weekly/monthly/intraday bars, quote, actions, metadata) and `/v10/finance/quoteSummary` (holders, insider, upgrades, ESG, recommendations, info, calendar, SEC filings, fundamentals).
 package yahoo
 
 import (

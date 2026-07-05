@@ -1,3 +1,7 @@
+// market_data.go — `MarketData` plain SDK struct (nullable `*float64` price
+// fields + `*int64` volume; nil = missing, not zero) + `FromMarketData`
+// ScaledDecimal → `*float64` converter + `scaledDecimalPtrToFloatPtr` helper.
+// Capacity: 1 struct + 1 converter + 1 helper.
 package facade
 
 import (

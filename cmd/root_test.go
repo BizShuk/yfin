@@ -1,3 +1,4 @@
+// root_test.go — unit tests covering flag validation, date parsing, adjustment policy parsing, universe file loading, JSON export, and exit-code constants. Capacity: 5 test functions covering `validatePullFlags`/`parseDates`/`parseAdjusted`/`getSymbols`/`writeJSONFile` + exit-code sanity check.
 package cmd
 
 import (

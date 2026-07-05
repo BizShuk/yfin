@@ -1,3 +1,4 @@
+// client_test.go — Tests `Client` end-to-end: retry-then-success against `httptest.Server`, circuit-breaker open / half-open transitions, rate-limiter burst + throttle, error retryable / fatal classification. Capacity: 4 test functions.
 package httpx
 
 import (

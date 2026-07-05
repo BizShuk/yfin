@@ -1,4 +1,4 @@
-// Normalizes Yahoo fundamentals (income/balance/cashflow) into canonical lines.
+// fundamentals.go — converts `svc/yahoo.Fundamentals` (income/balance/cashflow statements) into a canonical `NormalizedFundamentalsSnapshot` of `NormalizedFundamentalsLine` rows, deriving `[periodStart, periodEnd]` from each statement's `EndDate` (quarterly by default) and tagging the run with `ampy.fundamentals.v1:1.0.0` schema metadata. Capacity: 1 public entry point (`NormalizeFundamentals`) + 4 helpers.
 
 package norm
 

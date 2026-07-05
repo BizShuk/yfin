@@ -1,5 +1,4 @@
-// CrumbManager handles Yahoo cookie+crumb authentication.
-
+// `CrumbManager` handles Yahoo cookie + crumb authentication for quoteSummary. Capacity: 3 methods (`Crumb`, `Invalidate`, internal `bootstrapCookie`/`fetchCrumb`); one cached crumb, invalidated on 401 by `FetchQuoteSummary`.
 package yahoo
 
 import (

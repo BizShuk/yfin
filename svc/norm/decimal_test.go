@@ -1,3 +1,5 @@
+// decimal_test.go — unit tests for `RoundHalfUp` (half-up rounding across scales), `MultiplyAndRound` (`ScaledDecimal` product with target-scale rounding), and per-currency scale resolution (`GetScaleForCurrency` / `GetPriceScaleForCurrency`).
+
 package norm
 
 import (

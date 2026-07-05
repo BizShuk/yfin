@@ -1,3 +1,5 @@
+// quote.go — `Quote` plain SDK struct + `FromQuote` ScaledDecimal → float64
+// converter (nil-safe on `RegularMarketPrice`). Capacity: 1 struct + 1 converter.
 package facade
 
 import (

@@ -1,3 +1,8 @@
+// `print_all_data_types.go` — exhaustive dump of every `facade.FundamentalsSnapshot`
+// variant (analysis, analyst insights, balance sheet, cash flow) plus JSON
+// marshaling and `ScrapeAllFundamentals` source differentiation. Capacity:
+// ~179 LOC; APIs include `ScrapeAnalysis`, `ScrapeAnalystInsights`,
+// `ScrapeBalanceSheet`, `ScrapeCashFlow`, `ScrapeAllFundamentals`.
 package main
 
 import (

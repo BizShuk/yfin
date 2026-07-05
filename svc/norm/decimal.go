@@ -1,5 +1,4 @@
-// Scaled-decimal conversion helpers and per-currency scale rules.
-
+// decimal.go — scaled-decimal conversion helpers and per-currency scale rules for `ScaledDecimal`. Capacity: 8 helpers (`GetScaleForCurrency`, `ToScaledDecimal`, `ToScaledDecimalWithCurrency`, `FromScaledDecimal`, `ValidateScaledDecimal`, `GetPriceScaleForCurrency`, `MultiplyAndRound`, `RoundHalfUp`).
 package norm
 
 import (

@@ -1,3 +1,4 @@
+// Fetches/extracts Yahoo dividends + splits from `/v8/finance/chart` `events` (1-year lookback). Capacity: ~5 structs (`Dividend`, `Split`, `ActionsDTO`, internal `actionsResult`) + `ExtractActions` (ascending sort by date), `FetchActions`.
 package yahoo
 
 import (

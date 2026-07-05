@@ -1,3 +1,4 @@
+// stock_day_test.go — `FetchSTOCK_DAY` decode + missing-stockNo validation + no-data `ErrNoData`. Capacity: 3 test cases (decode, missing arg, no-data).
 package twse
 
 import (

@@ -1,9 +1,4 @@
-// stock_day_avg.go 對應 `/exchangeReport/STOCK_DAY_AVG` 端點。
-// 用途:個股月均價(最高、最低、加權平均、成交筆數/股數/金額)。
-// 對應 README.tsme.md「大盤統計」章節;月份格式 YYYYMM01。
-// 範例:
-//   curl "https://www.twse.com.tw/rwd/zh/exchangeReport/STOCK_DAY_AVG?date=20221201&stockNo=2330&response=json"
-
+// stock_day_avg.go — `STOCK_DAY_AVG` (/exchangeReport/STOCK_DAY_AVG) per-stock monthly average price (high/low/weighted + trades/volume/amount, date = YYYYMM01). Capacity: 1 stock × 1 month-row per request.
 package twse
 
 import (

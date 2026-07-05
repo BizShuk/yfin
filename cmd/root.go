@@ -1,3 +1,4 @@
+// root.go — cobra command tree for the yfin CLI: root + pull/quote/fundamentals/scrape/comprehensive-stats/comprehensive-profile/config/version subcommands, with config types, flag wiring, and per-command RunE handlers. Capacity: 8 cobra commands + 8 flag-binding configs + ~30 run/preview/publish/handler functions.
 package cmd
 
 import (

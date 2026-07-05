@@ -1,3 +1,4 @@
+// Tests `DecodeInsider` (transactions + purchase activity + roster) and `InsiderPurchaseSummaryTable` (label/label/shares/trans alignment, nil for inapplicable trans columns).
 package yahoo
 
 import (

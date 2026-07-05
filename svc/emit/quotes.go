@@ -1,4 +1,4 @@
-// Emits normalized quotes into ampy protobuf QuoteTick messages.
+// quotes.go — `EmitQuote` converts a `norm.NormalizedQuote` into an ampy `ticks.v1.QuoteTick` with bid/ask/venue/security/currency validation. Capacity: 1 emit + 2 helpers (`emitMeta`, `getInt64Value`).
 
 package emit
 

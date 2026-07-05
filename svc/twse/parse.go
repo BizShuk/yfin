@@ -1,3 +1,4 @@
+// parse.go — TWSE cell-level numeric helpers `ParseFloat`/`ParseInt`/`ParsePercent`/`StripNumberFmt` (thousands-separator aware). Capacity: 4 helpers consumed by all endpoint row parsers.
 package twse
 
 import (

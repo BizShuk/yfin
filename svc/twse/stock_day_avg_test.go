@@ -1,3 +1,4 @@
+// stock_day_avg_test.go — `FetchStockDayAvg` date-required + stockNo-required validation + decode (date + stockNo in URL) + ParseStockDayAvgRow row too-short. Capacity: 4 test cases.
 package twse
 
 import (

@@ -1,4 +1,4 @@
-// RetryPolicy classifies retryable errors and computes publish retry behavior.
+// — `RetryPolicy` classifies retryable errors and computes publish retry behavior; pairs with `CircuitBreaker` (closed/open/half-open). Capacity: jitter ±25%, exponential backoff capped at `MaxDelayMs`, 3 circuit states.
 
 package bus
 

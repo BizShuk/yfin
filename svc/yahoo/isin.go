@@ -1,5 +1,4 @@
-// Fetches and parses a security's ISIN.
-
+// Fetches/parses a security's ISIN via the Business Insider search endpoint (no Yahoo auth). Capacity: 1 constant URL + `parseISIN` (pipe-delimited line parser) + `FetchISIN`; strips exchange suffixes before lookup.
 package yahoo
 
 import (

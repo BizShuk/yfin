@@ -1,3 +1,5 @@
+// conversion_test.go — unit tests for the four `ConvertTo` methods (`NormalizedBarBatch`, `NormalizedQuote`, `NormalizedFundamentalsSnapshot`, `NormalizedMarketData`) plus `TestConvertToEmptyData`, covering same-currency identity, cross-currency error paths via `MockFXConverter`, and empty-input error handling.
+
 package norm
 
 import (

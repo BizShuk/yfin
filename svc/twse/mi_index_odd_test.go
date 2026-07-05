@@ -1,3 +1,4 @@
+// mi_index_odd_test.go — `FetchMI_INDEX_ODD` + `ParseMIIndexOddRow` decode covering full 8-column odd-lot row + no-data. Capacity: 2 test cases.
 package twse
 
 import (

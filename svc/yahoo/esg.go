@@ -1,5 +1,4 @@
-// Fetches and decodes Yahoo ESG scores.
-
+// Fetches/decodes Yahoo ESG scores via the `esgScores` module. Capacity: 2 structs (`ESGDTO`, internal `esgResult`) + `DecodeESG`, `FetchESG`.
 package yahoo
 
 import (

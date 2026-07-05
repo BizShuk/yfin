@@ -1,9 +1,4 @@
-// mi_qfiis.go 對應 `/fund/MI_QFIIS` 端點。
-// 用途:外資及陸資投資持股統計(持有股數、佔發行股數%)。
-// 對應 README.tsme.md「外資及陸資」章節。
-// 範例:
-//   curl "https://www.twse.com.tw/rwd/zh/fund/MI_QFIIS?date=20221230&selectType=ALL&response=json"
-
+// mi_qfiis.go — `MI_QFIIS` (/fund/MI_QFIIS) foreign + mainland investor holdings per stock (shares held + % of issued). Capacity: ~1900 stocks per response.
 package twse
 
 import (

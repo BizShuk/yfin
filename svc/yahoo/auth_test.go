@@ -1,3 +1,4 @@
+// Tests `CrumbManager.Crumb` cache hit and `Invalidate` forced refetch against an `httptest` server that mimics the cookie + `/v1/test/getcrumb` endpoints.
 package yahoo
 
 import (

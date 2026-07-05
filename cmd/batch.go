@@ -1,3 +1,4 @@
+// batch.go — `batch` cobra subcommand + worker-pool driver that fans every ticker through every entry in `commandRegistry`, honoring the tiered cache and writing per-command JSON files (plus `_failed` error logs). Capacity: 1 `batchCmd` + 3 flags + `runBatchForTicker`/`runBatch` worker loop with bounded concurrency (`batchMaxWorkers` semaphore).
 package cmd
 
 import (

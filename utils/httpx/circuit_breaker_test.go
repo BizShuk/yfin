@@ -1,3 +1,4 @@
+// circuit_breaker_test.go — Tests `CircuitBreaker` state transitions: closed -> open, open -> half-open on reset, half-open success / failure, rolling-window threshold gating. Capacity: 4 test functions.
 package httpx
 
 import (

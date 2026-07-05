@@ -1,3 +1,5 @@
+// conversion.go — `ConvertTo(ctx, target, fx)` methods on `NormalizedBarBatch`, `NormalizedQuote`, `NormalizedFundamentalsSnapshot`, `NormalizedMarketData` that yield `ConvertedBar/Quote/Fundamentals/MarketData` structs (each carrying `OriginalCurrency`, `ConvertedCurrency`, and `FXMeta` provenance) by invoking an injected `FXConverter`. Capacity: 4 `Converted*` types + 4 `ConvertTo` methods.
+
 package norm
 
 import (

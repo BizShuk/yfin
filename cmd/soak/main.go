@@ -1,3 +1,4 @@
+// cmd/soak/main.go — entrypoint for the standalone `soak` binary: cobra root with `universe-file`/`duration`/`qps`/`failure-rate`/memory-check flags, loads config, builds an `Orchestrator`, and runs it to completion. Capacity: 1 cobra root + 14 flags + 1 `runSoak` RunE + `main`.
 package main
 
 import (

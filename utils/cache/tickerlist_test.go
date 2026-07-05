@@ -1,3 +1,5 @@
+// — Unit tests for `ReadTickerList`: basic CSV parsing and blank-line skipping. Capacity: 2 test funcs × 2 fixtures.
+
 package cache
 
 import (

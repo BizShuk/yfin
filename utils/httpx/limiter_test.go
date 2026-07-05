@@ -1,3 +1,4 @@
+// limiter_test.go — Tests `RateLimiter` for initial burst, refill wait timing, context-cancel during wait, and concurrent `Wait` correctness. Capacity: 4 test functions.
 package httpx
 
 import (

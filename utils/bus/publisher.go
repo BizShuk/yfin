@@ -1,4 +1,4 @@
-// BusPublisher is the concrete transport-backed Publisher implementation.
+// — `BusPublisher` is the concrete transport-backed `Publisher` implementation; wires `TopicBuilder` + `EnvelopeBuilder` + `ChunkingStrategy` into the ampy-bus NATS binding. Capacity: 3 message kinds × 1 NATS transport.
 
 package bus
 

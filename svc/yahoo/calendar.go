@@ -1,5 +1,4 @@
-// Fetches and decodes Yahoo earnings-calendar data.
-
+// Fetches/decodes Yahoo earnings-calendar + dividend-dates via the `calendarEvents` module. Capacity: 2 structs (`CalendarDTO`, internal `calendarResult`) + `DecodeCalendar`, `FetchCalendar`; unwraps `RawInt` arrays into `[]int64`.
 package yahoo
 
 import (

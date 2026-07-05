@@ -1,5 +1,6 @@
 // Orchestrator drives the soak test: workers, endpoints and aggregate stats.
 
+// orchestrator.go — top-level soak coordinator: builds `Worker`/`Stats`/`Metrics`/`CorrectnessProbes`/`MemoryMonitor`/`FailureServer`, fans tickers over endpoints under a shared `rate.Limiter`, runs periodic probe rounds and metric logs, then prints aggregate results. Capacity: 1 `SoakConfig` + 1 `Orchestrator` + 1 `Stats` + 1 `EndpointStats` + ~15 lifecycle methods (`NewOrchestrator`/`Run`/`startWorkers`/`runCorrectnessProbes`/`runProbeRound`/`collectMetrics`/`logCurrentMetrics`/`recordInitialState`/`printResults`/`Close`/`loadTickerUniverse`/`parseEndpoints`/`minInt`).
 package main
 
 import (

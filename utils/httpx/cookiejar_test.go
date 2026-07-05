@@ -1,3 +1,4 @@
+// cookiejar_test.go — Tests that `Client` persists cookies across requests via the shared cookiejar (Yahoo crumb-auth flow). Capacity: 1 test function.
 package httpx
 
 import (

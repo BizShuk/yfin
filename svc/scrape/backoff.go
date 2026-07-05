@@ -1,5 +1,4 @@
-// BackoffPolicy computes scraping retry delays, honoring Retry-After.
-
+//  — Computes retry backoff delays with exponential growth, jitter, and Retry-After honor. Capacity: 4 default attempts, 300ms base, 4s max delay.
 package scrape
 
 import (

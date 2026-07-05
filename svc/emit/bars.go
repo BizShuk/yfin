@@ -1,4 +1,4 @@
-// Emits normalized bar batches into ampy protobuf BarBatch messages.
+// bars.go — `EmitBarBatch` converts a `norm.NormalizedBarBatch` into an ampy `bars.v1.BarBatch` with full OHLC/security/adjustment validation. Capacity: 2 emit entrypoints (`EmitBarBatch`, `emitBar`) + `emitDecimal`/`emitSecurity`/`convertAdjustmentPolicy` helpers.
 
 package emit
 

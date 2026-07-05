@@ -1,3 +1,5 @@
+// — Unit tests for `BuildBarsTopic`/`BuildQuotesTopic`/`BuildFundamentalsTopic`, `buildSubtopic`, `ValidateTopic`, `ParseTopic`, `TopicComponents.String`. Capacity: 7 test funcs × 14 sub-cases.
+
 package bus
 
 import (

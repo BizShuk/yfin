@@ -1,5 +1,6 @@
 //go:build integration
 
+// tests — validates real Yahoo Finance data correctness via live API calls. Capacity: 7 scenarios (quote prices, historical OHLC bars, analyst scrape, MIC inference, scale-2 precision, no-fake-data, currency consistency) over AAPL/MSFT/JPM.
 package tests
 
 import (

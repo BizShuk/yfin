@@ -1,3 +1,4 @@
+// Decodes Yahoo chart/bars responses (`BarsResponse` -> `Bar`). Capacity: ~10 structs (`BarsResponse`, `Chart`, `ChartResult`, `ChartMeta`, `ChartIndicators`, `QuoteIndicator`, `AdjCloseIndicator`, `Bar`, `CurrentTradingPeriod`, `TradingPeriod`) + `DecodeBarsResponse` / `DecodeBarsResponseFromReader` with `Validate` that auto-clamps OHLC inconsistencies and skips bars with missing fields.
 package yahoo
 
 import (

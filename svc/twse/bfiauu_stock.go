@@ -1,9 +1,4 @@
-// bfiauu_stock.go 對應 `BFIAUU_STOCK` 端點。
-// 用途:單一證券日成交資訊(透過 stockNo 過濾鉅額交易)。
-// 對應 README.tsme.md「鉅額交易」章節;需指定 stockNo。
-// 範例:
-//   curl "https://www.twse.com.tw/rwd/zh/block/BFIAUU?date=20221230&stockNo=2330&response=json"
-
+// bfiauu_stock.go — `BFIAUU_STOCK` thin wrapper that adds `stockNo` requirement then delegates to `BFIAUU` (same 10-column row shape). Capacity: same variable trades as `BFIAUU`, filtered to one symbol.
 package twse
 
 import (

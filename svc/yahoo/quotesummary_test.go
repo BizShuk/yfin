@@ -1,3 +1,4 @@
+// Tests `FetchQuoteSummary` against an `httptest` server: verifies the URL carries both `crumb=<value>` and a comma-joined `modules=` parameter.
 package yahoo
 
 import (

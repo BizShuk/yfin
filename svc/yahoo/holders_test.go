@@ -1,3 +1,4 @@
+// Tests `DecodeHolders` across three scenarios: institution-ownership parsing (with `MajorHoldersBreakdown`), `MajorDirectHolders` rows, and an empty-result error path.
 package yahoo
 
 import (

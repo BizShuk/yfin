@@ -1,3 +1,4 @@
+// tests/mapping — golden regression for the Yahoo→normalized→emit JSON pipeline using cached fixture samples. Capacity: 3 currency fixtures (AAPL-USD, SAP-EUR, TM-JPY) + 8-currency scale-2 table + canonical-JSON marshaler check.
 package mapping
 
 import (

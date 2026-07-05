@@ -1,3 +1,4 @@
+// main.go — yfin CLI composition root; forwards `cmd.Execute()` to the process and exits non-zero on error. Capacity: 1 entrypoint + 1 os.Exit fallback.
 package main
 
 import (

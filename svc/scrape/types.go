@@ -1,3 +1,4 @@
+//  — Scraper configuration and metadata types (FetchMeta, Config, RetryConfig, EndpointConfig, RobotsPolicy, NewsItem, NewsStats). Capacity: 10 typed structs.
 package scrape
 
 import (

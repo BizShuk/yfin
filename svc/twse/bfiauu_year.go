@@ -1,9 +1,4 @@
-// bfiauu_year.go 對應 `/block/BFIAUU_YEAR` 端點。
-// 用途:鉅額交易年成交資訊(年度、成交筆數、股數、金額)。
-// 對應 README.tsme.md「鉅額交易」章節。
-// 範例:
-//   curl "https://www.twse.com.tw/rwd/zh/block/BFIAUU_YEAR?date=20220101&response=json"
-
+// bfiauu_year.go — `BFIAUU_YEAR` (/block/BFIAUU_YEAR) annual block-trade aggregate (year/trades/volume/amount). Capacity: 10+ years per response (date = YYYY0101).
 package twse
 
 import (

@@ -1,9 +1,4 @@
-// bwibbu_d.go 對應 `/afterTrading/BWIBBU_d` 端點。
-// 用途:個股日本益比、殖利率及股價淨值比。
-// 對應 README.tsme.md「盤後交易資訊」第 3 個端點。
-// 範例:
-//   curl "https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d?date=20221230&selectType=ALL&response=json"
-
+// bwibbu_d.go — `BWIBBU_d` (/afterTrading/BWIBBU_d) per-stock P/E ratio, dividend yield %, and price-to-book ratio snapshot. Capacity: ~1900 stocks per response.
 package twse
 
 import (

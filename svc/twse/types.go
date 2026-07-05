@@ -1,3 +1,4 @@
+// types.go — shared `Response` envelope (stat/title/fields/data/notes/total + `GetStat` getter) embedded by every endpoint DTO. Capacity: 1 base struct per endpoint.
 package twse
 
 // statNoData is TWSE's traditional "no data" message (varies by endpoint, so we

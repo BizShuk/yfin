@@ -1,9 +1,4 @@
-// mi_5mins.go 對應 `/afterTrading/MI_5MINS` 端點。
-// 用途:每 5 秒委託成交統計(累積委買賣筆數/張數、累計成交)。
-// 對應 README.tsme.md「盤後交易資訊」第 6 個端點。
-// 範例:
-//   curl "https://www.twse.com.tw/rwd/zh/afterTrading/MI_5MINS?date=20221230&response=json"
-
+// mi_5mins.go — `MI_5MINS` (/afterTrading/MI_5MINS) every-5-seconds cumulative order-book + trade stats (cumulative buy/sell orders and lots). Capacity: ~270 snapshots per trading day.
 package twse
 
 import (

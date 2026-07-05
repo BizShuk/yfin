@@ -1,9 +1,4 @@
-// fmtqik.go 對應 `/exchangeReport/FMTQIK` 端點。
-// 用途:臺股指數及交易量表(成交股數、金額、發行量加權股價指數)。
-// 對應 README.tsme.md「大盤統計」章節;月份格式 YYYYMM01。
-// 範例:
-//   curl "https://www.twse.com.tw/rwd/zh/exchangeReport/FMTQIK?date=20221201&response=json"
-
+// fmtqik.go — `FMTQIK` (/exchangeReport/FMTQIK) TAIEX index and daily volume/amount/trade-count snapshot. Capacity: 1 day-row per response.
 package twse
 
 import (
