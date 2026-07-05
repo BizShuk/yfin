@@ -36,7 +36,7 @@ func NewClient() *Client {
 	config := httpx.DefaultConfig()
 	httpClient := httpx.NewClient(config)
 	yahooClient := yahoo.NewClient(httpClient, "")
-	scrapeClient := scrape.NewClient(scrape.DefaultConfig(), httpClient)
+	scrapeClient, _ := scrape.NewClient(scrape.DefaultConfig(), httpClient)
 
 	return &Client{
 		yahooClient:  yahooClient,
@@ -49,7 +49,7 @@ func NewClient() *Client {
 func NewClientWithConfig(config *httpx.Config) *Client {
 	httpClient := httpx.NewClient(config)
 	yahooClient := yahoo.NewClient(httpClient, config.BaseURL)
-	scrapeClient := scrape.NewClient(scrape.DefaultConfig(), httpClient)
+	scrapeClient, _ := scrape.NewClient(scrape.DefaultConfig(), httpClient)
 
 	return &Client{
 		yahooClient:  yahooClient,

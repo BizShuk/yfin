@@ -77,14 +77,16 @@ func NewClient(config *Config) *Client {
 	// Create cookie jar for persistent cookie storage (required for Yahoo crumb auth)
 	jar, _ := cookiejar.New(nil)
 
-	// Create HTTP client with timeouts and connection pooling
+	// Create HTTP client with timeouts and connection pooling.
+	// DisableCompression=true lets readBody handle gzip explicitly so the
+	// Content-Encoding response header is preserved for Meta.Gzip.
 	httpClient := &http.Client{
 		Timeout: config.Timeout,
 		Jar:     jar,
 		Transport: &http.Transport{
 			IdleConnTimeout:    config.IdleTimeout,
 			MaxConnsPerHost:    config.MaxConnsPerHost,
-			DisableCompression: false,
+			DisableCompression: true,
 			DisableKeepAlives:  false,
 		},
 	}
@@ -100,10 +102,14 @@ func NewClient(config *Config) *Client {
 
 // Do executes an HTTP request with retry, backoff, rate limiting, and circuit breaker
 func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, error) {
-	// Build the per-request side-channel that middleware reads / writes.
-	// Host + Endpoint are populated eagerly; Status / Bytes / Duration /
-	// Attempts / Gzip are filled by the response path in later tasks.
-	meta := &Meta{Host: req.URL.Host, Endpoint: extractEndpoint(req.URL.Path)}
+	// Build (or retrieve) the per-request side-channel that middleware
+	// reads / writes. `Get` pre-populates meta via context so it can
+	// read the same pointer back; callers that invoke Do directly get
+	// a fresh Meta seeded from the request URL.
+	meta, _ := ctx.Value(ctxMetaKey{}).(*Meta)
+	if meta == nil {
+		meta = &Meta{Host: req.URL.Host, Endpoint: extractEndpoint(req.URL.Path)}
+	}
 
 	// Set User-Agent as a baseline; request middleware may override.
 	req.Header.Set("User-Agent", c.config.UserAgent)
@@ -153,6 +159,8 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 				obsv.RecordRequest(endpoint, "error", "network_error")
 				obsv.RecordRequestLatency(endpoint, time.Since(startTime))
 				obsv.RecordSpanError(span, err)
+				meta.Attempts = attempt + 1
+				meta.Duration = time.Since(startTime)
 				return nil, err
 			}
 		} else {
@@ -176,6 +184,10 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 					obsv.RecordRequest(endpoint, "success", fmt.Sprintf("%d", resp.StatusCode))
 					obsv.RecordRequestLatency(endpoint, time.Since(startTime))
 					obsv.UpdateIngestFetchSpan(span, resp.StatusCode, resp.ContentLength, time.Since(startTime))
+					meta.Status = resp.StatusCode
+					meta.Gzip = resp.Header.Get("Content-Encoding") == "gzip"
+					meta.Attempts = attempt + 1
+					meta.Duration = time.Since(startTime)
 					c.runResponseMW(resp, meta)
 					return resp, nil
 				} else {
@@ -192,6 +204,10 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 					obsv.RecordRequest(endpoint, "error", fmt.Sprintf("%d", resp.StatusCode))
 					obsv.RecordRequestLatency(endpoint, time.Since(startTime))
 					obsv.RecordSpanError(span, lastErr)
+					meta.Status = resp.StatusCode
+					meta.Gzip = resp.Header.Get("Content-Encoding") == "gzip"
+					meta.Attempts = attempt + 1
+					meta.Duration = time.Since(startTime)
 					return nil, lastErr
 				}
 			}
@@ -209,6 +225,8 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 		case <-ctx.Done():
 			obsv.RecordRequest(endpoint, "error", "context_canceled")
 			obsv.RecordSpanError(span, ctx.Err())
+			meta.Attempts = attempt + 1
+			meta.Duration = time.Since(startTime)
 			return nil, ctx.Err()
 		case <-time.After(delay):
 			// Continue to next attempt
@@ -219,6 +237,8 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 	obsv.RecordRequest(endpoint, "error", "max_attempts")
 	obsv.RecordRequestLatency(endpoint, time.Since(startTime))
 	obsv.RecordSpanError(span, fmt.Errorf("max attempts exceeded: %w", lastErr))
+	meta.Attempts = c.config.MaxAttempts
+	meta.Duration = time.Since(startTime)
 	return nil, fmt.Errorf("max attempts exceeded: %w", lastErr)
 }
 

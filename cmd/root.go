@@ -1498,7 +1498,7 @@ func createScrapeClient(cfg *config.ScrapeConfig) (scrape.Client, error) {
 	}
 
 	// Create scrape client
-	return scrape.NewClient(scrapeCfg, nil), nil
+	return scrape.NewClient(scrapeCfg, nil)
 }
 
 // runScrapeCheck runs a scrape connectivity check

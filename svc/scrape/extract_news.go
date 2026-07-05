@@ -13,8 +13,11 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gopkg.in/yaml.v3"
 )
 
@@ -78,14 +81,54 @@ func LoadNewsRegexConfig() error {
 	return nil
 }
 
+// newsMetrics is the news-specific subset of the old scrape.Metrics —
+// outcome counter + parse latency. Kept here (next to the parser it
+// instruments) because they have no use outside ParseNews.
+type newsMetrics struct{}
+
+var (
+	newsTotal        *prometheus.CounterVec
+	newsParseLatency *prometheus.HistogramVec
+	newsMetricsOnce  sync.Once
+)
+
+func newNewsMetrics() *newsMetrics {
+	newsMetricsOnce.Do(func() {
+		newsTotal = promauto.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "yfin_scrape_news_total",
+				Help: "Total number of news parsing operations",
+			},
+			[]string{"outcome"},
+		)
+		newsParseLatency = promauto.NewHistogramVec(
+			prometheus.HistogramOpts{
+				Name:    "yfin_scrape_news_parse_latency_ms",
+				Help:    "News parsing latency in milliseconds",
+				Buckets: prometheus.ExponentialBuckets(1, 2, 12), // 1ms to ~4s
+			},
+			[]string{},
+		)
+	})
+	return &newsMetrics{}
+}
+
+func (m *newsMetrics) recordNews(outcome string) {
+	newsTotal.WithLabelValues(outcome).Inc()
+}
+
+func (m *newsMetrics) recordNewsParseLatency(duration time.Duration) {
+	newsParseLatency.WithLabelValues().Observe(float64(duration.Milliseconds()))
+}
+
 // ParseNews extracts news articles from HTML with robust error handling and deduplication
 func ParseNews(html []byte, baseURL string, now time.Time) ([]NewsItem, *NewsStats, error) {
 	start := time.Now()
 
 	// Initialize metrics
-	metrics := NewMetrics()
+	metrics := newNewsMetrics()
 	defer func() {
-		metrics.RecordNewsParseLatency(time.Since(start))
+		metrics.recordNewsParseLatency(time.Since(start))
 	}()
 
 	htmlStr := string(html)
@@ -116,7 +159,7 @@ func ParseNews(html []byte, baseURL string, now time.Time) ([]NewsItem, *NewsSta
 			AsOf:          now.UTC(),
 		}
 
-		metrics.RecordNews("success")
+		metrics.recordNews("success")
 		return articles, stats, nil
 	}
 
@@ -559,7 +602,7 @@ func extractFirstGroup(s, pattern string) string {
 }
 
 // parseNewsFromHTML falls back to HTML-based extraction for test fixtures
-func parseNewsFromHTML(htmlStr, baseURL string, now time.Time, metrics *Metrics) ([]NewsItem, *NewsStats, error) {
+func parseNewsFromHTML(htmlStr, baseURL string, now time.Time, metrics *newsMetrics) ([]NewsItem, *NewsStats, error) {
 	// Load regex configuration
 	if err := LoadNewsRegexConfig(); err != nil {
 		return nil, nil, fmt.Errorf("failed to load news regex config: %w", err)
@@ -568,12 +611,12 @@ func parseNewsFromHTML(htmlStr, baseURL string, now time.Time, metrics *Metrics)
 	// Extract article containers
 	containers, err := extractArticleContainers(htmlStr)
 	if err != nil {
-		metrics.RecordNews("error")
+		metrics.recordNews("error")
 		return nil, nil, fmt.Errorf("%w: %v", ErrNewsParse, err)
 	}
 
 	if len(containers) == 0 {
-		metrics.RecordNews("no_articles")
+		metrics.recordNews("no_articles")
 		return nil, nil, ErrNewsNoArticles
 	}
 
@@ -590,7 +633,7 @@ func parseNewsFromHTML(htmlStr, baseURL string, now time.Time, metrics *Metrics)
 	enrichArticlesWithJSONMeta(htmlStr, articles)
 
 	if len(articles) == 0 {
-		metrics.RecordNews("no_valid_articles")
+		metrics.recordNews("no_valid_articles")
 		return nil, nil, ErrNewsNoArticles
 	}
 
@@ -617,7 +660,7 @@ func parseNewsFromHTML(htmlStr, baseURL string, now time.Time, metrics *Metrics)
 		AsOf:          now.UTC(),
 	}
 
-	metrics.RecordNews("success")
+	metrics.recordNews("success")
 	return articles, stats, nil
 }
 

@@ -1,4 +1,4 @@
-// body_test.go — Tests gzip auto-decode + body size cap (MaxBodyBytes) on Caller.Call.
+// body_test.go — Tests gzip auto-decode + body size cap (MaxBodyBytes) on Caller.Get.
 package httpx
 
 import (
@@ -15,9 +15,9 @@ import (
 	"time"
 )
 
-// TestCall_RejectsOversizedBody verifies that Call returns ErrBodyTooLarge
+// TestGet_RejectsOversizedBody verifies that Get returns ErrBodyTooLarge
 // when the response body exceeds Config.MaxBodyBytes.
-func TestCall_RejectsOversizedBody(t *testing.T) {
+func TestGet_RejectsOversizedBody(t *testing.T) {
 	const max = int64(1 << 20) // 1 MiB
 	const payload = 10 << 20   // 10 MiB
 
@@ -35,7 +35,7 @@ func TestCall_RejectsOversizedBody(t *testing.T) {
 
 	client := NewClient(cfg)
 
-	_, err := client.Call(testCtx(t), "/", nil)
+	_, _, err := client.Get(testCtx(t), "/", nil)
 	if err == nil {
 		t.Fatalf("expected ErrBodyTooLarge, got nil")
 	}
@@ -44,8 +44,8 @@ func TestCall_RejectsOversizedBody(t *testing.T) {
 	}
 }
 
-// TestCall_AllowsBodyAtLimit verifies that a body exactly at MaxBodyBytes succeeds.
-func TestCall_AllowsBodyAtLimit(t *testing.T) {
+// TestGet_AllowsBodyAtLimit verifies that a body exactly at MaxBodyBytes succeeds.
+func TestGet_AllowsBodyAtLimit(t *testing.T) {
 	const max = int64(1 << 20) // 1 MiB
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -62,7 +62,7 @@ func TestCall_AllowsBodyAtLimit(t *testing.T) {
 
 	client := NewClient(cfg)
 
-	body, err := client.Call(testCtx(t), "/", nil)
+	body, _, err := client.Get(testCtx(t), "/", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -71,9 +71,9 @@ func TestCall_AllowsBodyAtLimit(t *testing.T) {
 	}
 }
 
-// TestCall_DecodesGzipByDefault verifies that gzip-encoded responses are
-// transparently decoded by Caller.Call.
-func TestCall_DecodesGzipByDefault(t *testing.T) {
+// TestGet_DecodesGzipByDefault verifies that gzip-encoded responses are
+// transparently decoded by Caller.Get.
+func TestGet_DecodesGzipByDefault(t *testing.T) {
 	want := []byte(`{"hello":"world"}`)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -92,7 +92,7 @@ func TestCall_DecodesGzipByDefault(t *testing.T) {
 
 	client := NewClient(cfg)
 
-	body, err := client.Call(testCtx(t), "/", nil)
+	body, _, err := client.Get(testCtx(t), "/", nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -101,9 +101,9 @@ func TestCall_DecodesGzipByDefault(t *testing.T) {
 	}
 }
 
-// TestCall_GzipBodyExceedingLimit verifies the size cap applies to the
+// TestGet_GzipBodyExceedingLimit verifies the size cap applies to the
 // decompressed body, not the wire bytes.
-func TestCall_GzipBodyExceedingLimit(t *testing.T) {
+func TestGet_GzipBodyExceedingLimit(t *testing.T) {
 	const max = int64(1 << 10) // 1 KiB after decompress
 	const payload = 16 << 10  // 16 KiB uncompressed
 
@@ -123,15 +123,15 @@ func TestCall_GzipBodyExceedingLimit(t *testing.T) {
 
 	client := NewClient(cfg)
 
-	_, err := client.Call(testCtx(t), "/", nil)
+	_, _, err := client.Get(testCtx(t), "/", nil)
 	if !errors.Is(err, ErrBodyTooLarge) {
 		t.Fatalf("expected ErrBodyTooLarge for gzipped oversized body, got %v", err)
 	}
 }
 
-// TestCall_DefaultNoBodyCap verifies that MaxBodyBytes=0 (default) does not
+// TestGet_DefaultNoBodyCap verifies that MaxBodyBytes=0 (default) does not
 // impose any limit, matching pre-existing behaviour.
-func TestCall_DefaultNoBodyCap(t *testing.T) {
+func TestGet_DefaultNoBodyCap(t *testing.T) {
 	const payload = 4 << 20 // 4 MiB
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -147,7 +147,7 @@ func TestCall_DefaultNoBodyCap(t *testing.T) {
 
 	client := NewClient(cfg)
 
-	body, err := client.Call(testCtx(t), "/", url.Values{"q": {"1"}})
+	body, _, err := client.Get(testCtx(t), "/", url.Values{"q": {"1"}})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
