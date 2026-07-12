@@ -6,52 +6,15 @@ import (
 	"fmt"
 	"regexp"
 	"time"
+
+	"github.com/bizshuk/yfin/model"
 )
 
-// Executive represents a company executive
-type Executive struct {
-	Name             string `json:"name,omitempty"`
-	Title            string `json:"title,omitempty"`
-	YearBorn         *int   `json:"year_born,omitempty"`
-	TotalPay         *int64 `json:"total_pay,omitempty"`
-	ExercisedValue   *int64 `json:"exercised_value,omitempty"`
-	UnexercisedValue *int64 `json:"unexercised_value,omitempty"`
-}
-
-// ComprehensiveProfileDTO holds comprehensive profile data
-type ComprehensiveProfileDTO struct {
-	Symbol string    `json:"symbol"`
-	Market string    `json:"market"`
-	AsOf   time.Time `json:"as_of"`
-
-	// Company Information
-	CompanyName       string `json:"company_name,omitempty"`
-	ShortName         string `json:"short_name,omitempty"`
-	Address1          string `json:"address1,omitempty"`
-	City              string `json:"city,omitempty"`
-	State             string `json:"state,omitempty"`
-	Zip               string `json:"zip,omitempty"`
-	Country           string `json:"country,omitempty"`
-	Phone             string `json:"phone,omitempty"`
-	Website           string `json:"website,omitempty"`
-	Industry          string `json:"industry,omitempty"`
-	Sector            string `json:"sector,omitempty"`
-	FullTimeEmployees *int64 `json:"full_time_employees,omitempty"`
-	BusinessSummary   string `json:"business_summary,omitempty"`
-
-	// Key Executives
-	Executives []Executive `json:"executives,omitempty"`
-
-	// Additional Information
-	MaxAge                    *int64 `json:"max_age,omitempty"`
-	AuditRisk                 *int64 `json:"audit_risk,omitempty"`
-	BoardRisk                 *int64 `json:"board_risk,omitempty"`
-	CompensationRisk          *int64 `json:"compensation_risk,omitempty"`
-	ShareHolderRightsRisk     *int64 `json:"share_holder_rights_risk,omitempty"`
-	OverallRisk               *int64 `json:"overall_risk,omitempty"`
-	GovernanceEpochDate       *int64 `json:"governance_epoch_date,omitempty"`
-	CompensationAsOfEpochDate *int64 `json:"compensation_as_of_epoch_date,omitempty"`
-}
+// DTO aliases — types now live in model/scrape_dtos.go.
+type (
+	Executive                 = model.Executive
+	ComprehensiveProfileDTO   = model.ComprehensiveProfileDTO
+)
 
 // extractCompanyNameFromQuote extracts company name from the quote data in the same script tag
 func extractCompanyNameFromQuote(html string, dto *ComprehensiveProfileDTO) {

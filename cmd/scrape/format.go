@@ -19,12 +19,12 @@ import (
 
 	fundamentalsv1 "github.com/AmpyFin/ampy-proto/v2/gen/go/ampy/fundamentals/v1"
 	newsv1 "github.com/AmpyFin/ampy-proto/v2/gen/go/ampy/news/v1"
+	"github.com/bizshuk/yfin/model"
 	"github.com/bizshuk/yfin/svc/emit"
-	"github.com/bizshuk/yfin/svc/scrape"
 )
 
 // printAnalysisSummary prints a comprehensive summary of analysis data
-func printAnalysisSummary(dto *scrape.ComprehensiveAnalysisDTO) {
+func printAnalysisSummary(dto *model.ComprehensiveAnalysisDTO) {
 	fmt.Printf("ANALYSIS SUMMARY: symbol=%s\n", dto.Symbol)
 
 	// Earnings Estimate
@@ -188,7 +188,7 @@ func printAnalysisCell(value interface{}, dataType string) {
 }
 
 // printAnalystInsightsSummary prints a comprehensive summary of analyst insights
-func printAnalystInsightsSummary(dto *scrape.AnalystInsightsDTO) {
+func printAnalystInsightsSummary(dto *model.AnalystInsightsDTO) {
 	fmt.Printf("ANALYST INSIGHTS: symbol=%s\n", dto.Symbol)
 
 	// Current Price
@@ -267,7 +267,7 @@ func printProfileResult(result *emit.ProfileMappingResult) {
 }
 
 // printNewsArticles prints a summary of news articles
-func printNewsArticles(articles []*newsv1.NewsItem, stats *scrape.NewsStats) {
+func printNewsArticles(articles []*newsv1.NewsItem, stats *model.NewsStats) {
 	if len(articles) == 0 {
 		fmt.Printf("No news articles found\n")
 		return

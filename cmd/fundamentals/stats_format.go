@@ -8,11 +8,11 @@ package fundamentals
 import (
 	"fmt"
 
-	"github.com/bizshuk/yfin/svc/scrape"
+	"github.com/bizshuk/yfin/model"
 )
 
 // printComprehensiveStatisticsSummary prints a summary of comprehensive statistics
-func printComprehensiveStatisticsSummary(dto *scrape.ComprehensiveKeyStatisticsDTO) {
+func printComprehensiveStatisticsSummary(dto *model.ComprehensiveKeyStatisticsDTO) {
 	fmt.Printf("COMPREHENSIVE STATISTICS: symbol=%s currency=%s\n", dto.Symbol, dto.Currency)
 
 	fmt.Printf("CURRENT VALUES:\n")

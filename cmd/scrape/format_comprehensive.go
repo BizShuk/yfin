@@ -13,11 +13,11 @@ package scrape
 import (
 	"fmt"
 
-	"github.com/bizshuk/yfin/svc/scrape"
+	"github.com/bizshuk/yfin/model"
 )
 
 // printComprehensiveStatisticsSummary prints a summary of comprehensive statistics
-func printComprehensiveStatisticsSummary(dto *scrape.ComprehensiveKeyStatisticsDTO) {
+func printComprehensiveStatisticsSummary(dto *model.ComprehensiveKeyStatisticsDTO) {
 	fmt.Printf("COMPREHENSIVE STATISTICS: symbol=%s currency=%s\n", dto.Symbol, dto.Currency)
 
 	// Current values
@@ -175,7 +175,7 @@ func printComprehensiveStatisticsSummary(dto *scrape.ComprehensiveKeyStatisticsD
 }
 
 // printComprehensiveProfileSummary prints a summary of comprehensive profile
-func printComprehensiveProfileSummary(dto *scrape.ComprehensiveProfileDTO) {
+func printComprehensiveProfileSummary(dto *model.ComprehensiveProfileDTO) {
 	fmt.Printf("COMPREHENSIVE PROFILE: symbol=%s\n", dto.Symbol)
 
 	// Company Information
@@ -265,7 +265,7 @@ func printComprehensiveProfileSummary(dto *scrape.ComprehensiveProfileDTO) {
 }
 
 // printComprehensiveFinancialsSummary prints a summary of comprehensive financials
-func printComprehensiveFinancialsSummary(dto *scrape.ComprehensiveFinancialsDTO) {
+func printComprehensiveFinancialsSummary(dto *model.ComprehensiveFinancialsDTO) {
 	fmt.Printf("COMPREHENSIVE FINANCIALS: symbol=%s currency=%s\n", dto.Symbol, dto.Currency)
 
 	// Current values
@@ -549,7 +549,7 @@ func printComprehensiveFinancialsSummary(dto *scrape.ComprehensiveFinancialsDTO)
 }
 
 // countFinancialsFields counts the number of extracted fields in financials data
-func countFinancialsFields(dto *scrape.ComprehensiveFinancialsDTO) int {
+func countFinancialsFields(dto *model.ComprehensiveFinancialsDTO) int {
 	count := 0
 
 	// Count current fields

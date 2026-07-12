@@ -1,23 +1,29 @@
-//  — Scraper configuration and metadata types (FetchMeta, Config, RetryConfig, EndpointConfig, RobotsPolicy, NewsItem, NewsStats). Capacity: 10 typed structs.
+// types.go — back-compat type aliases for `model.*` scrape types + scrape
+// configuration (`Config`, `RetryConfig`, `EndpointConfig`, `RobotsPolicy`,
+// `RobotsEnforce/Warn/Ignore`, `IsValidRobotsPolicy`, `DefaultConfig`).
+// The data structs (FetchMeta, ScrapeNewsItem=NewsItem, NewsStats) now
+// live in model/scrape.go; this file only retains scrape-package-internal
+// configuration types and constructors that aren't appropriate for model/.
+
 package scrape
 
 import (
 	"time"
+
+	"github.com/bizshuk/yfin/model"
 )
 
-// FetchMeta contains metadata about a fetch operation
-type FetchMeta struct {
-	URL          string        `json:"url"`
-	Host         string        `json:"host"`
-	Status       int           `json:"status"`
-	Attempt      int           `json:"attempt"`
-	Bytes        int           `json:"bytes"`
-	Gzip         bool          `json:"gzip"`
-	Redirects    int           `json:"redirects"`
-	Duration     time.Duration `json:"duration"`
-	FromCache    bool          `json:"from_cache"` // reserved for optional HTML in-run cache
-	RobotsPolicy string        `json:"robots_policy"`
-}
+// FetchMeta re-export — defined in model/scrape.go.
+type FetchMeta = model.FetchMeta
+
+// NewsItem is the raw scrape-shape news article (carries ImageURL +
+// RelatedTickers); distinct from model.NewsItem which is the cleaned SDK
+// surface. Kept under the same name as before for back-compat with
+// scrape-internal code.
+type NewsItem = model.ScrapeNewsItem
+
+// NewsStats re-export — defined in model/scrape.go.
+type NewsStats = model.NewsStats
 
 // Config represents the scraping configuration
 type Config struct {
@@ -89,56 +95,15 @@ func IsValidRobotsPolicy(policy string) bool {
 		policy == string(RobotsIgnore)
 }
 
-// RobotsRule represents a robots.txt rule
-type RobotsRule struct {
-	UserAgent string
-	Allow     []string
-	Disallow  []string
-}
+// RobotsRule, RobotsCache, BackoffPolicyConfig, RateLimitConfig are
+// re-exported from model/scrape.go below for callers that still import them
+// from svc/scrape directly.
+type (
+	RobotsRule           = model.RobotsRule
+	RobotsCache          = model.RobotsCache
+	BackoffPolicyConfig  = model.BackoffPolicyConfig
+	RateLimitConfig      = model.RateLimitConfig
+)
 
-// RobotsCache represents cached robots.txt data
-type RobotsCache struct {
-	Host      string
-	Rules     []RobotsRule
-	FetchedAt time.Time
-	TTL       time.Duration
-}
-
-// IsExpired checks if the robots cache is expired
-func (rc *RobotsCache) IsExpired() bool {
-	return time.Since(rc.FetchedAt) > rc.TTL
-}
-
-// BackoffPolicyConfig represents backoff configuration
-type BackoffPolicyConfig struct {
-	BaseDelay    time.Duration
-	MaxDelay     time.Duration
-	Multiplier   float64
-	JitterFactor float64
-}
-
-// RateLimitConfig represents rate limiting configuration
-type RateLimitConfig struct {
-	QPS            float64
-	Burst          int
-	PerHostWorkers int
-}
-
-// NewsItem represents a single news article extracted from Yahoo Finance
-type NewsItem struct {
-	Title          string     `json:"title"`
-	URL            string     `json:"url"` // absolute; normalized
-	Source         string     `json:"source"`
-	PublishedAt    *time.Time `json:"published_at"` // UTC if resolvable
-	ImageURL       string     `json:"image_url"`
-	RelatedTickers []string   `json:"related_tickers"`
-}
-
-// NewsStats represents statistics about news extraction
-type NewsStats struct {
-	TotalFound    int       `json:"total_found"`
-	TotalReturned int       `json:"total_returned"`
-	Deduped       int       `json:"deduped"`
-	NextPageHint  string    `json:"next_page_hint"` // e.g., a data-cursor or bool flag if detected
-	AsOf          time.Time `json:"as_of"`
-}
+// (time import retained for DefaultConfig potential future timestamp fields.)
+var _ = time.Now

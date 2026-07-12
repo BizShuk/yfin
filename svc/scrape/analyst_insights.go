@@ -9,27 +9,12 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/bizshuk/yfin/model"
 	"gopkg.in/yaml.v3"
 )
 
-// AnalystInsightsDTO represents analyst insights data from Yahoo Finance
-type AnalystInsightsDTO struct {
-	Symbol string    `json:"symbol"`
-	Market string    `json:"market"`
-	AsOf   time.Time `json:"as_of"`
-
-	// Price Targets
-	CurrentPrice      *float64 `json:"current_price,omitempty"`
-	TargetMeanPrice   *float64 `json:"target_mean_price,omitempty"`
-	TargetMedianPrice *float64 `json:"target_median_price,omitempty"`
-	TargetHighPrice   *float64 `json:"target_high_price,omitempty"`
-	TargetLowPrice    *float64 `json:"target_low_price,omitempty"`
-
-	// Analyst Opinions
-	NumberOfAnalysts   *int     `json:"number_of_analysts,omitempty"`
-	RecommendationMean *float64 `json:"recommendation_mean,omitempty"`
-	RecommendationKey  *string  `json:"recommendation_key,omitempty"`
-}
+// AnalystInsightsDTO re-export — defined in model/scrape_dtos.go.
+type AnalystInsightsDTO = model.AnalystInsightsDTO
 
 // AnalystInsightsRegexConfig holds the regex patterns for analyst insights extraction
 type AnalystInsightsRegexConfig struct {

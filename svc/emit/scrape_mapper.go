@@ -9,7 +9,7 @@ import (
 	commonv1 "github.com/AmpyFin/ampy-proto/v2/gen/go/ampy/common/v1"
 	fundamentalsv1 "github.com/AmpyFin/ampy-proto/v2/gen/go/ampy/fundamentals/v1"
 	newsv1 "github.com/AmpyFin/ampy-proto/v2/gen/go/ampy/news/v1"
-	"github.com/bizshuk/yfin/svc/scrape"
+	"github.com/bizshuk/yfin/model"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -37,7 +37,7 @@ func NewScrapeMapper(config ScrapeMapperConfig) *ScrapeMapper {
 }
 
 // MapFinancials converts FinancialsDTO to ampy.fundamentals.v1.FundamentalsSnapshot
-func (m *ScrapeMapper) MapFinancials(ctx context.Context, dto *scrape.FinancialsDTO) (*fundamentalsv1.FundamentalsSnapshot, error) {
+func (m *ScrapeMapper) MapFinancials(ctx context.Context, dto *model.FinancialsDTO) (*fundamentalsv1.FundamentalsSnapshot, error) {
 	if dto == nil {
 		return nil, fmt.Errorf("FinancialsDTO cannot be nil")
 	}
@@ -71,7 +71,7 @@ func (m *ScrapeMapper) MapFinancials(ctx context.Context, dto *scrape.Financials
 }
 
 // MapProfile converts ProfileDTO to JSON bytes (fallback since reference schema may not be available)
-func (m *ScrapeMapper) MapProfile(ctx context.Context, dto *scrape.ComprehensiveProfileDTO) ([]byte, error) {
+func (m *ScrapeMapper) MapProfile(ctx context.Context, dto *model.ComprehensiveProfileDTO) ([]byte, error) {
 	if dto == nil {
 		return nil, fmt.Errorf("ProfileDTO cannot be nil")
 	}
@@ -87,7 +87,7 @@ func (m *ScrapeMapper) MapProfile(ctx context.Context, dto *scrape.Comprehensive
 }
 
 // MapNews converts slice of NewsItem to slice of ampy.news.v1.NewsItem
-func (m *ScrapeMapper) MapNews(ctx context.Context, items []scrape.NewsItem, symbol string) ([]*newsv1.NewsItem, error) {
+func (m *ScrapeMapper) MapNews(ctx context.Context, items []model.ScrapeNewsItem, symbol string) ([]*newsv1.NewsItem, error) {
 	if len(items) == 0 {
 		return nil, nil
 	}
@@ -106,7 +106,7 @@ func (m *ScrapeMapper) MapNews(ctx context.Context, items []scrape.NewsItem, sym
 }
 
 // mapPeriodLine converts a PeriodLine to ampy.fundamentals.v1.LineItem
-func (m *ScrapeMapper) mapPeriodLine(line *scrape.PeriodLine) (*fundamentalsv1.LineItem, error) {
+func (m *ScrapeMapper) mapPeriodLine(line *model.PeriodLine) (*fundamentalsv1.LineItem, error) {
 	// Convert scaled decimal
 	value := &commonv1.Decimal{
 		Scaled: line.Value.Scaled,
@@ -134,7 +134,7 @@ func (m *ScrapeMapper) mapPeriodLine(line *scrape.PeriodLine) (*fundamentalsv1.L
 }
 
 // mapNewsItem converts a NewsItem to ampy.news.v1.NewsItem
-func (m *ScrapeMapper) mapNewsItem(item *scrape.NewsItem, symbol string) (*newsv1.NewsItem, error) {
+func (m *ScrapeMapper) mapNewsItem(item *model.ScrapeNewsItem, symbol string) (*newsv1.NewsItem, error) {
 	// Note: Security field not available in ampy-proto v2.1.0 NewsItem
 	// Primary ticker information is stored in the Tickers field
 

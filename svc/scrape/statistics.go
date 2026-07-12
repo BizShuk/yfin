@@ -11,10 +11,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bizshuk/yfin/model"
 	"gopkg.in/yaml.v3"
 )
 
-// RegexConfig holds the regex patterns for statistics extraction
+// RegexConfig holds the regex patterns for statistics extraction — kept
+// scrape-side because it pairs 1:1 with statistics.yaml and is loaded via
+// LoadRegexConfig (yaml.v3 → scrape-local config struct).
 type RegexConfig struct {
 	Current struct {
 		MarketCap              string `yaml:"market_cap"`
@@ -48,6 +51,7 @@ type RegexConfig struct {
 	DateHeaders string `yaml:"date_headers"`
 }
 
+// ColumnPatterns holds the per-column regex patterns for one historical quarter.
 type ColumnPatterns struct {
 	MarketCap              string `yaml:"market_cap"`
 	EnterpriseValue        string `yaml:"enterprise_value"`
@@ -60,52 +64,11 @@ type ColumnPatterns struct {
 	EnterpriseValueEBITDA  string `yaml:"enterprise_value_ebitda"`
 }
 
-// ComprehensiveKeyStatisticsDTO holds all key statistics data
-type ComprehensiveKeyStatisticsDTO struct {
-	Symbol   string    `json:"symbol"`
-	Market   string    `json:"market"`
-	Currency string    `json:"currency"`
-	AsOf     time.Time `json:"as_of"`
-
-	// Current values (most recent data)
-	Current struct {
-		MarketCap              *Scaled `json:"market_cap,omitempty"`
-		EnterpriseValue        *Scaled `json:"enterprise_value,omitempty"`
-		TrailingPE             *Scaled `json:"trailing_pe,omitempty"`
-		ForwardPE              *Scaled `json:"forward_pe,omitempty"`
-		PEGRatio               *Scaled `json:"peg_ratio,omitempty"`
-		PriceSales             *Scaled `json:"price_sales,omitempty"`
-		PriceBook              *Scaled `json:"price_book,omitempty"`
-		EnterpriseValueRevenue *Scaled `json:"enterprise_value_revenue,omitempty"`
-		EnterpriseValueEBITDA  *Scaled `json:"enterprise_value_ebitda,omitempty"`
-	} `json:"current"`
-
-	// Additional statistics (from other parts of the page)
-	Additional struct {
-		Beta              *Scaled `json:"beta,omitempty"`
-		SharesOutstanding *int64  `json:"shares_outstanding,omitempty"`
-		ProfitMargin      *Scaled `json:"profit_margin,omitempty"`
-		OperatingMargin   *Scaled `json:"operating_margin,omitempty"`
-		ReturnOnAssets    *Scaled `json:"return_on_assets,omitempty"`
-		ReturnOnEquity    *Scaled `json:"return_on_equity,omitempty"`
-	} `json:"additional"`
-
-	// Historical values - dynamic quarters
-	Historical []HistoricalQuarter `json:"historical,omitempty"`
-}
-
-type HistoricalQuarter struct {
-	Date                   string  `json:"date"`
-	MarketCap              *Scaled `json:"market_cap,omitempty"`
-	EnterpriseValue        *Scaled `json:"enterprise_value,omitempty"`
-	TrailingPE             *Scaled `json:"trailing_pe,omitempty"`
-	ForwardPE              *Scaled `json:"forward_pe,omitempty"`
-	PEGRatio               *Scaled `json:"peg_ratio,omitempty"`
-	PriceSales             *Scaled `json:"price_sales,omitempty"`
-	PriceBook              *Scaled `json:"price_book,omitempty"`
-	EnterpriseValueRevenue *Scaled `json:"enterprise_value_revenue,omitempty"`
-	EnterpriseValueEBITDA  *Scaled `json:"enterprise_value_ebitda,omitempty"`
-}
+// DTO aliases — types now live in model/scrape_dtos.go.
+type (
+	ComprehensiveKeyStatisticsDTO = model.ComprehensiveKeyStatisticsDTO
+	HistoricalQuarter             = model.HistoricalQuarter
+)
 
 var regexConfig *RegexConfig
 

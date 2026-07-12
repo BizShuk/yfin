@@ -6,11 +6,11 @@ package fundamentals
 import (
 	"fmt"
 
-	"github.com/bizshuk/yfin/svc/scrape"
+	"github.com/bizshuk/yfin/model"
 )
 
 // printComprehensiveProfileSummary prints a summary of comprehensive profile
-func printComprehensiveProfileSummary(dto *scrape.ComprehensiveProfileDTO) {
+func printComprehensiveProfileSummary(dto *model.ComprehensiveProfileDTO) {
 	fmt.Printf("COMPREHENSIVE PROFILE: symbol=%s\n", dto.Symbol)
 
 	fmt.Printf("COMPANY INFORMATION:\n")
