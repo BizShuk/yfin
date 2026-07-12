@@ -95,6 +95,7 @@ func init() {
 	twseCmd.Flags().BoolVar(&twseCfg.pretty, "pretty", false, "Pretty-print JSON output")
 	_ = twseCmd.MarkFlagRequired("endpoint")
 	_ = twseCmd.MarkFlagRequired("date")
+	rootCmd.AddCommand(twseCmd)
 }
 
 // runTwseEndpoint is the RunE for `yfin twse`. It validates flags, builds

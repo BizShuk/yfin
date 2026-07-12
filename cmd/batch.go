@@ -82,6 +82,7 @@ func init() {
 	batchCmd.Flags().StringVar(&batchTicker, "ticker", "", "Single ticker (default: ticker_list.csv)")
 	batchCmd.Flags().IntVar(&batchMaxWorkers, "max-workers", 10, "Max concurrent workers")
 	batchCmd.Flags().BoolVar(&batchForce, "force", false, "Force re-fetch, ignore cache")
+	rootCmd.AddCommand(batchCmd)
 }
 
 func runBatch(cmd *cobra.Command, args []string) error {

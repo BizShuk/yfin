@@ -1,4 +1,8 @@
-// root_test.go — unit tests covering flag validation, date parsing, adjustment policy parsing, universe file loading, JSON export, and exit-code constants. Capacity: 5 test functions covering `validatePullFlags`/`parseDates`/`parseAdjusted`/`getSymbols`/`writeJSONFile` + exit-code sanity check.
+// pull_test.go — unit tests for the pull subcommand's helpers:
+// flag validation, date/adjusted parsing, universe-file symbol loading,
+// and the JSON local-export sink used by `pull` (also reused by `quote`).
+// Capacity: 5 test functions covering `validatePullFlags` / `parseDates` /
+// `parseAdjusted` / `getSymbols` / `writeJSONFile`.
 package cmd
 
 import (
@@ -210,12 +214,4 @@ func TestWriteJSONFile(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(content), `"test": "data"`)
 	assert.Contains(t, string(content), `"number": 42`)
-}
-
-func TestExitCodes(t *testing.T) {
-	assert.Equal(t, 0, ExitSuccess)
-	assert.Equal(t, 1, ExitGeneral)
-	assert.Equal(t, 2, ExitPaidFeature)
-	assert.Equal(t, 3, ExitConfigError)
-	assert.Equal(t, 4, ExitPublishError)
 }
