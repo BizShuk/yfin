@@ -1,47 +1,28 @@
-// fundamentals.go — `FundamentalsLine` / `FundamentalsSnapshot` plain SDK
-// structs + 2 converters: public `FromFundamentalsSnapshot` (norm → SDK) and
+// fundamentals.go — `FundamentalsLine` / `FundamentalsSnapshot` type aliases
+// + 2 converters: public `FromFundamentalsSnapshot` (norm → SDK) and
 // unexported `fromProtoFundamentals` (ampy-proto → SDK, used by
-// `Client.Scrape*` only). Capacity: 2 structs + 2 converters (1 public,
-// 1 internal).
+// `Client.Scrape*` only). Structs live in model/fundamentals.go; facade
+// re-exports them as back-compat aliases.
 package facade
 
 import (
-	"time"
-
 	fundamentalsv1 "github.com/AmpyFin/ampy-proto/v2/gen/go/ampy/fundamentals/v1"
-	"github.com/bizshuk/yfin/svc/norm"
+	"github.com/bizshuk/yfin/model"
 )
 
-// FundamentalsLine is one period-tagged line item (e.g., "revenue",
-// "net_income", "eps_basic"). Value is the float64 decoded from the
-// internal ScaledDecimal / ampy-proto Decimal via norm.FromScaledDecimal;
-// a missing Value is surfaced as 0 (float64 cannot distinguish zero from
-// missing). PeriodStart / PeriodEnd are UTC.
-type FundamentalsLine struct {
-	Key          string    `json:"key"`
-	Value        float64   `json:"value"`
-	CurrencyCode string    `json:"currency_code,omitempty"`
-	PeriodStart  time.Time `json:"period_start"`
-	PeriodEnd    time.Time `json:"period_end"`
-}
+// FundamentalsLine is one period-tagged line item. Aliased from
+// model.FundamentalsLine — new code should use model.FundamentalsLine directly.
+type FundamentalsLine = model.FundamentalsLine
 
-// FundamentalsSnapshot is one symbol's fundamentals view, exposed as a plain
-// SDK struct. Lines preserves the order it was supplied in (the ampy-proto
-// FundamentalsSnapshot.Lines is a []*LineItem, not a map, so ordering is
-// inherent; fromProtoFundamentals and FromFundamentalsSnapshot both copy
-// lines in input order without re-sorting).
-type FundamentalsSnapshot struct {
-	Symbol string             `json:"symbol"`
-	MIC    string             `json:"mic,omitempty"`
-	Source string             `json:"source,omitempty"`
-	AsOf   time.Time          `json:"as_of"`
-	Lines  []FundamentalsLine `json:"lines,omitempty"`
-}
+// FundamentalsSnapshot is one symbol's fundamentals view. Aliased from
+// model.FundamentalsSnapshot — new code should use model.FundamentalsSnapshot
+// directly.
+type FundamentalsSnapshot = model.FundamentalsSnapshot
 
-// FromFundamentalsSnapshot converts the internal norm.NormalizedFundamentalsSnapshot
-// into the plain SDK FundamentalsSnapshot. Uses norm.FromScaledDecimal to
+// FromFundamentalsSnapshot converts the internal model.NormalizedFundamentalsSnapshot
+// into the plain SDK FundamentalsSnapshot. Uses model.FromScaledDecimal to
 // unwrap each line's value; nil input -> nil output.
-func FromFundamentalsSnapshot(n *norm.NormalizedFundamentalsSnapshot) *FundamentalsSnapshot {
+func FromFundamentalsSnapshot(n *model.NormalizedFundamentalsSnapshot) *FundamentalsSnapshot {
 	if n == nil {
 		return nil
 	}
@@ -55,7 +36,7 @@ func FromFundamentalsSnapshot(n *norm.NormalizedFundamentalsSnapshot) *Fundament
 	for _, line := range n.Lines {
 		out.Lines = append(out.Lines, FundamentalsLine{
 			Key:          line.Key,
-			Value:        norm.FromScaledDecimal(line.Value),
+			Value:        model.FromScaledDecimal(line.Value),
 			CurrencyCode: line.CurrencyCode,
 			PeriodStart:  line.PeriodStart,
 			PeriodEnd:    line.PeriodEnd,
@@ -72,10 +53,10 @@ func FromFundamentalsSnapshot(n *norm.NormalizedFundamentalsSnapshot) *Fundament
 //
 // Notes on the conversion:
 //   - Security: ampy-proto uses *commonv1.SecurityId with Symbol/Mic as
-//     top-level fields (vs norm.Security where MIC is also top-level); both
+//     top-level fields (vs model.Security where MIC is also top-level); both
 //     map 1:1.
 //   - Value: the proto's *commonv1.Decimal is decoded to float64 via
-//     norm.FromScaledDecimal. A nil Decimal surfaces as 0 (float64 cannot
+//     model.FromScaledDecimal. A nil Decimal surfaces as 0 (float64 cannot
 //     represent nil); CurrencyCode / Period* are copied verbatim.
 //   - AsOf: ampy-proto Timestamp → time.Time (UTC). A nil AsOf yields the
 //     zero time.Time.
@@ -107,8 +88,8 @@ func fromProtoFundamentals(p *fundamentalsv1.FundamentalsSnapshot) *Fundamentals
 		if v := li.GetValue(); v != nil {
 			// Decode the scaled integer back to float64. The proto's
 			// Scale is int32 but scales are small (typ. 0-8) so the
-			// conversion to norm.ScaledDecimal.Scale (int) is lossless.
-			line.Value = norm.FromScaledDecimal(norm.ScaledDecimal{
+			// conversion to model.ScaledDecimal.Scale (int) is lossless.
+			line.Value = model.FromScaledDecimal(model.ScaledDecimal{
 				Scaled: v.GetScaled(),
 				Scale:  int(v.GetScale()),
 			})

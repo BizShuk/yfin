@@ -1,4 +1,4 @@
-// bars.go — `EmitBarBatch` converts a `norm.NormalizedBarBatch` into an ampy `bars.v1.BarBatch` with full OHLC/security/adjustment validation. Capacity: 2 emit entrypoints (`EmitBarBatch`, `emitBar`) + `emitDecimal`/`emitSecurity`/`convertAdjustmentPolicy` helpers.
+// bars.go — `EmitBarBatch` converts a `model.NormalizedBarBatch` into an ampy `bars.v1.BarBatch` with full OHLC/security/adjustment validation. Capacity: 2 emit entrypoints (`EmitBarBatch`, `emitBar`) + `emitDecimal`/`emitSecurity`/`convertAdjustmentPolicy` helpers.
 
 package emit
 
@@ -7,12 +7,12 @@ import (
 
 	barsv1 "github.com/AmpyFin/ampy-proto/v2/gen/go/ampy/bars/v1"
 	commonv1 "github.com/AmpyFin/ampy-proto/v2/gen/go/ampy/common/v1"
-	"github.com/bizshuk/yfin/svc/norm"
+	"github.com/bizshuk/yfin/model"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // EmitBarBatch converts a NormalizedBarBatch to ampy.bars.v1.BarBatch
-func EmitBarBatch(n *norm.NormalizedBarBatch) (*barsv1.BarBatch, error) {
+func EmitBarBatch(n *model.NormalizedBarBatch) (*barsv1.BarBatch, error) {
 	if n == nil {
 		return nil, fmt.Errorf("normalized bar batch cannot be nil")
 	}
@@ -38,7 +38,7 @@ func EmitBarBatch(n *norm.NormalizedBarBatch) (*barsv1.BarBatch, error) {
 }
 
 // emitBar converts a single NormalizedBar to ampy.bars.v1.Bar
-func emitBar(n *norm.NormalizedBar, security *norm.Security) (*barsv1.Bar, error) {
+func emitBar(n *model.NormalizedBar, security *model.Security) (*barsv1.Bar, error) {
 	if n == nil {
 		return nil, fmt.Errorf("normalized bar cannot be nil")
 	}
@@ -113,7 +113,7 @@ func emitBar(n *norm.NormalizedBar, security *norm.Security) (*barsv1.Bar, error
 }
 
 // emitDecimal converts a ScaledDecimal to ampy.common.v1.Decimal
-func emitDecimal(d *norm.ScaledDecimal) (*commonv1.Decimal, error) {
+func emitDecimal(d *model.ScaledDecimal) (*commonv1.Decimal, error) {
 	if d == nil {
 		return nil, fmt.Errorf("decimal cannot be nil")
 	}
@@ -129,7 +129,7 @@ func emitDecimal(d *norm.ScaledDecimal) (*commonv1.Decimal, error) {
 }
 
 // emitSecurity converts a Security to ampy.common.v1.SecurityId
-func emitSecurity(s *norm.Security) *commonv1.SecurityId {
+func emitSecurity(s *model.Security) *commonv1.SecurityId {
 	if s == nil {
 		return nil
 	}

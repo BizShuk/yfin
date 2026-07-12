@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/bizshuk/yfin/model"
 	"github.com/bizshuk/yfin/svc/emit"
-	"github.com/bizshuk/yfin/svc/norm"
 	"github.com/bizshuk/yfin/svc/yahoo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -68,7 +68,7 @@ func TestMappingRegressionBars(t *testing.T) {
 			}
 
 			// Normalize bars
-			normalized, err := norm.NormalizeBars(bars, meta, tt.runID)
+			normalized, err := model.NormalizeBars(bars, meta, tt.runID)
 			if err != nil {
 				t.Fatalf("Failed to normalize bars: %v", err)
 			}
@@ -146,7 +146,7 @@ func TestMappingRegressionQuotes(t *testing.T) {
 	}
 
 	// Normalize first quote
-	normalized, err := norm.NormalizeQuote(quotes[0], "golden_quote_v1")
+	normalized, err := model.NormalizeQuote(quotes[0], "golden_quote_v1")
 	if err != nil {
 		t.Fatalf("Failed to normalize quote: %v", err)
 	}
@@ -220,7 +220,7 @@ func TestMappingRegressionFundamentals(t *testing.T) {
 	}
 
 	// Normalize fundamentals
-	normalized, err := norm.NormalizeFundamentals(fundamentals, "AAPL", "golden_fund_v1")
+	normalized, err := model.NormalizeFundamentals(fundamentals, "AAPL", "golden_fund_v1")
 	if err != nil {
 		t.Fatalf("Failed to normalize fundamentals: %v", err)
 	}
@@ -334,7 +334,7 @@ func TestScale2Validation(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.currency, func(t *testing.T) {
-			scale := norm.GetPriceScaleForCurrency(tc.currency)
+			scale := model.GetPriceScaleForCurrency(tc.currency)
 			assert.Equal(t, tc.expected, scale, "Currency %s should use scale %d", tc.currency, tc.expected)
 		})
 	}

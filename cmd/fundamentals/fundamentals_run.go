@@ -11,7 +11,8 @@ import (
 	"time"
 
 	"github.com/bizshuk/yfin/cmd"
-	"github.com/bizshuk/yfin/svc/norm"
+	"github.com/bizshuk/yfin/facade"
+	"github.com/bizshuk/yfin/model"
 	"github.com/spf13/cobra"
 )
 
@@ -82,8 +83,8 @@ func validateFundamentalsFlags(cfg *fundamentalsConfig) error {
 }
 
 // processFundamentals processes fundamentals
-func processFundamentals(ctx context.Context, client *cmd.CliClient, ticker string, runID string) error {
-	fundamentals, err := cmd.FetchFundamentalsNorm(ctx, client.Yahoo, ticker, runID)
+func processFundamentals(ctx context.Context, client *facade.Client, ticker string, runID string) error {
+	fundamentals, err := client.FetchFundamentalsNorm(ctx, ticker, runID)
 	if err != nil {
 		return err
 	}
@@ -92,7 +93,7 @@ func processFundamentals(ctx context.Context, client *cmd.CliClient, ticker stri
 }
 
 // printFundamentalsPreview prints the fundamentals preview
-func printFundamentalsPreview(fundamentals *norm.NormalizedFundamentalsSnapshot) {
+func printFundamentalsPreview(fundamentals *model.NormalizedFundamentalsSnapshot) {
 	fmt.Printf("SYMBOL %s fundamentals  lines=%d  source=%s\n",
 		fundamentals.Security.Symbol, len(fundamentals.Lines), fundamentals.Source)
 

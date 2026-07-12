@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/bizshuk/yfin/svc/norm"
+	"github.com/bizshuk/yfin/model"
 )
 
 // Validation errors
@@ -22,7 +22,7 @@ func (e ValidationError) Error() string {
 }
 
 // ValidateSecurity validates a security identifier
-func ValidateSecurity(sec norm.Security) error {
+func ValidateSecurity(sec model.Security) error {
 	if sec.Symbol == "" {
 		return ValidationError{Field: "symbol", Message: "symbol cannot be empty"}
 	}
@@ -63,7 +63,7 @@ func ValidateTimeWindow(start, end, event time.Time) error {
 }
 
 // ValidateDecimal validates a scaled decimal
-func ValidateDecimal(d norm.ScaledDecimal) error {
+func ValidateDecimal(d model.ScaledDecimal) error {
 	if d.Scale < 0 || d.Scale > 9 {
 		return ValidationError{
 			Field:   "scale",
@@ -150,7 +150,7 @@ func ValidateAdjustments(adjusted bool, policyID string) error {
 }
 
 // ValidateFundamentals validates fundamentals line items
-func ValidateFundamentals(lines []norm.NormalizedFundamentalsLine) error {
+func ValidateFundamentals(lines []model.NormalizedFundamentalsLine) error {
 	// Whitelist of allowed keys (can be extended)
 	allowedKeys := map[string]bool{
 		"revenue":              true,

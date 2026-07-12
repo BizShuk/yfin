@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/bizshuk/yfin/facade"
-	"github.com/bizshuk/yfin/svc/norm"
+	"github.com/bizshuk/yfin/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -43,7 +43,7 @@ func TestDataCorrectness_RealPrices(t *testing.T) {
 
 			// Validate price if present
 			if quote.RegularMarketPrice != nil {
-				price := norm.FromScaledDecimal(*quote.RegularMarketPrice)
+				price := model.FromScaledDecimal(*quote.RegularMarketPrice)
 				assert.Greater(t, price, 0.0, "Price should be positive")
 				assert.False(t, math.IsNaN(price), "Price should not be NaN")
 				assert.False(t, math.IsInf(price, 0), "Price should not be infinite")
@@ -60,8 +60,8 @@ func TestDataCorrectness_RealPrices(t *testing.T) {
 
 			// Validate high/low relationship if both present
 			if quote.RegularMarketHigh != nil && quote.RegularMarketLow != nil {
-				high := norm.FromScaledDecimal(*quote.RegularMarketHigh)
-				low := norm.FromScaledDecimal(*quote.RegularMarketLow)
+				high := model.FromScaledDecimal(*quote.RegularMarketHigh)
+				low := model.FromScaledDecimal(*quote.RegularMarketLow)
 				assert.GreaterOrEqual(t, high, low, "High should be >= Low")
 				t.Logf("✓ %s: High = %.2f, Low = %.2f", tc.symbol, high, low)
 			}
@@ -103,10 +103,10 @@ func TestDataCorrectness_HistoricalData(t *testing.T) {
 			prevTime := time.Time{}
 			for i, bar := range bars.Bars {
 				// Validate prices (use proper conversion function)
-				open := norm.FromScaledDecimal(bar.Open)
-				high := norm.FromScaledDecimal(bar.High)
-				low := norm.FromScaledDecimal(bar.Low)
-				close := norm.FromScaledDecimal(bar.Close)
+				open := model.FromScaledDecimal(bar.Open)
+				high := model.FromScaledDecimal(bar.High)
+				low := model.FromScaledDecimal(bar.Low)
+				close := model.FromScaledDecimal(bar.Close)
 
 				assert.Greater(t, open, 0.0, "Bar[%d]: Open should be positive", i)
 				assert.Greater(t, high, 0.0, "Bar[%d]: High should be positive", i)
@@ -261,7 +261,7 @@ func TestDataCorrectness_PricePrecision(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, quote.RegularMarketPrice, "Should have price")
 
-	price := norm.FromScaledDecimal(*quote.RegularMarketPrice)
+	price := model.FromScaledDecimal(*quote.RegularMarketPrice)
 
 	// Validate scale is appropriate (should be 2 for USD)
 	assert.Equal(t, 2, int(quote.RegularMarketPrice.Scale), "Scale should be 2 for USD")
@@ -294,7 +294,7 @@ func TestDataCorrectness_NoFakeData(t *testing.T) {
 
 	// Validate we're not getting placeholder values
 	if quote.RegularMarketPrice != nil {
-		price := norm.FromScaledDecimal(*quote.RegularMarketPrice)
+		price := model.FromScaledDecimal(*quote.RegularMarketPrice)
 		// Common placeholder values to check
 		assert.NotEqual(t, 0.0, price, "Price should not be zero (placeholder)")
 		assert.NotEqual(t, 1.0, price, "Price should not be 1.0 (placeholder)")
@@ -309,7 +309,7 @@ func TestDataCorrectness_NoFakeData(t *testing.T) {
 		"Event time should be before now + 24h")
 
 	t.Logf("✓ No fake data detected: Price = %.2f, Time = %s",
-		norm.FromScaledDecimal(*quote.RegularMarketPrice),
+		model.FromScaledDecimal(*quote.RegularMarketPrice),
 		quote.EventTime.Format(time.RFC3339))
 }
 

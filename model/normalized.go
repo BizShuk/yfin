@@ -1,20 +1,12 @@
-// types.go — core `ScaledDecimal` precision type and core `Normalized*` data structures (`Security`, `NormalizedBar`, `NormalizedBarBatch`, `NormalizedQuote`, `NormalizedFundamentalsLine`, `NormalizedFundamentalsSnapshot`, `NormalizedCompanyInfo`, `NormalizedMarketData`, `Meta`) emitted as JSON to `svc/emit`.
+// normalized.go — all `Normalized*` data structs and `Meta`. These are the
+// ScaledDecimal-rich intermediate types emitted from `Normalize*` functions
+// to the proto-emit pipeline and to JSON fixtures. Originally split across
+// svc/norm/types.go (core types) + svc/norm/holders.go + svc/norm/insider.go;
+// consolidated here for cross-layer reuse.
 
-package norm
+package model
 
 import "time"
-
-// ScaledDecimal represents a decimal value with explicit scale
-type ScaledDecimal struct {
-	Scaled int64 `json:"scaled"`
-	Scale  int   `json:"scale"`
-}
-
-// Security represents a financial security
-type Security struct {
-	Symbol string `json:"symbol"`
-	MIC    string `json:"mic,omitempty"`
-}
 
 // NormalizedBar represents a normalized bar with UTC times and scaled decimals
 type NormalizedBar struct {
@@ -111,6 +103,43 @@ type NormalizedMarketData struct {
 	EventTime            time.Time      `json:"event_time"`
 	IngestTime           time.Time      `json:"ingest_time"`
 	Meta                 Meta           `json:"meta"`
+}
+
+// NormalizedHolder represents a single holder entity
+type NormalizedHolder struct {
+	Organization string         `json:"organization"`
+	PercentHeld  *ScaledDecimal `json:"percent_held,omitempty"`
+	Position     *int64         `json:"position,omitempty"`
+	Value        *int64         `json:"value,omitempty"`
+}
+
+// NormalizedHolders represents ownership data for a security
+type NormalizedHolders struct {
+	Security                Security           `json:"security"`
+	InsidersPercentHeld     *ScaledDecimal     `json:"insiders_percent_held,omitempty"`
+	InstitutionsPercentHeld *ScaledDecimal     `json:"institutions_percent_held,omitempty"`
+	Institutional           []NormalizedHolder `json:"institutional"`
+	MutualFund              []NormalizedHolder `json:"mutual_fund"`
+	AsOf                    time.Time          `json:"as_of"`
+	Meta                    Meta               `json:"meta"`
+}
+
+// NormalizedInsiderTxn represents a single insider transaction
+type NormalizedInsiderTxn struct {
+	FilerName string     `json:"filer_name"`
+	Text      string     `json:"text"`
+	Shares    *int64     `json:"shares,omitempty"`
+	Value     *int64     `json:"value,omitempty"`
+	Date      *time.Time `json:"date,omitempty"`
+}
+
+// NormalizedInsider represents insider transaction data for a security
+type NormalizedInsider struct {
+	Security     Security               `json:"security"`
+	Transactions []NormalizedInsiderTxn `json:"transactions"`
+	NetBuyShares *int64                 `json:"net_buy_shares,omitempty"`
+	AsOf         time.Time              `json:"as_of"`
+	Meta         Meta                   `json:"meta"`
 }
 
 // Meta contains metadata for normalized messages

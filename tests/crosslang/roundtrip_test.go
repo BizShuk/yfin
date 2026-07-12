@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bizshuk/yfin/model"
 	"github.com/bizshuk/yfin/svc/emit"
-	"github.com/bizshuk/yfin/svc/norm"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 )
@@ -208,19 +208,19 @@ func TestCrossLanguageNumericPrecision(t *testing.T) {
 
 // Helper functions
 
-func createTestBarBatch(currency string, scale int) *norm.NormalizedBarBatch {
+func createTestBarBatch(currency string, scale int) *model.NormalizedBarBatch {
 	now := time.Now()
-	return &norm.NormalizedBarBatch{
-		Security: norm.Security{
+	return &model.NormalizedBarBatch{
+		Security: model.Security{
 			Symbol: "AAPL",
 			MIC:    "XNAS",
 		},
-		Bars: []norm.NormalizedBar{
+		Bars: []model.NormalizedBar{
 			{
-				Open:               norm.ScaledDecimal{Scaled: 15000, Scale: scale},
-				High:               norm.ScaledDecimal{Scaled: 15100, Scale: scale},
-				Low:                norm.ScaledDecimal{Scaled: 14900, Scale: scale},
-				Close:              norm.ScaledDecimal{Scaled: 15050, Scale: scale},
+				Open:               model.ScaledDecimal{Scaled: 15000, Scale: scale},
+				High:               model.ScaledDecimal{Scaled: 15100, Scale: scale},
+				Low:                model.ScaledDecimal{Scaled: 14900, Scale: scale},
+				Close:              model.ScaledDecimal{Scaled: 15050, Scale: scale},
 				Volume:             1000000,
 				Start:              now.Add(-24 * time.Hour),
 				End:                now,
@@ -232,7 +232,7 @@ func createTestBarBatch(currency string, scale int) *norm.NormalizedBarBatch {
 				AdjustmentPolicyID: "split_dividend",
 			},
 		},
-		Meta: norm.Meta{
+		Meta: model.Meta{
 			RunID:         "crosslang_test",
 			Source:        "yfinance-go",
 			Producer:      "test",
@@ -241,24 +241,24 @@ func createTestBarBatch(currency string, scale int) *norm.NormalizedBarBatch {
 	}
 }
 
-func createTestBarBatchWithPrice(price float64, scale int) *norm.NormalizedBarBatch {
+func createTestBarBatchWithPrice(price float64, scale int) *model.NormalizedBarBatch {
 	now := time.Now()
 	multiplier := int64(1)
 	for i := 0; i < scale; i++ {
 		multiplier *= 10
 	}
 	scaled := int64(price * float64(multiplier))
-	return &norm.NormalizedBarBatch{
-		Security: norm.Security{
+	return &model.NormalizedBarBatch{
+		Security: model.Security{
 			Symbol: "TEST",
 			MIC:    "XNAS",
 		},
-		Bars: []norm.NormalizedBar{
+		Bars: []model.NormalizedBar{
 			{
-				Open:               norm.ScaledDecimal{Scaled: scaled, Scale: scale},
-				High:               norm.ScaledDecimal{Scaled: scaled + 100, Scale: scale},
-				Low:                norm.ScaledDecimal{Scaled: scaled - 100, Scale: scale},
-				Close:              norm.ScaledDecimal{Scaled: scaled, Scale: scale},
+				Open:               model.ScaledDecimal{Scaled: scaled, Scale: scale},
+				High:               model.ScaledDecimal{Scaled: scaled + 100, Scale: scale},
+				Low:                model.ScaledDecimal{Scaled: scaled - 100, Scale: scale},
+				Close:              model.ScaledDecimal{Scaled: scaled, Scale: scale},
 				Volume:             1000,
 				Start:              now.Add(-24 * time.Hour),
 				End:                now,
@@ -270,7 +270,7 @@ func createTestBarBatchWithPrice(price float64, scale int) *norm.NormalizedBarBa
 				AdjustmentPolicyID: "raw",
 			},
 		},
-		Meta: norm.Meta{
+		Meta: model.Meta{
 			RunID:         "precision_test",
 			Source:        "yfinance-go",
 			Producer:      "test",
@@ -279,24 +279,24 @@ func createTestBarBatchWithPrice(price float64, scale int) *norm.NormalizedBarBa
 	}
 }
 
-func createTestQuote() *norm.NormalizedQuote {
+func createTestQuote() *model.NormalizedQuote {
 	now := time.Now()
 	bidSize := int64(200)
 	askSize := int64(300)
-	return &norm.NormalizedQuote{
-		Security: norm.Security{
+	return &model.NormalizedQuote{
+		Security: model.Security{
 			Symbol: "MSFT",
 			MIC:    "XNAS",
 		},
-		Bid:          &norm.ScaledDecimal{Scaled: 42750, Scale: 2},
-		Ask:          &norm.ScaledDecimal{Scaled: 42753, Scale: 2},
+		Bid:          &model.ScaledDecimal{Scaled: 42750, Scale: 2},
+		Ask:          &model.ScaledDecimal{Scaled: 42753, Scale: 2},
 		BidSize:      &bidSize,
 		AskSize:      &askSize,
 		EventTime:    now,
 		IngestTime:   now,
 		Venue:        "XNMS",
 		CurrencyCode: "USD",
-		Meta: norm.Meta{
+		Meta: model.Meta{
 			RunID:         "crosslang_test",
 			Source:        "yfinance-go",
 			Producer:      "test",
@@ -305,24 +305,24 @@ func createTestQuote() *norm.NormalizedQuote {
 	}
 }
 
-func createTestFundamentals() *norm.NormalizedFundamentalsSnapshot {
+func createTestFundamentals() *model.NormalizedFundamentalsSnapshot {
 	now := time.Now()
-	return &norm.NormalizedFundamentalsSnapshot{
-		Security: norm.Security{
+	return &model.NormalizedFundamentalsSnapshot{
+		Security: model.Security{
 			Symbol: "AAPL",
 			MIC:    "XNAS",
 		},
-		Lines: []norm.NormalizedFundamentalsLine{
+		Lines: []model.NormalizedFundamentalsLine{
 			{
 				Key:          "revenue",
-				Value:        norm.ScaledDecimal{Scaled: 119870000000000, Scale: 2},
+				Value:        model.ScaledDecimal{Scaled: 119870000000000, Scale: 2},
 				CurrencyCode: "USD",
 				PeriodStart:  now.Add(-90 * 24 * time.Hour),
 				PeriodEnd:    now,
 			},
 			{
 				Key:          "net_income",
-				Value:        norm.ScaledDecimal{Scaled: 2386000000000, Scale: 2},
+				Value:        model.ScaledDecimal{Scaled: 2386000000000, Scale: 2},
 				CurrencyCode: "USD",
 				PeriodStart:  now.Add(-90 * 24 * time.Hour),
 				PeriodEnd:    now,
@@ -330,7 +330,7 @@ func createTestFundamentals() *norm.NormalizedFundamentalsSnapshot {
 		},
 		Source: "yfinance",
 		AsOf:   now,
-		Meta: norm.Meta{
+		Meta: model.Meta{
 			RunID:         "crosslang_test",
 			Source:        "yfinance-go",
 			Producer:      "test",
@@ -339,7 +339,7 @@ func createTestFundamentals() *norm.NormalizedFundamentalsSnapshot {
 	}
 }
 
-func createBarMetadata(barBatch *norm.NormalizedBarBatch) map[string]interface{} {
+func createBarMetadata(barBatch *model.NormalizedBarBatch) map[string]interface{} {
 	bar := barBatch.Bars[0]
 	return map[string]interface{}{
 		"security": map[string]interface{}{
@@ -370,7 +370,7 @@ func createBarMetadata(barBatch *norm.NormalizedBarBatch) map[string]interface{}
 	}
 }
 
-func createQuoteMetadata(quote *norm.NormalizedQuote) map[string]interface{} {
+func createQuoteMetadata(quote *model.NormalizedQuote) map[string]interface{} {
 	return map[string]interface{}{
 		"security": map[string]interface{}{
 			"symbol": quote.Security.Symbol,
@@ -393,7 +393,7 @@ func createQuoteMetadata(quote *norm.NormalizedQuote) map[string]interface{} {
 	}
 }
 
-func createFundamentalsMetadata(fundamentals *norm.NormalizedFundamentalsSnapshot) map[string]interface{} {
+func createFundamentalsMetadata(fundamentals *model.NormalizedFundamentalsSnapshot) map[string]interface{} {
 	lines := make([]map[string]interface{}, len(fundamentals.Lines))
 	for i, line := range fundamentals.Lines {
 		lines[i] = map[string]interface{}{

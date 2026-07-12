@@ -12,8 +12,9 @@ import (
 	"time"
 
 	"github.com/bizshuk/yfin/cmd"
+	"github.com/bizshuk/yfin/facade"
+	"github.com/bizshuk/yfin/model"
 	"github.com/bizshuk/yfin/svc/emit"
-	"github.com/bizshuk/yfin/svc/norm"
 	"github.com/bizshuk/yfin/utils/bus"
 	"github.com/spf13/cobra"
 )
@@ -128,9 +129,9 @@ func validateQuoteFlags(cfg *quoteConfig) error {
 }
 
 // processQuote processes a single quote
-func processQuote(ctx context.Context, client *cmd.CliClient, ticker string, runID string, busInstance *bus.Bus, busConfig *bus.Config, cfg *quoteConfig) error {
-	// Fetch quote via the CLI helper (svc/yahoo + internal/norm).
-	quote, err := cmd.FetchQuoteNorm(ctx, client.Yahoo, ticker, runID)
+func processQuote(ctx context.Context, client *facade.Client, ticker string, runID string, busInstance *bus.Bus, busConfig *bus.Config, cfg *quoteConfig) error {
+	// Fetch quote via facade (Norm-returning variant for emit→proto precision).
+	quote, err := client.FetchQuoteNorm(ctx, ticker, runID)
 	if err != nil {
 		return err
 	}
@@ -156,20 +157,20 @@ func processQuote(ctx context.Context, client *cmd.CliClient, ticker string, run
 }
 
 // printQuotePreview prints the quote preview according to specification
-func printQuotePreview(quote *norm.NormalizedQuote) {
+func printQuotePreview(quote *model.NormalizedQuote) {
 	price := "N/A"
 	if quote.RegularMarketPrice != nil {
-		price = fmt.Sprintf("%.4f", norm.FromScaledDecimal(*quote.RegularMarketPrice))
+		price = fmt.Sprintf("%.4f", model.FromScaledDecimal(*quote.RegularMarketPrice))
 	}
 
 	high := "N/A"
 	if quote.RegularMarketHigh != nil {
-		high = fmt.Sprintf("%.4f", norm.FromScaledDecimal(*quote.RegularMarketHigh))
+		high = fmt.Sprintf("%.4f", model.FromScaledDecimal(*quote.RegularMarketHigh))
 	}
 
 	low := "N/A"
 	if quote.RegularMarketLow != nil {
-		low = fmt.Sprintf("%.4f", norm.FromScaledDecimal(*quote.RegularMarketLow))
+		low = fmt.Sprintf("%.4f", model.FromScaledDecimal(*quote.RegularMarketLow))
 	}
 
 	fmt.Printf("SYMBOL %s quote  price=%s %s  high=%s  low=%s  venue=%s\n",
@@ -177,7 +178,7 @@ func printQuotePreview(quote *norm.NormalizedQuote) {
 }
 
 // handleQuoteBusPublishing handles bus publishing for quotes
-func handleQuoteBusPublishing(ctx context.Context, quote *norm.NormalizedQuote, busInstance *bus.Bus, busConfig *bus.Config, runID string, preview bool) error {
+func handleQuoteBusPublishing(ctx context.Context, quote *model.NormalizedQuote, busInstance *bus.Bus, busConfig *bus.Config, runID string, preview bool) error {
 	// Emit to ampy-proto format
 	ampyQuote, err := emit.EmitQuote(quote)
 	if err != nil {
@@ -215,7 +216,7 @@ func handleQuoteBusPublishing(ctx context.Context, quote *norm.NormalizedQuote, 
 }
 
 // handleQuoteLocalExport handles local export for quotes
-func handleQuoteLocalExport(quote *norm.NormalizedQuote, ticker, outFormat, outDir string) error {
+func handleQuoteLocalExport(quote *model.NormalizedQuote, ticker, outFormat, outDir string) error {
 	// Create output directory
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create output directory: %v", err)

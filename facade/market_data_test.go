@@ -9,10 +9,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bizshuk/yfin/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/bizshuk/yfin/svc/norm"
 )
 
 func TestFromMarketData_Nil(t *testing.T) {
@@ -28,21 +27,21 @@ func TestFromMarketData_TableDriven(t *testing.T) {
 
 	tests := []struct {
 		name string
-		in   *norm.NormalizedMarketData
+		in   *model.NormalizedMarketData
 		want MarketData
 	}{
 		{
 			name: "all ScaledDecimals populated — full precision round-trip",
-			in: &norm.NormalizedMarketData{
-				Security: norm.Security{Symbol: "AAPL", MIC: "XNAS"},
+			in: &model.NormalizedMarketData{
+				Security: model.Security{Symbol: "AAPL", MIC: "XNAS"},
 				// Prices at scale 2: 12345.67, 12400.00, 12300.50, etc.
-				RegularMarketPrice:  &norm.ScaledDecimal{Scaled: 1234567, Scale: 2},
-				RegularMarketHigh:   &norm.ScaledDecimal{Scaled: 1240000, Scale: 2},
-				RegularMarketLow:    &norm.ScaledDecimal{Scaled: 1230050, Scale: 2},
+				RegularMarketPrice:  &model.ScaledDecimal{Scaled: 1234567, Scale: 2},
+				RegularMarketHigh:   &model.ScaledDecimal{Scaled: 1240000, Scale: 2},
+				RegularMarketLow:    &model.ScaledDecimal{Scaled: 1230050, Scale: 2},
 				RegularMarketVolume: int64Ptr(50_000_000),
-				FiftyTwoWeekHigh:    &norm.ScaledDecimal{Scaled: 1990000, Scale: 2},
-				FiftyTwoWeekLow:     &norm.ScaledDecimal{Scaled: 1640000, Scale: 2},
-				PreviousClose:       &norm.ScaledDecimal{Scaled: 1233000, Scale: 2},
+				FiftyTwoWeekHigh:    &model.ScaledDecimal{Scaled: 1990000, Scale: 2},
+				FiftyTwoWeekLow:     &model.ScaledDecimal{Scaled: 1640000, Scale: 2},
+				PreviousClose:       &model.ScaledDecimal{Scaled: 1233000, Scale: 2},
 				CurrencyCode:        "USD",
 				EventTime:           eventTime,
 			},
@@ -62,8 +61,8 @@ func TestFromMarketData_TableDriven(t *testing.T) {
 		},
 		{
 			name: "all nullable fields nil — nil pointers in output",
-			in: &norm.NormalizedMarketData{
-				Security:            norm.Security{Symbol: "TSLA", MIC: "XNAS"},
+			in: &model.NormalizedMarketData{
+				Security:            model.Security{Symbol: "TSLA", MIC: "XNAS"},
 				RegularMarketPrice:  nil,
 				RegularMarketHigh:   nil,
 				RegularMarketLow:    nil,
@@ -84,15 +83,15 @@ func TestFromMarketData_TableDriven(t *testing.T) {
 		},
 		{
 			name: "non-USD currency, scale 4 (e.g., crypto or FX)",
-			in: &norm.NormalizedMarketData{
-				Security: norm.Security{Symbol: "BTC-USD", MIC: "XNAS"},
+			in: &model.NormalizedMarketData{
+				Security: model.Security{Symbol: "BTC-USD", MIC: "XNAS"},
 				// 6543.2101 at scale 4
-				RegularMarketPrice: &norm.ScaledDecimal{Scaled: 65432101, Scale: 4},
-				RegularMarketHigh:  &norm.ScaledDecimal{Scaled: 66000000, Scale: 4},
-				RegularMarketLow:   &norm.ScaledDecimal{Scaled: 65000000, Scale: 4},
-				FiftyTwoWeekHigh:   &norm.ScaledDecimal{Scaled: 73000000, Scale: 4},
-				FiftyTwoWeekLow:    &norm.ScaledDecimal{Scaled: 25000000, Scale: 4},
-				PreviousClose:      &norm.ScaledDecimal{Scaled: 65100000, Scale: 4},
+				RegularMarketPrice: &model.ScaledDecimal{Scaled: 65432101, Scale: 4},
+				RegularMarketHigh:  &model.ScaledDecimal{Scaled: 66000000, Scale: 4},
+				RegularMarketLow:   &model.ScaledDecimal{Scaled: 65000000, Scale: 4},
+				FiftyTwoWeekHigh:   &model.ScaledDecimal{Scaled: 73000000, Scale: 4},
+				FiftyTwoWeekLow:    &model.ScaledDecimal{Scaled: 25000000, Scale: 4},
+				PreviousClose:      &model.ScaledDecimal{Scaled: 65100000, Scale: 4},
 				CurrencyCode:       "USD",
 				EventTime:          eventTime,
 			},
@@ -111,10 +110,10 @@ func TestFromMarketData_TableDriven(t *testing.T) {
 		},
 		{
 			name: "zero-decimal volume but non-nil pointer",
-			in: &norm.NormalizedMarketData{
-				Security:            norm.Security{Symbol: "INDEX", MIC: "XNAS"},
-				RegularMarketPrice:  &norm.ScaledDecimal{Scaled: 500000, Scale: 2}, // 5000.00
-				RegularMarketVolume: int64Ptr(0),                                   // explicitly zero
+			in: &model.NormalizedMarketData{
+				Security:            model.Security{Symbol: "INDEX", MIC: "XNAS"},
+				RegularMarketPrice:  &model.ScaledDecimal{Scaled: 500000, Scale: 2}, // 5000.00
+				RegularMarketVolume: int64Ptr(0),                                    // explicitly zero
 				CurrencyCode:        "USD",
 				EventTime:           eventTime,
 			},

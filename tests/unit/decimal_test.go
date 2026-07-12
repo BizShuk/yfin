@@ -6,7 +6,7 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/bizshuk/yfin/svc/norm"
+	"github.com/bizshuk/yfin/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -79,7 +79,7 @@ func TestRoundHalfUp(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := norm.RoundHalfUp(tt.value, tt.fromScale, tt.toScale)
+			result := model.RoundHalfUp(tt.value, tt.fromScale, tt.toScale)
 			assert.Equal(t, tt.expected.Cmp(result), 0, "Expected %v, got %v", tt.expected, result)
 		})
 	}
@@ -88,24 +88,24 @@ func TestRoundHalfUp(t *testing.T) {
 func TestMultiplyAndRound(t *testing.T) {
 	tests := []struct {
 		name        string
-		value       norm.ScaledDecimal
-		rate        norm.ScaledDecimal
+		value       model.ScaledDecimal
+		rate        model.ScaledDecimal
 		targetScale int
-		expected    norm.ScaledDecimal
+		expected    model.ScaledDecimal
 		expectError bool
 	}{
 		{
 			name: "simple multiplication",
-			value: norm.ScaledDecimal{
+			value: model.ScaledDecimal{
 				Scaled: 10000, // 1.0000
 				Scale:  4,
 			},
-			rate: norm.ScaledDecimal{
+			rate: model.ScaledDecimal{
 				Scaled: 110000000, // 1.10000000
 				Scale:  8,
 			},
 			targetScale: 4,
-			expected: norm.ScaledDecimal{
+			expected: model.ScaledDecimal{
 				Scaled: 11000, // 1.1000
 				Scale:  4,
 			},
@@ -113,16 +113,16 @@ func TestMultiplyAndRound(t *testing.T) {
 		},
 		{
 			name: "rounding up",
-			value: norm.ScaledDecimal{
+			value: model.ScaledDecimal{
 				Scaled: 10000, // 1.0000
 				Scale:  4,
 			},
-			rate: norm.ScaledDecimal{
+			rate: model.ScaledDecimal{
 				Scaled: 115000000, // 1.15000000
 				Scale:  8,
 			},
 			targetScale: 4,
-			expected: norm.ScaledDecimal{
+			expected: model.ScaledDecimal{
 				Scaled: 11500, // 1.1500
 				Scale:  4,
 			},
@@ -130,16 +130,16 @@ func TestMultiplyAndRound(t *testing.T) {
 		},
 		{
 			name: "rounding down",
-			value: norm.ScaledDecimal{
+			value: model.ScaledDecimal{
 				Scaled: 10000, // 1.0000
 				Scale:  4,
 			},
-			rate: norm.ScaledDecimal{
+			rate: model.ScaledDecimal{
 				Scaled: 114000000, // 1.14000000
 				Scale:  8,
 			},
 			targetScale: 4,
-			expected: norm.ScaledDecimal{
+			expected: model.ScaledDecimal{
 				Scaled: 11400, // 1.1400
 				Scale:  4,
 			},
@@ -147,16 +147,16 @@ func TestMultiplyAndRound(t *testing.T) {
 		},
 		{
 			name: "JPY scale 2",
-			value: norm.ScaledDecimal{
+			value: model.ScaledDecimal{
 				Scaled: 100, // 1.00
 				Scale:  2,
 			},
-			rate: norm.ScaledDecimal{
+			rate: model.ScaledDecimal{
 				Scaled: 110000000, // 1.10000000
 				Scale:  8,
 			},
 			targetScale: 2,
-			expected: norm.ScaledDecimal{
+			expected: model.ScaledDecimal{
 				Scaled: 110, // 1.10
 				Scale:  2,
 			},
@@ -164,16 +164,16 @@ func TestMultiplyAndRound(t *testing.T) {
 		},
 		{
 			name: "edge case - half-up rounding",
-			value: norm.ScaledDecimal{
+			value: model.ScaledDecimal{
 				Scaled: 10000, // 1.0000
 				Scale:  4,
 			},
-			rate: norm.ScaledDecimal{
+			rate: model.ScaledDecimal{
 				Scaled: 115500000, // 1.15500000 (exactly 0.5 remainder)
 				Scale:  8,
 			},
 			targetScale: 4,
-			expected: norm.ScaledDecimal{
+			expected: model.ScaledDecimal{
 				Scaled: 11550, // 1.1550 (rounds up)
 				Scale:  4,
 			},
@@ -181,11 +181,11 @@ func TestMultiplyAndRound(t *testing.T) {
 		},
 		{
 			name: "invalid scale - negative",
-			value: norm.ScaledDecimal{
+			value: model.ScaledDecimal{
 				Scaled: 10000,
 				Scale:  -1,
 			},
-			rate: norm.ScaledDecimal{
+			rate: model.ScaledDecimal{
 				Scaled: 110000000,
 				Scale:  8,
 			},
@@ -194,11 +194,11 @@ func TestMultiplyAndRound(t *testing.T) {
 		},
 		{
 			name: "invalid target scale",
-			value: norm.ScaledDecimal{
+			value: model.ScaledDecimal{
 				Scaled: 10000,
 				Scale:  4,
 			},
-			rate: norm.ScaledDecimal{
+			rate: model.ScaledDecimal{
 				Scaled: 110000000,
 				Scale:  8,
 			},
@@ -209,7 +209,7 @@ func TestMultiplyAndRound(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := norm.MultiplyAndRound(tt.value, tt.rate, tt.targetScale)
+			result, err := model.MultiplyAndRound(tt.value, tt.rate, tt.targetScale)
 			if tt.expectError {
 				assert.Error(t, err)
 				return
@@ -238,7 +238,7 @@ func TestGetPriceScaleForCurrency(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.currency, func(t *testing.T) {
-			result := norm.GetPriceScaleForCurrency(tt.currency)
+			result := model.GetPriceScaleForCurrency(tt.currency)
 			assert.Equal(t, tt.expected, result)
 		})
 	}
@@ -249,26 +249,26 @@ func TestToScaledDecimal(t *testing.T) {
 		name      string
 		price     float64
 		scale     int
-		expected  norm.ScaledDecimal
+		expected  model.ScaledDecimal
 		expectErr bool
 	}{
 		{
 			name:     "normal price",
 			price:    123.45,
 			scale:    2,
-			expected: norm.ScaledDecimal{Scaled: 12345, Scale: 2},
+			expected: model.ScaledDecimal{Scaled: 12345, Scale: 2},
 		},
 		{
 			name:     "price with more precision",
 			price:    123.4567,
 			scale:    4,
-			expected: norm.ScaledDecimal{Scaled: 1234567, Scale: 4},
+			expected: model.ScaledDecimal{Scaled: 1234567, Scale: 4},
 		},
 		{
 			name:     "zero price",
 			price:    0.0,
 			scale:    2,
-			expected: norm.ScaledDecimal{Scaled: 0, Scale: 2},
+			expected: model.ScaledDecimal{Scaled: 0, Scale: 2},
 		},
 		{
 			name:      "NaN price",
@@ -292,7 +292,7 @@ func TestToScaledDecimal(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := norm.ToScaledDecimal(tt.price, tt.scale)
+			result, err := model.ToScaledDecimal(tt.price, tt.scale)
 			if tt.expectErr {
 				assert.Error(t, err)
 				return
@@ -306,39 +306,39 @@ func TestToScaledDecimal(t *testing.T) {
 func TestValidateScaledDecimal(t *testing.T) {
 	tests := []struct {
 		name      string
-		decimal   norm.ScaledDecimal
+		decimal   model.ScaledDecimal
 		expectErr bool
 	}{
 		{
 			name:      "valid decimal",
-			decimal:   norm.ScaledDecimal{Scaled: 12345, Scale: 2},
+			decimal:   model.ScaledDecimal{Scaled: 12345, Scale: 2},
 			expectErr: false,
 		},
 		{
 			name:      "negative scale",
-			decimal:   norm.ScaledDecimal{Scaled: 12345, Scale: -1},
+			decimal:   model.ScaledDecimal{Scaled: 12345, Scale: -1},
 			expectErr: true,
 		},
 		{
 			name:      "scale too large",
-			decimal:   norm.ScaledDecimal{Scaled: 12345, Scale: 10},
+			decimal:   model.ScaledDecimal{Scaled: 12345, Scale: 10},
 			expectErr: true,
 		},
 		{
 			name:      "zero scale",
-			decimal:   norm.ScaledDecimal{Scaled: 12345, Scale: 0},
+			decimal:   model.ScaledDecimal{Scaled: 12345, Scale: 0},
 			expectErr: false,
 		},
 		{
 			name:      "max scale",
-			decimal:   norm.ScaledDecimal{Scaled: 12345, Scale: 8},
+			decimal:   model.ScaledDecimal{Scaled: 12345, Scale: 8},
 			expectErr: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := norm.ValidateScaledDecimal(tt.decimal)
+			err := model.ValidateScaledDecimal(tt.decimal)
 			if tt.expectErr {
 				assert.Error(t, err)
 			} else {

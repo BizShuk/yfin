@@ -1,40 +1,22 @@
-// market_data.go — `MarketData` plain SDK struct (nullable `*float64` price
-// fields + `*int64` volume; nil = missing, not zero) + `FromMarketData`
+// market_data.go — `MarketData` type alias + `FromMarketData`
 // ScaledDecimal → `*float64` converter + `scaledDecimalPtrToFloatPtr` helper.
-// Capacity: 1 struct + 1 converter + 1 helper.
+// Struct lives in model/market_data.go; facade.MarketData is a back-compat alias.
 package facade
 
 import (
-	"time"
-
-	"github.com/bizshuk/yfin/svc/norm"
+	"github.com/bizshuk/yfin/model"
 )
 
 // MarketData is a plain Go snapshot of a security's current market state, as
-// exposed by the SDK facade. Prices are returned as float64 (decoded from the
-// internal ScaledDecimal via norm.FromScaledDecimal); nil *float64/*int64 fields
-// indicate the value was not reported by the source (e.g., after-hours).
-//
-// Times are UTC. Volume is share count, not currency-denominated.
-type MarketData struct {
-	Symbol              string    `json:"symbol"`
-	MIC                 string    `json:"mic,omitempty"`
-	RegularMarketPrice  *float64  `json:"regular_market_price,omitempty"`
-	RegularMarketHigh   *float64  `json:"regular_market_high,omitempty"`
-	RegularMarketLow    *float64  `json:"regular_market_low,omitempty"`
-	RegularMarketVolume *int64    `json:"regular_market_volume,omitempty"`
-	FiftyTwoWeekHigh    *float64  `json:"fifty_two_week_high,omitempty"`
-	FiftyTwoWeekLow     *float64  `json:"fifty_two_week_low,omitempty"`
-	PreviousClose       *float64  `json:"previous_close,omitempty"`
-	CurrencyCode        string    `json:"currency_code,omitempty"`
-	EventTime           time.Time `json:"event_time"`
-}
+// exposed by the SDK facade. Aliased from model.MarketData — new code should
+// use model.MarketData directly.
+type MarketData = model.MarketData
 
-// FromMarketData converts an internal norm.NormalizedMarketData into the
+// FromMarketData converts an internal model.NormalizedMarketData into the
 // plain SDK MarketData struct. Each *ScaledDecimal is unwrapped via
-// norm.FromScaledDecimal to a *float64 (nil stays nil — callers can rely on
+// model.FromScaledDecimal to a *float64 (nil stays nil — callers can rely on
 // the distinction between "missing" and "zero"). Returns nil for a nil input.
-func FromMarketData(m *norm.NormalizedMarketData) *MarketData {
+func FromMarketData(m *model.NormalizedMarketData) *MarketData {
 	if m == nil {
 		return nil
 	}
@@ -53,13 +35,13 @@ func FromMarketData(m *norm.NormalizedMarketData) *MarketData {
 	}
 }
 
-// scaledDecimalPtrToFloatPtr unwraps a *norm.ScaledDecimal to a *float64 via
-// norm.FromScaledDecimal. nil in -> nil out; nil-valued SD is not reachable
+// scaledDecimalPtrToFloatPtr unwraps a *model.ScaledDecimal to a *float64 via
+// model.FromScaledDecimal. nil in -> nil out; nil-valued SD is not reachable
 // here (the caller already checked the outer pointer).
-func scaledDecimalPtrToFloatPtr(sd *norm.ScaledDecimal) *float64 {
+func scaledDecimalPtrToFloatPtr(sd *model.ScaledDecimal) *float64 {
 	if sd == nil {
 		return nil
 	}
-	v := norm.FromScaledDecimal(*sd)
+	v := model.FromScaledDecimal(*sd)
 	return &v
 }

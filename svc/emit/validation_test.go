@@ -6,39 +6,39 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bizshuk/yfin/svc/norm"
+	"github.com/bizshuk/yfin/model"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestValidateSecurity(t *testing.T) {
 	tests := []struct {
 		name     string
-		security norm.Security
+		security model.Security
 		wantErr  bool
 	}{
 		{
 			name:     "valid security",
-			security: norm.Security{Symbol: "AAPL", MIC: "XNAS"},
+			security: model.Security{Symbol: "AAPL", MIC: "XNAS"},
 			wantErr:  false,
 		},
 		{
 			name:     "empty symbol",
-			security: norm.Security{Symbol: "", MIC: "XNAS"},
+			security: model.Security{Symbol: "", MIC: "XNAS"},
 			wantErr:  true,
 		},
 		{
 			name:     "invalid MIC length",
-			security: norm.Security{Symbol: "AAPL", MIC: "XN"},
+			security: model.Security{Symbol: "AAPL", MIC: "XN"},
 			wantErr:  true,
 		},
 		{
 			name:     "invalid MIC format",
-			security: norm.Security{Symbol: "AAPL", MIC: "xnas"},
+			security: model.Security{Symbol: "AAPL", MIC: "xnas"},
 			wantErr:  true,
 		},
 		{
 			name:     "valid without MIC",
-			security: norm.Security{Symbol: "AAPL"},
+			security: model.Security{Symbol: "AAPL"},
 			wantErr:  false,
 		},
 	}
@@ -105,32 +105,32 @@ func TestValidateTimeWindow(t *testing.T) {
 func TestValidateDecimal(t *testing.T) {
 	tests := []struct {
 		name    string
-		decimal norm.ScaledDecimal
+		decimal model.ScaledDecimal
 		wantErr bool
 	}{
 		{
 			name:    "valid decimal",
-			decimal: norm.ScaledDecimal{Scaled: 12345, Scale: 2},
+			decimal: model.ScaledDecimal{Scaled: 12345, Scale: 2},
 			wantErr: false,
 		},
 		{
 			name:    "negative scale",
-			decimal: norm.ScaledDecimal{Scaled: 12345, Scale: -1},
+			decimal: model.ScaledDecimal{Scaled: 12345, Scale: -1},
 			wantErr: true,
 		},
 		{
 			name:    "scale too large",
-			decimal: norm.ScaledDecimal{Scaled: 12345, Scale: 10},
+			decimal: model.ScaledDecimal{Scaled: 12345, Scale: 10},
 			wantErr: true,
 		},
 		{
 			name:    "zero scale",
-			decimal: norm.ScaledDecimal{Scaled: 12345, Scale: 0},
+			decimal: model.ScaledDecimal{Scaled: 12345, Scale: 0},
 			wantErr: false,
 		},
 		{
 			name:    "max scale",
-			decimal: norm.ScaledDecimal{Scaled: 12345, Scale: 9},
+			decimal: model.ScaledDecimal{Scaled: 12345, Scale: 9},
 			wantErr: false,
 		},
 	}
@@ -261,9 +261,9 @@ func TestValidateAdjustments(t *testing.T) {
 }
 
 func TestValidateFundamentals(t *testing.T) {
-	validLine := norm.NormalizedFundamentalsLine{
+	validLine := model.NormalizedFundamentalsLine{
 		Key:          "revenue",
-		Value:        norm.ScaledDecimal{Scaled: 1000000, Scale: 2},
+		Value:        model.ScaledDecimal{Scaled: 1000000, Scale: 2},
 		CurrencyCode: "USD",
 		PeriodStart:  time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 		PeriodEnd:    time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC),
@@ -271,20 +271,20 @@ func TestValidateFundamentals(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		lines   []norm.NormalizedFundamentalsLine
+		lines   []model.NormalizedFundamentalsLine
 		wantErr bool
 	}{
 		{
 			name:    "valid fundamentals",
-			lines:   []norm.NormalizedFundamentalsLine{validLine},
+			lines:   []model.NormalizedFundamentalsLine{validLine},
 			wantErr: false,
 		},
 		{
 			name: "invalid key",
-			lines: []norm.NormalizedFundamentalsLine{
+			lines: []model.NormalizedFundamentalsLine{
 				{
 					Key:          "invalid_key",
-					Value:        norm.ScaledDecimal{Scaled: 1000000, Scale: 2},
+					Value:        model.ScaledDecimal{Scaled: 1000000, Scale: 2},
 					CurrencyCode: "USD",
 					PeriodStart:  time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 					PeriodEnd:    time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC),
@@ -294,10 +294,10 @@ func TestValidateFundamentals(t *testing.T) {
 		},
 		{
 			name: "custom key (valid)",
-			lines: []norm.NormalizedFundamentalsLine{
+			lines: []model.NormalizedFundamentalsLine{
 				{
 					Key:          "custom_metric",
-					Value:        norm.ScaledDecimal{Scaled: 1000000, Scale: 2},
+					Value:        model.ScaledDecimal{Scaled: 1000000, Scale: 2},
 					CurrencyCode: "USD",
 					PeriodStart:  time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 					PeriodEnd:    time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC),
@@ -307,10 +307,10 @@ func TestValidateFundamentals(t *testing.T) {
 		},
 		{
 			name: "invalid period",
-			lines: []norm.NormalizedFundamentalsLine{
+			lines: []model.NormalizedFundamentalsLine{
 				{
 					Key:          "revenue",
-					Value:        norm.ScaledDecimal{Scaled: 1000000, Scale: 2},
+					Value:        model.ScaledDecimal{Scaled: 1000000, Scale: 2},
 					CurrencyCode: "USD",
 					PeriodStart:  time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC),
 					PeriodEnd:    time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),

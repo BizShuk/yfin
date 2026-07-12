@@ -1,6 +1,10 @@
-// conversion.go — `ConvertTo(ctx, target, fx)` methods on `NormalizedBarBatch`, `NormalizedQuote`, `NormalizedFundamentalsSnapshot`, `NormalizedMarketData` that yield `ConvertedBar/Quote/Fundamentals/MarketData` structs (each carrying `OriginalCurrency`, `ConvertedCurrency`, and `FXMeta` provenance) by invoking an injected `FXConverter`. Capacity: 4 `Converted*` types + 4 `ConvertTo` methods.
+// conversion.go — `Converted*` data structs + `ConvertTo` methods on the
+// `Normalized*` types + `FXConverter` interface + `FXMeta` provenance + a
+// `MockFXConverter` test stub. Originally split across svc/norm/conversion.go
+// (converted types + methods), fx_interface.go (FXConverter + FXMeta),
+// mock_converter.go (MockFXConverter); consolidated here.
 
-package norm
+package model
 
 import (
 	"context"
@@ -16,8 +20,8 @@ type ConvertedBar struct {
 	High               ScaledDecimal `json:"high"`
 	Low                ScaledDecimal `json:"low"`
 	Close              ScaledDecimal `json:"close"`
-	OriginalCurrency   string        `json:"original_currency"`  // Source currency
-	ConvertedCurrency  string        `json:"converted_currency"` // Target currency
+	OriginalCurrency   string        `json:"original_currency"`
+	ConvertedCurrency  string        `json:"converted_currency"`
 	Volume             int64         `json:"volume"`
 	Adjusted           bool          `json:"adjusted"`
 	AdjustmentPolicyID string        `json:"adjustment_policy_id"`
@@ -46,8 +50,8 @@ type ConvertedQuote struct {
 	RegularMarketHigh   *ScaledDecimal `json:"regular_market_high,omitempty"`
 	RegularMarketLow    *ScaledDecimal `json:"regular_market_low,omitempty"`
 	RegularMarketVolume *int64         `json:"regular_market_volume,omitempty"`
-	OriginalCurrency    string         `json:"original_currency"`  // Source currency
-	ConvertedCurrency   string         `json:"converted_currency"` // Target currency
+	OriginalCurrency    string         `json:"original_currency"`
+	ConvertedCurrency   string         `json:"converted_currency"`
 	Venue               string         `json:"venue,omitempty"`
 	EventTime           time.Time      `json:"event_time"`
 	IngestTime          time.Time      `json:"ingest_time"`
@@ -59,8 +63,8 @@ type ConvertedQuote struct {
 type ConvertedFundamentalsLine struct {
 	Key               string        `json:"key"`
 	Value             ScaledDecimal `json:"value"`
-	OriginalCurrency  string        `json:"original_currency"`  // Source currency
-	ConvertedCurrency string        `json:"converted_currency"` // Target currency
+	OriginalCurrency  string        `json:"original_currency"`
+	ConvertedCurrency string        `json:"converted_currency"`
 	PeriodStart       time.Time     `json:"period_start"`
 	PeriodEnd         time.Time     `json:"period_end"`
 }
@@ -86,8 +90,8 @@ type ConvertedMarketData struct {
 	FiftyTwoWeekLow      *ScaledDecimal `json:"fifty_two_week_low,omitempty"`
 	PreviousClose        *ScaledDecimal `json:"previous_close,omitempty"`
 	ChartPreviousClose   *ScaledDecimal `json:"chart_previous_close,omitempty"`
-	OriginalCurrency     string         `json:"original_currency"`  // Source currency
-	ConvertedCurrency    string         `json:"converted_currency"` // Target currency
+	OriginalCurrency     string         `json:"original_currency"`
+	ConvertedCurrency    string         `json:"converted_currency"`
 	RegularMarketTime    *time.Time     `json:"regular_market_time,omitempty"`
 	HasPrePostMarketData bool           `json:"has_pre_post_market_data"`
 	EventTime            time.Time      `json:"event_time"`
@@ -96,19 +100,56 @@ type ConvertedMarketData struct {
 	FXMeta               *FXMeta        `json:"fx_meta,omitempty"`
 }
 
-// ConvertTo converts a NormalizedBarBatch to a target currency
+// FXConverter interface for currency conversion
+type FXConverter interface {
+	ConvertValue(ctx context.Context, value ScaledDecimal, fromCurrency, toCurrency string, at time.Time) (ScaledDecimal, *FXMeta, error)
+}
+
+// FXMeta contains metadata about FX conversion
+type FXMeta struct {
+	Provider       string    `json:"provider"`
+	Base           string    `json:"base"`
+	Symbols        []string  `json:"symbols"`
+	AsOf           time.Time `json:"as_of"`
+	RateScale      int       `json:"rate_scale"`
+	CacheHit       bool      `json:"cache_hit"`
+	Attempts       int       `json:"attempts"`
+	BackoffProfile string    `json:"backoff_profile"`
+	Stale          bool      `json:"stale"`
+}
+
+// MockFXConverter is a mock implementation of FXConverter for testing.
+type MockFXConverter struct {
+	ConvertValueFunc func(ctx context.Context, value ScaledDecimal, fromCurrency, toCurrency string, at time.Time) (ScaledDecimal, *FXMeta, error)
+}
+
+// ConvertValue implements the FXConverter interface.
+func (m *MockFXConverter) ConvertValue(ctx context.Context, value ScaledDecimal, fromCurrency, toCurrency string, at time.Time) (ScaledDecimal, *FXMeta, error) {
+	if m.ConvertValueFunc != nil {
+		return m.ConvertValueFunc(ctx, value, fromCurrency, toCurrency, at)
+	}
+	if fromCurrency != toCurrency {
+		return ScaledDecimal{}, nil, fmt.Errorf("FX conversion not enabled (provider: none)")
+	}
+	return value, &FXMeta{
+		Provider: "none",
+		Base:     fromCurrency,
+		Symbols:  []string{toCurrency},
+		AsOf:     at,
+	}, nil
+}
+
+// ConvertTo converts a NormalizedBarBatch to a target currency.
 func (b *NormalizedBarBatch) ConvertTo(ctx context.Context, target string, fxConverter FXConverter) (*ConvertedBarBatch, *FXMeta, error) {
 	if len(b.Bars) == 0 {
 		return nil, nil, fmt.Errorf("no bars to convert")
 	}
 
-	// Get the source currency from the first bar
 	sourceCurrency := b.Bars[0].CurrencyCode
 	if sourceCurrency == "" {
 		return nil, nil, fmt.Errorf("no source currency found in bars")
 	}
 
-	// If source and target are the same, no conversion needed
 	if sourceCurrency == target {
 		convertedBars := make([]ConvertedBar, len(b.Bars))
 		for i, bar := range b.Bars {
@@ -129,7 +170,6 @@ func (b *NormalizedBarBatch) ConvertTo(ctx context.Context, target string, fxCon
 				AsOf:               bar.AsOf,
 			}
 		}
-
 		fxMeta := &FXMeta{
 			Provider: "none",
 			Base:     sourceCurrency,
@@ -144,33 +184,26 @@ func (b *NormalizedBarBatch) ConvertTo(ctx context.Context, target string, fxCon
 		}, fxMeta, nil
 	}
 
-	// Convert each bar
 	convertedBars := make([]ConvertedBar, len(b.Bars))
 	var fxMeta *FXMeta
-
 	for i, bar := range b.Bars {
-		// Convert prices
 		open, meta, err := fxConverter.ConvertValue(ctx, bar.Open, sourceCurrency, target, bar.AsOf)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to convert open price for bar %d: %w", i, err)
 		}
 		fxMeta = meta
-
 		high, _, err := fxConverter.ConvertValue(ctx, bar.High, sourceCurrency, target, bar.AsOf)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to convert high price for bar %d: %w", i, err)
 		}
-
 		low, _, err := fxConverter.ConvertValue(ctx, bar.Low, sourceCurrency, target, bar.AsOf)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to convert low price for bar %d: %w", i, err)
 		}
-
 		closePrice, _, err := fxConverter.ConvertValue(ctx, bar.Close, sourceCurrency, target, bar.AsOf)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to convert close price for bar %d: %w", i, err)
 		}
-
 		convertedBars[i] = ConvertedBar{
 			Start:              bar.Start,
 			End:                bar.End,
@@ -197,14 +230,13 @@ func (b *NormalizedBarBatch) ConvertTo(ctx context.Context, target string, fxCon
 	}, fxMeta, nil
 }
 
-// ConvertTo converts a NormalizedQuote to a target currency
+// ConvertTo converts a NormalizedQuote to a target currency.
 func (q *NormalizedQuote) ConvertTo(ctx context.Context, target string, fxConverter FXConverter) (*ConvertedQuote, *FXMeta, error) {
 	sourceCurrency := q.CurrencyCode
 	if sourceCurrency == "" {
 		return nil, nil, fmt.Errorf("no source currency found in quote")
 	}
 
-	// If source and target are the same, no conversion needed
 	if sourceCurrency == target {
 		fxMeta := &FXMeta{
 			Provider: "none",
@@ -234,7 +266,6 @@ func (q *NormalizedQuote) ConvertTo(ctx context.Context, target string, fxConver
 		return converted, fxMeta, nil
 	}
 
-	// Convert prices
 	converted := &ConvertedQuote{
 		Security:            q.Security,
 		Type:                q.Type,
@@ -248,10 +279,8 @@ func (q *NormalizedQuote) ConvertTo(ctx context.Context, target string, fxConver
 		IngestTime:          q.IngestTime,
 		Meta:                q.Meta,
 	}
-
 	var fxMeta *FXMeta
 
-	// Convert bid if present
 	if q.Bid != nil {
 		bid, meta, err := fxConverter.ConvertValue(ctx, *q.Bid, sourceCurrency, target, q.EventTime)
 		if err != nil {
@@ -260,8 +289,6 @@ func (q *NormalizedQuote) ConvertTo(ctx context.Context, target string, fxConver
 		converted.Bid = &bid
 		fxMeta = meta
 	}
-
-	// Convert ask if present
 	if q.Ask != nil {
 		ask, meta, err := fxConverter.ConvertValue(ctx, *q.Ask, sourceCurrency, target, q.EventTime)
 		if err != nil {
@@ -270,8 +297,6 @@ func (q *NormalizedQuote) ConvertTo(ctx context.Context, target string, fxConver
 		converted.Ask = &ask
 		fxMeta = meta
 	}
-
-	// Convert regular market price if present
 	if q.RegularMarketPrice != nil {
 		price, meta, err := fxConverter.ConvertValue(ctx, *q.RegularMarketPrice, sourceCurrency, target, q.EventTime)
 		if err != nil {
@@ -280,8 +305,6 @@ func (q *NormalizedQuote) ConvertTo(ctx context.Context, target string, fxConver
 		converted.RegularMarketPrice = &price
 		fxMeta = meta
 	}
-
-	// Convert regular market high if present
 	if q.RegularMarketHigh != nil {
 		high, meta, err := fxConverter.ConvertValue(ctx, *q.RegularMarketHigh, sourceCurrency, target, q.EventTime)
 		if err != nil {
@@ -290,8 +313,6 @@ func (q *NormalizedQuote) ConvertTo(ctx context.Context, target string, fxConver
 		converted.RegularMarketHigh = &high
 		fxMeta = meta
 	}
-
-	// Convert regular market low if present
 	if q.RegularMarketLow != nil {
 		low, meta, err := fxConverter.ConvertValue(ctx, *q.RegularMarketLow, sourceCurrency, target, q.EventTime)
 		if err != nil {
@@ -305,19 +326,17 @@ func (q *NormalizedQuote) ConvertTo(ctx context.Context, target string, fxConver
 	return converted, fxMeta, nil
 }
 
-// ConvertTo converts a NormalizedFundamentalsSnapshot to a target currency
+// ConvertTo converts a NormalizedFundamentalsSnapshot to a target currency.
 func (f *NormalizedFundamentalsSnapshot) ConvertTo(ctx context.Context, target string, fxConverter FXConverter) (*ConvertedFundamentalsSnapshot, *FXMeta, error) {
 	if len(f.Lines) == 0 {
 		return nil, nil, fmt.Errorf("no fundamentals lines to convert")
 	}
 
-	// Get the source currency from the first line
 	sourceCurrency := f.Lines[0].CurrencyCode
 	if sourceCurrency == "" {
 		return nil, nil, fmt.Errorf("no source currency found in fundamentals")
 	}
 
-	// If source and target are the same, no conversion needed
 	if sourceCurrency == target {
 		convertedLines := make([]ConvertedFundamentalsLine, len(f.Lines))
 		for i, line := range f.Lines {
@@ -330,7 +349,6 @@ func (f *NormalizedFundamentalsSnapshot) ConvertTo(ctx context.Context, target s
 				PeriodEnd:         line.PeriodEnd,
 			}
 		}
-
 		fxMeta := &FXMeta{
 			Provider: "none",
 			Base:     sourceCurrency,
@@ -347,17 +365,14 @@ func (f *NormalizedFundamentalsSnapshot) ConvertTo(ctx context.Context, target s
 		}, fxMeta, nil
 	}
 
-	// Convert each line
 	convertedLines := make([]ConvertedFundamentalsLine, len(f.Lines))
 	var fxMeta *FXMeta
-
 	for i, line := range f.Lines {
 		value, meta, err := fxConverter.ConvertValue(ctx, line.Value, sourceCurrency, target, f.AsOf)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to convert value for line %d (%s): %w", i, line.Key, err)
 		}
 		fxMeta = meta
-
 		convertedLines[i] = ConvertedFundamentalsLine{
 			Key:               line.Key,
 			Value:             value,
@@ -378,14 +393,13 @@ func (f *NormalizedFundamentalsSnapshot) ConvertTo(ctx context.Context, target s
 	}, fxMeta, nil
 }
 
-// ConvertTo converts a NormalizedMarketData to a target currency
+// ConvertTo converts a NormalizedMarketData to a target currency.
 func (m *NormalizedMarketData) ConvertTo(ctx context.Context, target string, fxConverter FXConverter) (*ConvertedMarketData, *FXMeta, error) {
 	sourceCurrency := m.CurrencyCode
 	if sourceCurrency == "" {
 		return nil, nil, fmt.Errorf("no source currency found in market data")
 	}
 
-	// If source and target are the same, no conversion needed
 	if sourceCurrency == target {
 		fxMeta := &FXMeta{
 			Provider: "none",
@@ -415,7 +429,6 @@ func (m *NormalizedMarketData) ConvertTo(ctx context.Context, target string, fxC
 		return converted, fxMeta, nil
 	}
 
-	// Convert prices
 	converted := &ConvertedMarketData{
 		Security:             m.Security,
 		RegularMarketVolume:  m.RegularMarketVolume,
@@ -427,10 +440,8 @@ func (m *NormalizedMarketData) ConvertTo(ctx context.Context, target string, fxC
 		IngestTime:           m.IngestTime,
 		Meta:                 m.Meta,
 	}
-
 	var fxMeta *FXMeta
 
-	// Convert all price fields
 	priceFields := []struct {
 		source *ScaledDecimal
 		target **ScaledDecimal

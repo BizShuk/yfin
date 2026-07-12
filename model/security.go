@@ -1,11 +1,20 @@
-// security.go — `Security` construction, Yahoo exchange-to-MIC inference (`ExchangeToMIC`, `InferMIC`), exchange-specific symbol cleanup (`cleanSymbol` strips Tokyo `.T` suffix), and `ValidateSecurity` invariant check. Capacity: 1 exchange map (21 entries) + 4 helpers.
+// security.go — `Security` struct + Yahoo exchange-to-MIC inference
+// (`ExchangeToMIC` map, `InferMIC`), exchange-specific symbol cleanup
+// (`cleanSymbol`), and `ValidateSecurity` invariant. Originally in
+// svc/norm/security.go.
 
-package norm
+package model
 
 import (
 	"fmt"
 	"strings"
 )
+
+// Security represents a financial security
+type Security struct {
+	Symbol string `json:"symbol"`
+	MIC    string `json:"mic,omitempty"`
+}
 
 // ExchangeToMIC maps Yahoo Finance exchange names to MIC codes
 var ExchangeToMIC = map[string]string{
@@ -34,38 +43,27 @@ var ExchangeToMIC = map[string]string{
 
 // InferMIC attempts to infer the MIC code from exchange information
 func InferMIC(exchangeName, fullExchangeName string) string {
-	// Try full exchange name first
 	if mic, ok := ExchangeToMIC[fullExchangeName]; ok {
 		return mic
 	}
-
-	// Try exchange name
 	if mic, ok := ExchangeToMIC[exchangeName]; ok {
 		return mic
 	}
-
-	// Try case-insensitive match
 	exchangeUpper := strings.ToUpper(exchangeName)
 	if mic, ok := ExchangeToMIC[exchangeUpper]; ok {
 		return mic
 	}
-
 	fullExchangeUpper := strings.ToUpper(fullExchangeName)
 	if mic, ok := ExchangeToMIC[fullExchangeUpper]; ok {
 		return mic
 	}
-
-	// Return empty string if no match found
 	return ""
 }
 
 // CreateSecurity creates a Security with best-effort MIC inference
 func CreateSecurity(symbol, exchangeName, fullExchangeName string) Security {
 	mic := InferMIC(exchangeName, fullExchangeName)
-
-	// Clean up symbol for specific exchanges
 	cleanSymbol := cleanSymbol(symbol, mic)
-
 	return Security{
 		Symbol: cleanSymbol,
 		MIC:    mic,
@@ -74,11 +72,9 @@ func CreateSecurity(symbol, exchangeName, fullExchangeName string) Security {
 
 // cleanSymbol cleans up symbol names for specific exchanges
 func cleanSymbol(symbol, mic string) string {
-	// For Tokyo Stock Exchange, remove .T suffix
 	if mic == "XTKS" && strings.HasSuffix(symbol, ".T") {
 		return strings.TrimSuffix(symbol, ".T")
 	}
-
 	return symbol
 }
 

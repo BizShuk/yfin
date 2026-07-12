@@ -1,11 +1,43 @@
-// decimal.go — scaled-decimal conversion helpers and per-currency scale rules for `ScaledDecimal`. Capacity: 8 helpers (`GetScaleForCurrency`, `ToScaledDecimal`, `ToScaledDecimalWithCurrency`, `FromScaledDecimal`, `ValidateScaledDecimal`, `GetPriceScaleForCurrency`, `MultiplyAndRound`, `RoundHalfUp`).
-package norm
+// decimal.go — `ScaledDecimal` precision type + stateless conversion helpers.
+// Originally lived in svc/norm/decimal.go (helpers) and svc/norm/types.go
+// (struct). Promoted to model/ so any layer can depend on the precision type
+// without pulling in the rest of the normalize pipeline.
+
+package model
 
 import (
 	"fmt"
 	"math"
 	"math/big"
 )
+
+// ScaledDecimal represents a decimal value with explicit scale
+type ScaledDecimal struct {
+	Scaled int64 `json:"scaled"`
+	Scale  int   `json:"scale"`
+}
+
+// Float64 returns the float64 value of ScaledDecimal.
+func (s ScaledDecimal) Float64() float64 {
+	if s.Scale == 0 {
+		return float64(s.Scaled)
+	}
+	multiplier := math.Pow(10, float64(s.Scale))
+	return float64(s.Scaled) / multiplier
+}
+
+// String returns a human-readable representation of ScaledDecimal.
+func (s ScaledDecimal) String() string {
+	if s.Scale == 0 {
+		return fmt.Sprintf("%d", s.Scaled)
+	}
+	return fmt.Sprintf("%.6f", s.Float64())
+}
+
+// IsZero reports whether the ScaledDecimal represents zero.
+func (s ScaledDecimal) IsZero() bool {
+	return s.Scaled == 0
+}
 
 // GetScaleForCurrency returns the appropriate scale for a given currency
 // USD/EUR/GBP use scale 2 (cents), JPY uses scale 2
@@ -23,20 +55,14 @@ func GetScaleForCurrency(currency string) int {
 
 // ToScaledDecimal converts a float64 price to a scaled decimal
 func ToScaledDecimal(price float64, scale int) (ScaledDecimal, error) {
-	// Validate input
 	if math.IsNaN(price) {
 		return ScaledDecimal{}, fmt.Errorf("NaN price")
 	}
 	if math.IsInf(price, 0) {
 		return ScaledDecimal{}, fmt.Errorf("infinite price")
 	}
-
-	// Calculate multiplier
 	multiplier := math.Pow(10, float64(scale))
-
-	// Round to avoid floating point precision issues
 	scaled := int64(math.Round(price * multiplier))
-
 	return ScaledDecimal{
 		Scaled: scaled,
 		Scale:  scale,
@@ -46,18 +72,24 @@ func ToScaledDecimal(price float64, scale int) (ScaledDecimal, error) {
 // ToScaledDecimalWithCurrency converts a float64 price to a scaled decimal using currency-appropriate scale
 func ToScaledDecimalWithCurrency(price float64, currency string) (ScaledDecimal, error) {
 	scale := GetScaleForCurrency(currency)
-
-	// Note: JPY scaling may need adjustment based on data source
-	// Currently using scale 2 for JPY, but this may need refinement
-	// based on actual Yahoo Finance data format
-
 	return ToScaledDecimal(price, scale)
 }
 
-// FromScaledDecimal converts a scaled decimal back to float64
+// FromScaledDecimal converts a scaled decimal back to float64. Alias of
+// ScaledDecimal.Float64(); kept as a free function for callers that have a
+// value (not pointer) and prefer function-call syntax.
 func FromScaledDecimal(sd ScaledDecimal) float64 {
-	multiplier := math.Pow(10, float64(sd.Scale))
-	return float64(sd.Scaled) / multiplier
+	return sd.Float64()
+}
+
+// ToScaledDecimalPtr converts a float64 pointer to a ScaledDecimal pointer.
+// nil in -> nil out. Originally in svc/norm/market_data.go.
+func ToScaledDecimalPtr(value *float64, currency string) *ScaledDecimal {
+	if value == nil {
+		return nil
+	}
+	scaled, _ := ToScaledDecimalWithCurrency(*value, currency)
+	return &scaled
 }
 
 // ValidateScaledDecimal validates a scaled decimal
@@ -71,15 +103,14 @@ func ValidateScaledDecimal(sd ScaledDecimal) error {
 	return nil
 }
 
-// GetPriceScaleForCurrency returns the appropriate scale for price data in a given currency
-// This is an alias for GetScaleForCurrency for compatibility
+// GetPriceScaleForCurrency returns the appropriate scale for price data in a given currency.
+// This is an alias for GetScaleForCurrency for compatibility.
 func GetPriceScaleForCurrency(currency string) int {
 	return GetScaleForCurrency(currency)
 }
 
 // MultiplyAndRound multiplies two scaled decimals and rounds to the target scale
 func MultiplyAndRound(a ScaledDecimal, b ScaledDecimal, targetScale int) (ScaledDecimal, error) {
-	// Validate inputs
 	if err := ValidateScaledDecimal(a); err != nil {
 		return ScaledDecimal{}, fmt.Errorf("invalid first operand: %w", err)
 	}
@@ -90,17 +121,10 @@ func MultiplyAndRound(a ScaledDecimal, b ScaledDecimal, targetScale int) (Scaled
 		return ScaledDecimal{}, fmt.Errorf("invalid target scale: %d", targetScale)
 	}
 
-	// Perform multiplication using int64 to avoid floating point precision issues
-	// result = (a.Scaled * b.Scaled) / (10^(a.Scale + b.Scale - targetScale))
-
-	// Calculate the total scale of the multiplication
 	totalScale := a.Scale + b.Scale
-
-	// Calculate the divisor to get to target scale
 	scaleDiff := totalScale - targetScale
 
 	if scaleDiff < 0 {
-		// Need to multiply by 10^(-scaleDiff)
 		multiplier := int64(math.Pow(10, float64(-scaleDiff)))
 		result := a.Scaled * b.Scaled * multiplier
 		return ScaledDecimal{
@@ -108,22 +132,17 @@ func MultiplyAndRound(a ScaledDecimal, b ScaledDecimal, targetScale int) (Scaled
 			Scale:  targetScale,
 		}, nil
 	} else if scaleDiff > 0 {
-		// Need to divide by 10^scaleDiff
 		divisor := int64(math.Pow(10, float64(scaleDiff)))
 		result := a.Scaled * b.Scaled / divisor
-
-		// Handle rounding for the remainder
 		remainder := (a.Scaled * b.Scaled) % divisor
 		if remainder >= divisor/2 {
 			result++
 		}
-
 		return ScaledDecimal{
 			Scaled: result,
 			Scale:  targetScale,
 		}, nil
 	} else {
-		// No scaling needed
 		return ScaledDecimal{
 			Scaled: a.Scaled * b.Scaled,
 			Scale:  targetScale,
@@ -138,7 +157,6 @@ func RoundHalfUp(value *big.Int, fromScale, toScale int) *big.Int {
 	}
 
 	if fromScale < toScale {
-		// Scale up: multiply by 10^(toScale - fromScale)
 		multiplier := big.NewInt(1)
 		for i := 0; i < toScale-fromScale; i++ {
 			multiplier.Mul(multiplier, big.NewInt(10))
@@ -146,17 +164,14 @@ func RoundHalfUp(value *big.Int, fromScale, toScale int) *big.Int {
 		return new(big.Int).Mul(value, multiplier)
 	}
 
-	// Scale down: divide by 10^(fromScale - toScale)
 	divisor := big.NewInt(1)
 	for i := 0; i < fromScale-toScale; i++ {
 		divisor.Mul(divisor, big.NewInt(10))
 	}
 
-	// Perform division with half-up rounding
 	quotient := new(big.Int).Div(value, divisor)
 	remainder := new(big.Int).Mod(value, divisor)
 
-	// Half-up rounding: if remainder >= divisor/2, round up
 	half := new(big.Int).Div(divisor, big.NewInt(2))
 	if remainder.Cmp(half) >= 0 {
 		quotient.Add(quotient, big.NewInt(1))

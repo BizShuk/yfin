@@ -1,5 +1,5 @@
 // pull.go — `pull` cobra subcommand：擷取每日 bars。透過 internal/norm 拿
-// ScaledDecimal 精度的 *norm.NormalizedBarBatch，再送給 bus publishing 或
+// ScaledDecimal 精度的 *model.NormalizedBarBatch，再送給 bus publishing 或
 // 本地 JSON 匯出。同 package 的 client_json.go 提供 writeJSONFile 共用。
 package market
 
@@ -12,9 +12,10 @@ import (
 	"time"
 
 	"github.com/bizshuk/yfin/cmd"
-	"github.com/bizshuk/yfin/config"
+	"github.com/bizshuk/yfin/config/types"
+	"github.com/bizshuk/yfin/facade"
+	"github.com/bizshuk/yfin/model"
 	"github.com/bizshuk/yfin/svc/emit"
-	"github.com/bizshuk/yfin/svc/norm"
 	"github.com/bizshuk/yfin/utils/bus"
 	"github.com/bizshuk/yfin/utils/obsv"
 	"github.com/spf13/cobra"
@@ -101,7 +102,7 @@ func runPull(cobraCmd *cobra.Command, cfg *pullConfig) error {
 	}
 
 	// Validate interval (daily-only enforcement)
-	loader := config.NewLoader(cmd.Global.ConfigFile)
+	loader := types.NewLoader(cmd.Global.ConfigFile)
 	ycfg, err := loader.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to load configuration: %v\n", err)
@@ -262,10 +263,10 @@ func getSymbols(ticker, universeFile string) ([]string, error) {
 }
 
 // processSymbol processes a single symbol for bars
-func processSymbol(ctx context.Context, client *cmd.CliClient, symbol string, start, end time.Time, adjusted bool, runID string, busInstance *bus.Bus, busConfig *bus.Config, cfg *pullConfig) error {
-	// Fetch bars via the CLI helper (svc/yahoo + internal/norm). This keeps
-	// the ScaledDecimal precision the bus-publishing code needs.
-	bars, err := cmd.FetchDailyBarsNorm(ctx, client.Yahoo, symbol, start, end, adjusted, runID)
+func processSymbol(ctx context.Context, client *facade.Client, symbol string, start, end time.Time, adjusted bool, runID string, busInstance *bus.Bus, busConfig *bus.Config, cfg *pullConfig) error {
+	// Fetch bars via facade. The Norm-returning variant preserves
+	// ScaledDecimal precision that the emit→proto pipeline needs.
+	bars, err := client.FetchDailyBarsNorm(ctx, symbol, start, end, adjusted, runID)
 	if err != nil {
 		return err
 	}
@@ -304,7 +305,7 @@ func processSymbol(ctx context.Context, client *cmd.CliClient, symbol string, st
 }
 
 // printBarsPreview prints the bars preview according to specification
-func printBarsPreview(bars *norm.NormalizedBarBatch, runID, env, topicPrefix string) {
+func printBarsPreview(bars *model.NormalizedBarBatch, runID, env, topicPrefix string) {
 	firstBar := bars.Bars[0]
 	lastBar := bars.Bars[len(bars.Bars)-1]
 
@@ -327,7 +328,7 @@ func printBarsPreview(bars *norm.NormalizedBarBatch, runID, env, topicPrefix str
 // handleFXPreview handles FX conversion preview. After Step 6, handleFXPreview
 // no longer needs a *facade.Client — it only inspects the bar batch's
 // currency; the client was previously threaded through without being used.
-func handleFXPreview(ctx context.Context, bars *norm.NormalizedBarBatch, targetCurrency string) error {
+func handleFXPreview(ctx context.Context, bars *model.NormalizedBarBatch, targetCurrency string) error {
 	// Check if FX conversion is needed
 	firstBar := bars.Bars[0]
 	if firstBar.CurrencyCode == targetCurrency {
@@ -344,7 +345,7 @@ func handleFXPreview(ctx context.Context, bars *norm.NormalizedBarBatch, targetC
 }
 
 // handleBusPublishing handles bus publishing for bars
-func handleBusPublishing(ctx context.Context, bars *norm.NormalizedBarBatch, busInstance *bus.Bus, busConfig *bus.Config, runID string, preview bool) error {
+func handleBusPublishing(ctx context.Context, bars *model.NormalizedBarBatch, busInstance *bus.Bus, busConfig *bus.Config, runID string, preview bool) error {
 	// Emit to ampy-proto format
 	ampyBatch, err := emit.EmitBarBatch(bars)
 	if err != nil {
@@ -382,7 +383,7 @@ func handleBusPublishing(ctx context.Context, bars *norm.NormalizedBarBatch, bus
 }
 
 // handleLocalExport handles local export for bars
-func handleLocalExport(bars *norm.NormalizedBarBatch, symbol string, start, end time.Time, adjusted bool, outFormat, outDir string) error {
+func handleLocalExport(bars *model.NormalizedBarBatch, symbol string, start, end time.Time, adjusted bool, outFormat, outDir string) error {
 	// Create output directory
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		return fmt.Errorf("failed to create output directory: %v", err)

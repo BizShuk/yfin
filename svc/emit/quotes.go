@@ -1,4 +1,4 @@
-// quotes.go — `EmitQuote` converts a `norm.NormalizedQuote` into an ampy `ticks.v1.QuoteTick` with bid/ask/venue/security/currency validation. Capacity: 1 emit + 2 helpers (`emitMeta`, `getInt64Value`).
+// quotes.go — `EmitQuote` converts a `model.NormalizedQuote` into an ampy `ticks.v1.QuoteTick` with bid/ask/venue/security/currency validation. Capacity: 1 emit + 2 helpers (`emitMeta`, `getInt64Value`).
 
 package emit
 
@@ -7,12 +7,12 @@ import (
 
 	commonv1 "github.com/AmpyFin/ampy-proto/v2/gen/go/ampy/common/v1"
 	ticksv1 "github.com/AmpyFin/ampy-proto/v2/gen/go/ampy/ticks/v1"
-	"github.com/bizshuk/yfin/svc/norm"
+	"github.com/bizshuk/yfin/model"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // EmitQuote converts a NormalizedQuote to ampy.ticks.v1.QuoteTick
-func EmitQuote(n *norm.NormalizedQuote) (*ticksv1.QuoteTick, error) {
+func EmitQuote(n *model.NormalizedQuote) (*ticksv1.QuoteTick, error) {
 	if n == nil {
 		return nil, fmt.Errorf("normalized quote cannot be nil")
 	}
@@ -69,7 +69,7 @@ func EmitQuote(n *norm.NormalizedQuote) (*ticksv1.QuoteTick, error) {
 }
 
 // emitMeta converts a Meta to ampy.common.v1.Meta
-func emitMeta(m *norm.Meta) *commonv1.Meta {
+func emitMeta(m *model.Meta) *commonv1.Meta {
 	if m == nil {
 		return nil
 	}

@@ -1,24 +1,18 @@
-// company_info.go — `CompanyInfo` plain SDK struct + `FromCompanyInfo`
-// string-passthrough converter (no ScaledDecimal fields; just Security metadata).
-// Capacity: 1 struct + 1 converter.
+// company_info.go — `CompanyInfo` type alias + `FromCompanyInfo` string
+// passthrough converter. Struct lives in model/company_info.go; facade.CompanyInfo
+// is a back-compat alias.
 package facade
 
-import "github.com/bizshuk/yfin/svc/norm"
+import (
+	"github.com/bizshuk/yfin/model"
+)
 
-// CompanyInfo is the public-shaped company information.
-type CompanyInfo struct {
-	Symbol           string `json:"symbol"`
-	LongName         string `json:"long_name,omitempty"`
-	ShortName        string `json:"short_name,omitempty"`
-	Exchange         string `json:"exchange,omitempty"`
-	FullExchangeName string `json:"full_exchange_name,omitempty"`
-	Currency         string `json:"currency,omitempty"`
-	InstrumentType   string `json:"instrument_type,omitempty"`
-	Timezone         string `json:"timezone,omitempty"`
-}
+// CompanyInfo is the public-shaped company information. Aliased from
+// model.CompanyInfo — new code should use model.CompanyInfo directly.
+type CompanyInfo = model.CompanyInfo
 
-// FromCompanyInfo converts the internal norm company info to a public struct.
-func FromCompanyInfo(ci *norm.NormalizedCompanyInfo) *CompanyInfo {
+// FromCompanyInfo converts the internal model company info to a public struct.
+func FromCompanyInfo(ci *model.NormalizedCompanyInfo) *CompanyInfo {
 	if ci == nil {
 		return nil
 	}

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bizshuk/yfin/svc/norm"
+	"github.com/bizshuk/yfin/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -14,19 +14,19 @@ import (
 
 func TestEmitBarBatch_RoundTrip(t *testing.T) {
 	// Create test input
-	input := &norm.NormalizedBarBatch{
-		Security: norm.Security{
+	input := &model.NormalizedBarBatch{
+		Security: model.Security{
 			Symbol: "AAPL",
 			MIC:    "XNAS",
 		},
-		Bars: []norm.NormalizedBar{
+		Bars: []model.NormalizedBar{
 			{
 				Start:              time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC),
 				End:                time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC),
-				Open:               norm.ScaledDecimal{Scaled: 1892300, Scale: 4},
-				High:               norm.ScaledDecimal{Scaled: 1910000, Scale: 4},
-				Low:                norm.ScaledDecimal{Scaled: 1889000, Scale: 4},
-				Close:              norm.ScaledDecimal{Scaled: 1904500, Scale: 4},
+				Open:               model.ScaledDecimal{Scaled: 1892300, Scale: 4},
+				High:               model.ScaledDecimal{Scaled: 1910000, Scale: 4},
+				Low:                model.ScaledDecimal{Scaled: 1889000, Scale: 4},
+				Close:              model.ScaledDecimal{Scaled: 1904500, Scale: 4},
 				CurrencyCode:       "USD",
 				Volume:             43210000,
 				Adjusted:           true,
@@ -36,7 +36,7 @@ func TestEmitBarBatch_RoundTrip(t *testing.T) {
 				AsOf:               time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC),
 			},
 		},
-		Meta: norm.Meta{
+		Meta: model.Meta{
 			RunID:         "test_roundtrip",
 			Source:        "yfinance-go",
 			Producer:      "local",
@@ -73,21 +73,21 @@ func TestEmitBarBatch_RoundTrip(t *testing.T) {
 
 func TestEmitQuote_RoundTrip(t *testing.T) {
 	// Create test input
-	input := &norm.NormalizedQuote{
-		Security: norm.Security{
+	input := &model.NormalizedQuote{
+		Security: model.Security{
 			Symbol: "MSFT",
 			MIC:    "XNAS",
 		},
 		Type:         "QUOTE",
-		Bid:          &norm.ScaledDecimal{Scaled: 4275000, Scale: 4},
+		Bid:          &model.ScaledDecimal{Scaled: 4275000, Scale: 4},
 		BidSize:      int64Ptr(200),
-		Ask:          &norm.ScaledDecimal{Scaled: 4275300, Scale: 4},
+		Ask:          &model.ScaledDecimal{Scaled: 4275300, Scale: 4},
 		AskSize:      int64Ptr(300),
 		CurrencyCode: "USD",
 		Venue:        "XNMS",
 		EventTime:    time.Date(2024, 1, 3, 15, 30, 12, 0, time.UTC),
 		IngestTime:   time.Date(2024, 1, 3, 15, 30, 12, 0, time.UTC),
-		Meta: norm.Meta{
+		Meta: model.Meta{
 			RunID:         "test_roundtrip",
 			Source:        "yfinance-go",
 			Producer:      "local",
@@ -119,22 +119,22 @@ func TestEmitQuote_RoundTrip(t *testing.T) {
 
 func TestEmitFundamentals_RoundTrip(t *testing.T) {
 	// Create test input
-	input := &norm.NormalizedFundamentalsSnapshot{
-		Security: norm.Security{
+	input := &model.NormalizedFundamentalsSnapshot{
+		Security: model.Security{
 			Symbol: "AAPL",
 			MIC:    "XNAS",
 		},
-		Lines: []norm.NormalizedFundamentalsLine{
+		Lines: []model.NormalizedFundamentalsLine{
 			{
 				Key:          "revenue",
-				Value:        norm.ScaledDecimal{Scaled: 119870000000000, Scale: 2},
+				Value:        model.ScaledDecimal{Scaled: 119870000000000, Scale: 2},
 				CurrencyCode: "USD",
 				PeriodStart:  time.Date(2025, 3, 30, 0, 0, 0, 0, time.UTC),
 				PeriodEnd:    time.Date(2025, 6, 29, 0, 0, 0, 0, time.UTC),
 			},
 			{
 				Key:          "net_income",
-				Value:        norm.ScaledDecimal{Scaled: 2386000000000, Scale: 2},
+				Value:        model.ScaledDecimal{Scaled: 2386000000000, Scale: 2},
 				CurrencyCode: "USD",
 				PeriodStart:  time.Date(2025, 3, 30, 0, 0, 0, 0, time.UTC),
 				PeriodEnd:    time.Date(2025, 6, 29, 0, 0, 0, 0, time.UTC),
@@ -142,7 +142,7 @@ func TestEmitFundamentals_RoundTrip(t *testing.T) {
 		},
 		Source: "yfinance",
 		AsOf:   time.Date(2025, 8, 1, 0, 0, 0, 0, time.UTC),
-		Meta: norm.Meta{
+		Meta: model.Meta{
 			RunID:         "test_roundtrip",
 			Source:        "yfinance-go",
 			Producer:      "local",

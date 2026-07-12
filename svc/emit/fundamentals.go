@@ -1,4 +1,4 @@
-// fundamentals.go — `EmitFundamentals` converts a `norm.NormalizedFundamentalsSnapshot` into an ampy `fundamentals.v1.FundamentalsSnapshot` with per-line-item decimal/currency/period validation. Capacity: 2 emit funcs (`EmitFundamentals`, `emitLineItem`).
+// fundamentals.go — `EmitFundamentals` converts a `model.NormalizedFundamentalsSnapshot` into an ampy `fundamentals.v1.FundamentalsSnapshot` with per-line-item decimal/currency/period validation. Capacity: 2 emit funcs (`EmitFundamentals`, `emitLineItem`).
 
 package emit
 
@@ -6,12 +6,12 @@ import (
 	"fmt"
 
 	fundamentalsv1 "github.com/AmpyFin/ampy-proto/v2/gen/go/ampy/fundamentals/v1"
-	"github.com/bizshuk/yfin/svc/norm"
+	"github.com/bizshuk/yfin/model"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // EmitFundamentals converts a NormalizedFundamentalsSnapshot to ampy.fundamentals.v1.FundamentalsSnapshot
-func EmitFundamentals(n *norm.NormalizedFundamentalsSnapshot) (*fundamentalsv1.FundamentalsSnapshot, error) {
+func EmitFundamentals(n *model.NormalizedFundamentalsSnapshot) (*fundamentalsv1.FundamentalsSnapshot, error) {
 	if n == nil {
 		return nil, fmt.Errorf("normalized fundamentals snapshot cannot be nil")
 	}
@@ -55,7 +55,7 @@ func EmitFundamentals(n *norm.NormalizedFundamentalsSnapshot) (*fundamentalsv1.F
 }
 
 // emitLineItem converts a NormalizedFundamentalsLine to ampy.fundamentals.v1.LineItem
-func emitLineItem(n *norm.NormalizedFundamentalsLine) (*fundamentalsv1.LineItem, error) {
+func emitLineItem(n *model.NormalizedFundamentalsLine) (*fundamentalsv1.LineItem, error) {
 	if n == nil {
 		return nil, fmt.Errorf("normalized fundamentals line cannot be nil")
 	}

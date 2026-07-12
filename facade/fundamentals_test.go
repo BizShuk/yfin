@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	fundamentalsv1 "github.com/AmpyFin/ampy-proto/v2/gen/go/ampy/fundamentals/v1"
 	commonv1 "github.com/AmpyFin/ampy-proto/v2/gen/go/ampy/common/v1"
+	fundamentalsv1 "github.com/AmpyFin/ampy-proto/v2/gen/go/ampy/fundamentals/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/timestamppb"

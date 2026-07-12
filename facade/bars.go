@@ -1,6 +1,11 @@
-// bars.go — `Bar` / `BarBatch` plain SDK structs + `FromBarBatch`
-// ScaledDecimal → float64 converter + `formatUTC` helper. Capacity:
-// 2 structs + 1 converter + 1 helper.
+// bars.go — type aliases (`Bar`, `BarBatch`) for back-compat with the
+// pre-model/ public surface + `FromBarBatch` ScaledDecimal → float64
+// converter + `formatUTC` helper.
+//
+// The structs themselves now live in `github.com/bizshuk/yfin/model/bars.go`;
+// `facade.Bar` and `facade.BarBatch` are type aliases (`type X = model.X`),
+// so existing callers that still write `facade.Bar` keep compiling unchanged.
+// New code should prefer `model.Bar` directly to avoid the indirection.
 
 // Package facade re-exports the yfinance-go normalized bar/quote/company-info
 // types as plain Go structs so external consumers (e.g. data/stock) can avoid
@@ -12,31 +17,20 @@ package facade
 import (
 	"time"
 
-	"github.com/bizshuk/yfin/svc/norm"
+	"github.com/bizshuk/yfin/model"
 )
 
 // Bar is one daily OHLCV bar with float64 prices (decoded from ScaledDecimal).
-type Bar struct {
-	Date         string  `json:"date"` // YYYY-MM-DD (UTC) — derived from Bar.EventTime
-	Open         float64 `json:"open"`
-	High         float64 `json:"high"`
-	Low          float64 `json:"low"`
-	Close        float64 `json:"close"`
-	Volume       int64   `json:"volume"`
-	Adjusted     bool    `json:"adjusted"`
-	CurrencyCode string  `json:"currency_code"`
-}
+// Aliased from model.Bar — new code should use model.Bar directly.
+type Bar = model.Bar
 
 // BarBatch is a series of Bars for one symbol, plus identifying metadata.
-type BarBatch struct {
-	Symbol string `json:"symbol"`
-	MIC    string `json:"mic,omitempty"`
-	Bars   []Bar  `json:"bars"`
-}
+// Aliased from model.BarBatch — new code should use model.BarBatch directly.
+type BarBatch = model.BarBatch
 
-// FromBarBatch converts the internal norm batch into a clean public struct.
+// FromBarBatch converts the internal model batch into a clean public struct.
 // Returns nil if b is nil so callers can treat nil-checks uniformly.
-func FromBarBatch(b *norm.NormalizedBarBatch) *BarBatch {
+func FromBarBatch(b *model.NormalizedBarBatch) *BarBatch {
 	if b == nil {
 		return nil
 	}
@@ -48,10 +42,10 @@ func FromBarBatch(b *norm.NormalizedBarBatch) *BarBatch {
 	for _, nb := range b.Bars {
 		out.Bars = append(out.Bars, Bar{
 			Date:         nb.EventTime.UTC().Format("2006-01-02"),
-			Open:         norm.FromScaledDecimal(nb.Open),
-			High:         norm.FromScaledDecimal(nb.High),
-			Low:          norm.FromScaledDecimal(nb.Low),
-			Close:        norm.FromScaledDecimal(nb.Close),
+			Open:         model.FromScaledDecimal(nb.Open),
+			High:         model.FromScaledDecimal(nb.High),
+			Low:          model.FromScaledDecimal(nb.Low),
+			Close:        model.FromScaledDecimal(nb.Close),
 			Volume:       nb.Volume,
 			Adjusted:     nb.Adjusted,
 			CurrencyCode: nb.CurrencyCode,
