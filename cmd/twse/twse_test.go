@@ -1,9 +1,10 @@
 // twse_test.go — twse CLI tests using httptest-backed fake TWSE: `MI_INDEX`
 // happy path, empty-data fallback, unknown endpoint, missing `--stock`,
-// `FMSRFK` stock-no dispatch, and a registry-coverage check over
-// `twseNameToFetcher`. Capacity: 6 test functions + 3 test helpers
+// `FMSRFK` stock-no dispatch, registry-coverage check over
+// `twseNameToFetcher`, and `buildTWSEClient` composition verification.
+// Capacity: 7 test functions + 3 test helpers
 // (`setTwseClientForTest`/`captureStdout`/`resetTwseCfg`).
-package cmd
+package twse
 
 import (
 	"bytes"
@@ -18,16 +19,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bizshuk/yfin/svc/twse"
+	svcTWSE "github.com/bizshuk/yfin/svc/twse"
 	"github.com/bizshuk/yfin/utils/httpx"
 )
 
-// newTWSEClientForTest builds a *twse.Client pointed at srv.URL via a
-// real (latency-free) httpx.Client. Per Task 4, every TWSE fetch is
-// routed through the injected caller, so this exercises the full
-// transport path that production uses — just pointed at a local
-// httptest server instead of www.twse.com.tw.
-func newTWSEClientForTest(t *testing.T, srv *httptest.Server) *twse.Client {
+// newTWSEClientForTest builds a *svcTWSE.Client pointed at srv.URL via a
+// real (latency-free) httpx.Client. This exercises the full transport path
+// that production uses — just pointed at a local httptest server.
+func newTWSEClientForTest(t *testing.T, srv *httptest.Server) *svcTWSE.Client {
 	t.Helper()
 	hc := httpx.NewClient(&httpx.Config{
 		BaseURL:          "",
@@ -42,7 +41,7 @@ func newTWSEClientForTest(t *testing.T, srv *httptest.Server) *twse.Client {
 		FailureThreshold: 1000,
 		ResetTimeout:     time.Second,
 	})
-	return twse.NewClientWithURL(hc, srv.URL)
+	return svcTWSE.NewClientWithURL(hc, srv.URL)
 }
 
 func resetTwseCfg(t *testing.T) {
@@ -50,12 +49,11 @@ func resetTwseCfg(t *testing.T) {
 	twseCfg = twseConfig{}
 }
 
-// setTwseClientForTest swaps the twseClientProvider for the lifetime of
-// one test. Returns a restore function suitable for t.Cleanup.
-func setTwseClientForTest(t *testing.T, client *twse.Client) func() {
+// setTwseClientForTest swaps the twseClientProvider for the lifetime of one test.
+func setTwseClientForTest(t *testing.T, client *svcTWSE.Client) func() {
 	t.Helper()
 	prev := twseClientProvider
-	twseClientProvider = func() *twse.Client { return client }
+	twseClientProvider = func() *svcTWSE.Client { return client }
 	return func() { twseClientProvider = prev }
 }
 
@@ -104,10 +102,10 @@ func TestRunTwseEndpoint_MI_INDEX(t *testing.T) {
 	restore := setTwseClientForTest(t, newTWSEClientForTest(t, srv))
 	defer restore()
 
-	cmd := twseCmd
+	c := twseCmd
 	var stdout, stderr string
 	stdout, stderr = captureStdout(t, func() {
-		if err := runTwseEndpoint(cmd, nil); err != nil {
+		if err := runTwseEndpoint(c, nil); err != nil {
 			t.Errorf("runTwseEndpoint returned error: %v", err)
 		}
 	})
@@ -134,10 +132,10 @@ func TestRunTwseEndpoint_NoData(t *testing.T) {
 	restore := setTwseClientForTest(t, newTWSEClientForTest(t, srv))
 	defer restore()
 
-	cmd := twseCmd
+	c := twseCmd
 	var stdout, stderr string
 	stdout, stderr = captureStdout(t, func() {
-		if err := runTwseEndpoint(cmd, nil); err != nil {
+		if err := runTwseEndpoint(c, nil); err != nil {
 			t.Errorf("expected nil error for no-data, got: %v", err)
 		}
 	})
@@ -151,9 +149,9 @@ func TestRunTwseEndpoint_UnknownEndpoint(t *testing.T) {
 	twseCfg.endpoint = "BOGUS_ENDPOINT"
 	twseCfg.date = "20221230"
 
-	cmd := twseCmd
+	c := twseCmd
 	_, stderr := captureStdout(t, func() {
-		if err := runTwseEndpoint(cmd, nil); err == nil {
+		if err := runTwseEndpoint(c, nil); err == nil {
 			t.Error("expected error for unknown endpoint, got nil")
 		}
 	})
@@ -166,11 +164,10 @@ func TestRunTwseEndpoint_STOCK_DAY_RequiresStock(t *testing.T) {
 	defer resetTwseCfg(t)
 	twseCfg.endpoint = "STOCK_DAY"
 	twseCfg.date = "20221230"
-	// --stock omitted on purpose; Registry says NeedsStock=true.
 
-	cmd := twseCmd
+	c := twseCmd
 	_, stderr := captureStdout(t, func() {
-		if err := runTwseEndpoint(cmd, nil); err == nil {
+		if err := runTwseEndpoint(c, nil); err == nil {
 			t.Error("expected error when --stock missing, got nil")
 		}
 	})
@@ -207,9 +204,9 @@ func TestRunTwseEndpoint_FMSRFK_DispatchesWithStock(t *testing.T) {
 	restore := setTwseClientForTest(t, newTWSEClientForTest(t, srv))
 	defer restore()
 
-	cmd := twseCmd
+	c := twseCmd
 	stdout, _ := captureStdout(t, func() {
-		if err := runTwseEndpoint(cmd, nil); err != nil {
+		if err := runTwseEndpoint(c, nil); err != nil {
 			t.Errorf("runTwseEndpoint returned error: %v", err)
 		}
 	})
@@ -219,9 +216,9 @@ func TestRunTwseEndpoint_FMSRFK_DispatchesWithStock(t *testing.T) {
 }
 
 func TestNameToFetcher_CoversAllRegistryEntries(t *testing.T) {
-	for name, ep := range twse.Registry {
+	for name, ep := range svcTWSE.Registry {
 		if _, ok := twseNameToFetcher[name]; !ok {
-			t.Errorf("registry entry %q (%s) has no fetcher wired in cmd/twse.go", name, ep.Path)
+			t.Errorf("registry entry %q (%s) has no fetcher wired in cmd/twse/twse.go", name, ep.Path)
 		}
 	}
 }
@@ -239,7 +236,7 @@ func TestDispatcher_Call_DispatchesViaClient(t *testing.T) {
 	defer srv.Close()
 
 	client := newTWSEClientForTest(t, srv)
-	d := twse.NewDispatcher(client)
+	d := svcTWSE.NewDispatcher(client)
 	raw, err := d.Call(context.Background(), "MI_INDEX", "20260620", url.Values{})
 	if err != nil {
 		t.Fatalf("Dispatcher.Call: %v", err)
@@ -249,21 +246,18 @@ func TestDispatcher_Call_DispatchesViaClient(t *testing.T) {
 	}
 }
 
-// TestBuildTWSEClient is a focused unit test for the composition-root
-// function in cmd/root.go. It exercises the wiring path used by the
-// `yfin twse` subcommand without touching the network: a successful
-// build must yield a non-nil *twse.Client whose BaseURL matches the
-// production package-level value and whose injected Caller is
-// non-nil. Catches regressions in buildTWSEClient (e.g. a future change
-// that flips Config.BaseURL from "" to twse.BaseURL, which would
-// double-concatenate in svc/twse/fetch.go).
+// TestBuildTWSEClient verifies the composition-root function in client.go:
+// a successful build must yield a non-nil *svcTWSE.Client whose BaseURL
+// matches the production package-level value and whose injected Caller is
+// non-nil. Catches regressions (e.g. a future flip of Config.BaseURL from
+// "" to svcTWSE.BaseURL, which would double-concatenate).
 func TestBuildTWSEClient(t *testing.T) {
 	client := buildTWSEClient()
 	if client == nil {
 		t.Fatal("buildTWSEClient returned nil client")
 	}
-	if got, want := client.BaseURL(), twse.BaseURL; got != want {
-		t.Errorf("client.BaseURL() = %q, want %q (package twse.BaseURL)", got, want)
+	if got, want := client.BaseURL(), svcTWSE.BaseURL; got != want {
+		t.Errorf("client.BaseURL() = %q, want %q (package svc/twse.BaseURL)", got, want)
 	}
 	if client.Caller() == nil {
 		t.Error("client.Caller() returned nil; buildTWSEClient must inject a non-nil httpx.Caller")

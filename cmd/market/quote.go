@@ -1,10 +1,7 @@
-// quote.go — `quote` cobra subcommand that fetches a snapshot quote per
-// ticker (no time-series), prints a one-line preview, optionally publishes
-// to the bus, and optionally writes a local JSON file.
-// Capacity: 1 `QuoteConfig` + 1 var + 1 `quoteCmd` + 1 `init()` (7 flags) +
-// runQuote / validateQuoteFlags / processQuote / printQuotePreview /
-// handleQuoteBusPublishing / handleQuoteLocalExport / estimateQuoteSize.
-package cmd
+// quote.go — `quote` cobra subcommand：擷取即時 quote 快照。`pull` 同樣是
+// market-data 出口；兩者共用 client_json.go 的 writeJSONFile。本檔只負責
+// quote 的 cobra command 構建與所有 helper。
+package market
 
 import (
 	"context"
@@ -14,14 +11,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bizshuk/yfin/cmd"
 	"github.com/bizshuk/yfin/svc/emit"
 	"github.com/bizshuk/yfin/svc/norm"
 	"github.com/bizshuk/yfin/utils/bus"
 	"github.com/spf13/cobra"
 )
 
-// QuoteConfig holds configuration for the quote command
-type QuoteConfig struct {
+// quoteConfig holds configuration for the quote command
+type quoteConfig struct {
 	Tickers     string
 	Preview     bool
 	Publish     bool
@@ -31,68 +29,67 @@ type QuoteConfig struct {
 	OutDir      string
 }
 
-var quoteConfig QuoteConfig
+// newQuoteCmd returns the `quote` cobra command.
+func newQuoteCmd() *cobra.Command {
+	cfg := &quoteConfig{}
+	c := &cobra.Command{
+		Use:   "quote",
+		Short: "擷取即時 quote 快照 (Fetch snapshot quotes)",
+		Long: `擷取單一或多個 symbols 的即時 quote 快照。
+(Fetch snapshot quotes for one or more symbols.)
 
-// quoteCmd represents the quote command
-var quoteCmd = &cobra.Command{
-	Use:   "quote",
-	Short: "Fetch snapshot quotes",
-	Long: `Fetch snapshot quotes for one or more symbols.
-
-Examples:
+範例 (Examples):
   yfin quote --tickers AAPL,MSFT,TSLA --preview
   yfin quote --tickers AAPL --publish --env prod --topic-prefix ampy`,
-	RunE: runQuote,
-}
-
-func init() {
+		RunE: func(c *cobra.Command, args []string) error { return runQuote(cfg) },
+	}
 	// Quote command flags
-	quoteCmd.Flags().StringVar(&quoteConfig.Tickers, "tickers", "", "Comma-separated list of symbols (e.g., AAPL,MSFT,TSLA)")
-	quoteCmd.Flags().BoolVar(&quoteConfig.Preview, "preview", false, "Show preview without publishing")
-	quoteCmd.Flags().BoolVar(&quoteConfig.Publish, "publish", false, "Enable bus publishing")
-	quoteCmd.Flags().StringVar(&quoteConfig.Env, "env", "dev", "Environment (dev, staging, prod)")
-	quoteCmd.Flags().StringVar(&quoteConfig.TopicPrefix, "topic-prefix", "ampy", "Topic prefix for bus publishing")
-	quoteCmd.Flags().StringVar(&quoteConfig.Out, "out", "", "Output format (json)")
-	quoteCmd.Flags().StringVar(&quoteConfig.OutDir, "out-dir", "", "Output directory")
-	rootCmd.AddCommand(quoteCmd)
+	c.Flags().StringVar(&cfg.Tickers, "tickers", "", "Comma-separated list of symbols (e.g., AAPL,MSFT,TSLA)")
+	c.Flags().BoolVar(&cfg.Preview, "preview", false, "Show preview without publishing")
+	c.Flags().BoolVar(&cfg.Publish, "publish", false, "Enable bus publishing")
+	c.Flags().StringVar(&cfg.Env, "env", "dev", "Environment (dev, staging, prod)")
+	c.Flags().StringVar(&cfg.TopicPrefix, "topic-prefix", "ampy", "Topic prefix for bus publishing")
+	c.Flags().StringVar(&cfg.Out, "out", "", "Output format (json)")
+	c.Flags().StringVar(&cfg.OutDir, "out-dir", "", "Output directory")
+	return c
 }
 
 // runQuote executes the quote command
-func runQuote(cmd *cobra.Command, args []string) error {
+func runQuote(cfg *quoteConfig) error {
 	// Validate flags
-	if err := validateQuoteFlags(); err != nil {
+	if err := validateQuoteFlags(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
-		os.Exit(ExitConfigError)
+		os.Exit(cmd.ExitConfigError)
 	}
 
 	// Generate run ID if not provided
-	runID := globalConfig.RunID
+	runID := cmd.Global.RunID
 	if runID == "" {
 		runID = fmt.Sprintf("yfin_%d", time.Now().Unix())
 	}
 
 	// Parse tickers
-	tickers := strings.Split(quoteConfig.Tickers, ",")
+	tickers := strings.Split(cfg.Tickers, ",")
 	for i, ticker := range tickers {
 		tickers[i] = strings.TrimSpace(ticker)
 	}
 
 	// Create client
-	client, err := createClient()
+	client, err := cmd.CreateClient()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to create client: %v\n", err)
-		os.Exit(ExitGeneral)
+		os.Exit(cmd.ExitGeneral)
 	}
 
 	// Create bus if publishing
 	var busInstance *bus.Bus
 	var busConfig *bus.Config
-	if quoteConfig.Publish || quoteConfig.Preview {
-		busConfig = createBusConfig(quoteConfig.Env, quoteConfig.TopicPrefix)
+	if cfg.Publish || cfg.Preview {
+		busConfig = cmd.CreateBusConfig(cfg.Env, cfg.TopicPrefix)
 		busInstance, err = bus.NewBus(busConfig)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: Failed to create bus: %v\n", err)
-			os.Exit(ExitGeneral)
+			os.Exit(cmd.ExitGeneral)
 		}
 		defer busInstance.Close(context.Background())
 	}
@@ -103,7 +100,7 @@ func runQuote(cmd *cobra.Command, args []string) error {
 
 	successCount := 0
 	for _, ticker := range tickers {
-		if err := processQuote(ctx, client, ticker, runID, busInstance, busConfig); err != nil {
+		if err := processQuote(ctx, client, ticker, runID, busInstance, busConfig, cfg); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: Failed to process quote for %s: %v\n", ticker, err)
 			continue
 		}
@@ -112,7 +109,7 @@ func runQuote(cmd *cobra.Command, args []string) error {
 
 	if successCount == 0 {
 		fmt.Fprintf(os.Stderr, "ERROR: No quotes processed successfully\n")
-		os.Exit(ExitGeneral)
+		os.Exit(cmd.ExitGeneral)
 	}
 
 	fmt.Printf("Successfully processed %d/%d quotes\n", successCount, len(tickers))
@@ -120,20 +117,20 @@ func runQuote(cmd *cobra.Command, args []string) error {
 }
 
 // validateQuoteFlags validates quote command flags
-func validateQuoteFlags() error {
-	if quoteConfig.Tickers == "" {
+func validateQuoteFlags(cfg *quoteConfig) error {
+	if cfg.Tickers == "" {
 		return fmt.Errorf("--tickers is required")
 	}
-	if quoteConfig.Out != "" && quoteConfig.Out != "json" {
+	if cfg.Out != "" && cfg.Out != "json" {
 		return fmt.Errorf("--out must be 'json' for quotes")
 	}
 	return nil
 }
 
 // processQuote processes a single quote
-func processQuote(ctx context.Context, client *cliClient, ticker string, runID string, busInstance *bus.Bus, busConfig *bus.Config) error {
+func processQuote(ctx context.Context, client *cmd.CliClient, ticker string, runID string, busInstance *bus.Bus, busConfig *bus.Config, cfg *quoteConfig) error {
 	// Fetch quote via the CLI helper (svc/yahoo + internal/norm).
-	quote, err := fetchQuoteNorm(ctx, client.Yahoo, ticker, runID)
+	quote, err := cmd.FetchQuoteNorm(ctx, client.Yahoo, ticker, runID)
 	if err != nil {
 		return err
 	}
@@ -143,14 +140,14 @@ func processQuote(ctx context.Context, client *cliClient, ticker string, runID s
 
 	// Handle bus publishing
 	if busInstance != nil {
-		if err := handleQuoteBusPublishing(ctx, quote, busInstance, busConfig, runID, quoteConfig.Preview); err != nil {
+		if err := handleQuoteBusPublishing(ctx, quote, busInstance, busConfig, runID, cfg.Preview); err != nil {
 			return fmt.Errorf("bus publishing failed: %v", err)
 		}
 	}
 
 	// Handle local export
-	if quoteConfig.Out != "" && quoteConfig.OutDir != "" {
-		if err := handleQuoteLocalExport(quote, ticker, quoteConfig.Out, quoteConfig.OutDir); err != nil {
+	if cfg.Out != "" && cfg.OutDir != "" {
+		if err := handleQuoteLocalExport(quote, ticker, cfg.Out, cfg.OutDir); err != nil {
 			return fmt.Errorf("local export failed: %v", err)
 		}
 	}

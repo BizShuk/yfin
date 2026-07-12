@@ -1,42 +1,38 @@
-// client.go — shared client/writer builders used by every subcommand:
+// client.go — shared client builders used by every sub-package:
 // `cliClient` (thin handle the yfin path uses to drive fetch helpers),
-// `createClient` (yahoo.Client construction from global config),
-// `createBusConfig` (NATS/Kafka bus config with safe fallback),
-// `buildTWSEClient` + `twseUserAgent` (TWSE HTTP transport factory and
-// the browser UA TWSE rejects the default Go UA for),
-// and `writeJSONFile` (the local-export sink used by `pull` and `quote`).
-// Capacity: 1 `cliClient` type + 1 `twseUserAgent` const + 6 builder functions.
+// `CreateClient` (yahoo.Client construction from global config), and
+// `CreateBusConfig` (NATS/Kafka bus config with safe fallback).
+// TWSE-specific builders (`buildTWSEClient` + `twseUserAgent`) live in
+// `cmd/twse/client.go`; the local JSON sink (`writeJSONFile`) used by
+// `pull` + `quote` lives in `cmd/market/client_json.go`.
+// Capacity: 1 `cliClient` type + 2 exported builder functions.
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
-	"time"
 
 	"github.com/bizshuk/yfin/config"
-	"github.com/bizshuk/yfin/svc/twse"
 	"github.com/bizshuk/yfin/svc/yahoo"
 	"github.com/bizshuk/yfin/utils/bus"
 	"github.com/bizshuk/yfin/utils/httpx"
 )
 
-// cliClient is a thin handle the yfin path uses to drive fetch helpers. As of
+// CliClient is a thin handle the yfin path uses to drive fetch helpers. As of
 // Step 6 of plans/spicy-singing-swan.md, the yfin CLI no longer constructs a
 // facade.Client — facade.Client is the SDK surface and returns plain structs,
 // while the yfin bus-publishing code wants the internal *norm.* types for
-// emit→proto. cliClient only holds the *yahoo.Client; the fetch.go helpers
+// emit→proto. CliClient only holds the *yahoo.Client; the fetch.go helpers
 // reach through it to call yahoo + norm directly.
-type cliClient struct {
+type CliClient struct {
 	Yahoo *yahoo.Client
 }
 
-// createClient creates the yfin CLI's fetch handle. Returns *cliClient — a
+// CreateClient creates the yfin CLI's fetch handle. Returns *CliClient — a
 // small struct that wraps *yahoo.Client. The facade.Client constructor is no
 // longer called from the yfin path (Step 6).
-func createClient() (*cliClient, error) {
+func CreateClient() (*CliClient, error) {
 	// Determine effective config path
-	effectivePath := globalConfig.ConfigFile
+	effectivePath := Global.ConfigFile
 	if effectivePath == "" {
 		// Default to a standard effective config path
 		effectivePath = "config/effective.yaml"
@@ -53,14 +49,14 @@ func createClient() (*cliClient, error) {
 	httpConfig := cfg.GetHTTPConfig()
 
 	// Apply global flags if set (CLI flags override config)
-	if globalConfig.QPS > 0 {
-		httpConfig.QPS = globalConfig.QPS
+	if Global.QPS > 0 {
+		httpConfig.QPS = Global.QPS
 	}
-	if globalConfig.RetryMax > 0 {
-		httpConfig.MaxAttempts = globalConfig.RetryMax
+	if Global.RetryMax > 0 {
+		httpConfig.MaxAttempts = Global.RetryMax
 	}
-	if globalConfig.Timeout > 0 {
-		httpConfig.Timeout = globalConfig.Timeout
+	if Global.Timeout > 0 {
+		httpConfig.Timeout = Global.Timeout
 	}
 
 	// Create httpx config from our config
@@ -85,13 +81,13 @@ func createClient() (*cliClient, error) {
 	// facade.Client — its process* helpers route through fetchDailyBarsNorm /
 	// fetchQuoteNorm / fetchFundamentalsNorm in cmd/fetch.go.
 	httpClient := httpx.NewClient(httpxConfig)
-	return &cliClient{Yahoo: yahoo.NewClient(httpClient, httpxConfig.BaseURL)}, nil
+	return &CliClient{Yahoo: yahoo.NewClient(httpClient, httpxConfig.BaseURL)}, nil
 }
 
-// createBusConfig creates bus configuration
-func createBusConfig(env, topicPrefix string) *bus.Config {
+// CreateBusConfig creates bus configuration
+func CreateBusConfig(env, topicPrefix string) *bus.Config {
 	// Determine effective config path
-	effectivePath := globalConfig.ConfigFile
+	effectivePath := Global.ConfigFile
 	if effectivePath == "" {
 		// Default to a standard effective config path
 		effectivePath = "config/effective.yaml"
@@ -168,65 +164,4 @@ func createBusConfig(env, topicPrefix string) *bus.Config {
 			HalfOpenProbes:   busConfig.CircuitBreaker.HalfOpenProbes,
 		},
 	}
-}
-
-// twseUserAgent is the browser-like UA TWSE rejects the default Go
-// `User-Agent` for. It's set on the httpx.Config.UserAgent so every
-// fetch from the unified TWSE client carries it without per-method
-// header hacks.
-const twseUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-
-// buildTWSEClient returns the process-wide `*twse.Client` used by the
-// `yfin twse` subcommand. It wires an `httpx.Client` tuned for TWSE's
-// public REST API (low QPS, conservative retry) and registers the
-// TWSE-specific request middleware. The client captures
-// `twse.BaseURL` at construction time; tests pass `*twse.Client`
-// built via `svc/twse.NewClientWithURL` to point at an httptest server.
-//
-// Wiring pattern for future services (illustrative — actual Yahoo +
-// scrape migration is out of Task 4's scope):
-//
-//	yc := yahoo.NewCrumbManager(httpx.NewClient(...), cookieURL, apiURL)
-//	hc.Use(httpx.YahooMiddleware(yc))   // crumb injected per request
-//	sc := httpx.NewClient(&httpx.Config{...ScrapeProfile...})
-//	sc.Use(httpx.ScrapeMiddleware(ua))  // browser headers
-func buildTWSEClient() *twse.Client {
-	hc := httpx.NewClient(&httpx.Config{
-		// BaseURL is intentionally empty: twse.Client owns the full
-		// TWSE host+path prefix and passes pre-built absolute URLs to
-		// caller.Get. Setting it here would double-concatenate.
-		BaseURL:          "",
-		Timeout:          30 * time.Second,
-		IdleTimeout:      90 * time.Second,
-		MaxConnsPerHost:  10,
-		MaxAttempts:      3,
-		BackoffBaseMs:    500,
-		BackoffJitterMs:  250,
-		MaxDelayMs:       8000,
-		QPS:              2.0,
-		Burst:            4,
-		CircuitWindow:    60 * time.Second,
-		FailureThreshold: 5,
-		ResetTimeout:     30 * time.Second,
-		UserAgent:        twseUserAgent,
-		MaxBodyBytes:     0, // 0 = unlimited; TWSE responses are JSON envelopes, not HTML
-	})
-	// Pin User-Agent even if Config.UserAgent is overridden by a
-	// future config-loader change. TWSEMiddleware with an empty UA
-	// would be a no-op; we pass the canonical string explicitly.
-	hc.Use(httpx.TWSEMiddleware(twseUserAgent))
-	return twse.NewClient(hc)
-}
-
-// writeJSONFile writes data to a JSON file
-func writeJSONFile(filepath string, data interface{}) error {
-	file, err := os.Create(filepath)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	encoder := json.NewEncoder(file)
-	encoder.SetIndent("", "  ")
-	return encoder.Encode(data)
 }

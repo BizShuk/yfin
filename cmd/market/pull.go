@@ -1,13 +1,7 @@
-// pull.go — `pull` cobra subcommand that fetches daily bars for a single
-// ticker or a universe file and routes them through the bus-publishing and
-// local-export paths. This file owns PullConfig, the pullCmd registration,
-// validation/parse helpers, the per-symbol processing loop, the preview
-// printer, and the bus/JSON exporters used after each fetch.
-// Capacity: 1 `PullConfig` + 1 var + 1 `pullCmd` + 1 `init()` (14 flags) +
-// runPull / validatePullFlags / parseDates / parseAdjusted / getSymbols /
-// processSymbol / printBarsPreview / handleFXPreview / handleBusPublishing /
-// handleLocalExport / estimateBarBatchSize.
-package cmd
+// pull.go — `pull` cobra subcommand：擷取每日 bars。透過 internal/norm 拿
+// ScaledDecimal 精度的 *norm.NormalizedBarBatch，再送給 bus publishing 或
+// 本地 JSON 匯出。同 package 的 client_json.go 提供 writeJSONFile 共用。
+package market
 
 import (
 	"context"
@@ -17,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/bizshuk/yfin/cmd"
 	"github.com/bizshuk/yfin/config"
 	"github.com/bizshuk/yfin/svc/emit"
 	"github.com/bizshuk/yfin/svc/norm"
@@ -25,8 +20,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// PullConfig holds configuration for the pull command
-type PullConfig struct {
+// pullConfig holds configuration for the pull command
+type pullConfig struct {
 	Ticker        string
 	UniverseFile  string
 	Start         string
@@ -43,130 +38,130 @@ type PullConfig struct {
 	DryRunPublish bool
 }
 
-var pullConfig PullConfig
+// newPullCmd returns the `pull` cobra command.
+func newPullCmd() *cobra.Command {
+	cfg := &pullConfig{}
+	c := &cobra.Command{
+		Use:   "pull",
+		Short: "擷取單一 symbol 或 universe 的每日 bars (Fetch daily bars for a symbol or universe)",
+		Long: `擷取單一 symbol 或 universe 檔中多個 symbols 的每日 bars；僅支援 daily 區間。
+(Fetch daily bars for a single symbol or multiple symbols from a universe file.
+Only daily bars are supported by design.)
 
-// pullCmd represents the pull command
-var pullCmd = &cobra.Command{
-	Use:   "pull",
-	Short: "Fetch daily bars for a symbol or universe",
-	Long: `Fetch daily bars for a single symbol or multiple symbols from a universe file.
-Only daily bars are supported by design.
-
-Examples:
+範例 (Examples):
   yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --adjusted split_dividend --preview
   yfin pull --universe-file ./nasdaq100.txt --start 2024-01-01 --end 2024-12-31 --preview --concurrency 32
   yfin pull --ticker SAP --start 2024-01-01 --end 2024-12-31 --out json --out-dir ./out --preview`,
-	RunE: runPull,
-}
-
-func init() {
+		RunE: func(c *cobra.Command, args []string) error { return runPull(c, cfg) },
+	}
 	// Pull command flags
-	pullCmd.Flags().StringVar(&pullConfig.Ticker, "ticker", "", "Stock symbol to fetch (e.g., AAPL)")
-	pullCmd.Flags().StringVar(&pullConfig.UniverseFile, "universe-file", "", "Newline-delimited list of symbols")
-	pullCmd.Flags().StringVar(&pullConfig.Start, "start", "", "Start date (YYYY-MM-DD, UTC)")
-	pullCmd.Flags().StringVar(&pullConfig.End, "end", "", "End date (YYYY-MM-DD, UTC)")
-	pullCmd.Flags().StringVar(&pullConfig.Adjusted, "adjusted", "split_dividend", "Adjustment policy (raw|split_dividend)")
-	pullCmd.Flags().StringVar(&pullConfig.Market, "market", "", "Market MIC (optional hint for MIC inference)")
-	pullCmd.Flags().StringVar(&pullConfig.FXTarget, "fx-target", "", "Target currency for FX conversion preview (e.g., USD)")
-	pullCmd.Flags().BoolVar(&pullConfig.Preview, "preview", false, "Show preview without publishing")
-	pullCmd.Flags().BoolVar(&pullConfig.Publish, "publish", false, "Enable bus publishing")
-	pullCmd.Flags().StringVar(&pullConfig.Env, "env", "dev", "Environment (dev, staging, prod)")
-	pullCmd.Flags().StringVar(&pullConfig.TopicPrefix, "topic-prefix", "ampy", "Topic prefix for bus publishing")
-	pullCmd.Flags().StringVar(&pullConfig.Out, "out", "", "Output format (json|parquet)")
-	pullCmd.Flags().StringVar(&pullConfig.OutDir, "out-dir", "", "Output directory")
-	pullCmd.Flags().BoolVar(&pullConfig.DryRunPublish, "dry-run-publish", false, "Alias for --preview; no network send but compute payload sizes")
-	rootCmd.AddCommand(pullCmd)
+	c.Flags().StringVar(&cfg.Ticker, "ticker", "", "Stock symbol to fetch (e.g., AAPL)")
+	c.Flags().StringVar(&cfg.UniverseFile, "universe-file", "", "Newline-delimited list of symbols")
+	c.Flags().StringVar(&cfg.Start, "start", "", "Start date (YYYY-MM-DD, UTC)")
+	c.Flags().StringVar(&cfg.End, "end", "", "End date (YYYY-MM-DD, UTC)")
+	c.Flags().StringVar(&cfg.Adjusted, "adjusted", "split_dividend", "Adjustment policy (raw|split_dividend)")
+	c.Flags().StringVar(&cfg.Market, "market", "", "Market MIC (optional hint for MIC inference)")
+	c.Flags().StringVar(&cfg.FXTarget, "fx-target", "", "Target currency for FX conversion preview (e.g., USD)")
+	c.Flags().BoolVar(&cfg.Preview, "preview", false, "Show preview without publishing")
+	c.Flags().BoolVar(&cfg.Publish, "publish", false, "Enable bus publishing")
+	c.Flags().StringVar(&cfg.Env, "env", "dev", "Environment (dev, staging, prod)")
+	c.Flags().StringVar(&cfg.TopicPrefix, "topic-prefix", "ampy", "Topic prefix for bus publishing")
+	c.Flags().StringVar(&cfg.Out, "out", "", "Output format (json|parquet)")
+	c.Flags().StringVar(&cfg.OutDir, "out-dir", "", "Output directory")
+	c.Flags().BoolVar(&cfg.DryRunPublish, "dry-run-publish", false, "Alias for --preview; no network send but compute payload sizes")
+	return c
 }
 
 // runPull executes the pull command
-func runPull(cmd *cobra.Command, args []string) error {
+func runPull(cobraCmd *cobra.Command, cfg *pullConfig) error {
 	// Validate flags
-	if err := validatePullFlags(); err != nil {
+	if err := validatePullFlags(cfg); err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
-		os.Exit(ExitConfigError)
+		os.Exit(cmd.ExitConfigError)
 	}
 
 	// Generate run ID if not provided
-	runID := globalConfig.RunID
+	runID := cmd.Global.RunID
 	if runID == "" {
 		runID = fmt.Sprintf("yfin_%d", time.Now().Unix())
 	}
 
 	// Parse dates
-	startTime, endTime, err := parseDates(pullConfig.Start, pullConfig.End)
+	startTime, endTime, err := parseDates(cfg.Start, cfg.End)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Invalid date format: %v\n", err)
-		os.Exit(ExitConfigError)
+		os.Exit(cmd.ExitConfigError)
 	}
 
 	// Parse adjustment policy
-	adjusted, err := parseAdjusted(pullConfig.Adjusted)
+	adjusted, err := parseAdjusted(cfg.Adjusted)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Invalid adjusted value: %v\n", err)
-		os.Exit(ExitConfigError)
+		os.Exit(cmd.ExitConfigError)
 	}
 
 	// Validate interval (daily-only enforcement)
-	loader := config.NewLoader(globalConfig.ConfigFile)
-	cfg, err := loader.Load()
+	loader := config.NewLoader(cmd.Global.ConfigFile)
+	ycfg, err := loader.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to load configuration: %v\n", err)
-		os.Exit(ExitConfigError)
+		os.Exit(cmd.ExitConfigError)
 	}
 
 	// For yfinance-go, we only support daily intervals
-	if validateErr := cfg.ValidateInterval("1d"); validateErr != nil {
+	if validateErr := ycfg.ValidateInterval("1d"); validateErr != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", validateErr)
-		os.Exit(ExitConfigError)
+		os.Exit(cmd.ExitConfigError)
 	}
 
-	// Initialize observability
+	// Initialize observability. Persistent flags (--observability-disable-*)
+	// live on the root command; pull reads them through the cobra Command.
 	ctx := context.Background()
-	disableTracing, _ := cmd.Flags().GetBool("observability-disable-tracing")
-	disableMetrics, _ := cmd.Flags().GetBool("observability-disable-metrics")
+	disableTracing, _ := cobraCmd.Flags().GetBool("observability-disable-tracing")
+	disableMetrics, _ := cobraCmd.Flags().GetBool("observability-disable-metrics")
 
 	obsvConfig := &obsv.Config{
 		ServiceName:       "yfinance-go",
-		ServiceVersion:    version,
-		Environment:       cfg.App.Env,
-		CollectorEndpoint: cfg.Observability.Tracing.OTLP.Endpoint,
+		ServiceVersion:    cmd.Version,
+		Environment:       ycfg.App.Env,
+		CollectorEndpoint: ycfg.Observability.Tracing.OTLP.Endpoint,
 		TraceProtocol:     "grpc",
-		SampleRatio:       cfg.Observability.Tracing.OTLP.SampleRatio,
-		LogLevel:          cfg.Observability.Logs.Level,
-		MetricsAddr:       cfg.Observability.Metrics.Prometheus.Addr,
-		MetricsEnabled:    cfg.Observability.Metrics.Prometheus.Enabled && !disableMetrics,
-		TracingEnabled:    cfg.Observability.Tracing.OTLP.Enabled && !disableTracing,
+		SampleRatio:       ycfg.Observability.Tracing.OTLP.SampleRatio,
+		LogLevel:          ycfg.Observability.Logs.Level,
+		MetricsAddr:       ycfg.Observability.Metrics.Prometheus.Addr,
+		MetricsEnabled:    ycfg.Observability.Metrics.Prometheus.Enabled && !disableMetrics,
+		TracingEnabled:    ycfg.Observability.Tracing.OTLP.Enabled && !disableTracing,
 	}
 
 	if obsvErr := obsv.Init(ctx, obsvConfig); obsvErr != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to initialize observability: %v\n", obsvErr)
-		os.Exit(ExitConfigError)
+		os.Exit(cmd.ExitConfigError)
 	}
 	defer func() { _ = obsv.Shutdown(ctx) }()
 
 	// Get symbols to process
-	symbols, err := getSymbols(pullConfig.Ticker, pullConfig.UniverseFile)
+	symbols, err := getSymbols(cfg.Ticker, cfg.UniverseFile)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to get symbols: %v\n", err)
-		os.Exit(ExitConfigError)
+		os.Exit(cmd.ExitConfigError)
 	}
 
 	// Create client
-	client, err := createClient()
+	client, err := cmd.CreateClient()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to create client: %v\n", err)
-		os.Exit(ExitGeneral)
+		os.Exit(cmd.ExitGeneral)
 	}
 
 	// Create bus if publishing or previewing
 	var busInstance *bus.Bus
 	var busConfig *bus.Config
-	if pullConfig.Publish || pullConfig.Preview || pullConfig.DryRunPublish {
-		busConfig = createBusConfig(pullConfig.Env, pullConfig.TopicPrefix)
+	if cfg.Publish || cfg.Preview || cfg.DryRunPublish {
+		busConfig = cmd.CreateBusConfig(cfg.Env, cfg.TopicPrefix)
 		busInstance, err = bus.NewBus(busConfig)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: Failed to create bus: %v\n", err)
-			os.Exit(ExitGeneral)
+			os.Exit(cmd.ExitGeneral)
 		}
 		defer busInstance.Close(context.Background())
 	}
@@ -177,7 +172,7 @@ func runPull(cmd *cobra.Command, args []string) error {
 
 	successCount := 0
 	for _, symbol := range symbols {
-		if err := processSymbol(ctx, client, symbol, startTime, endTime, adjusted, runID, busInstance, busConfig); err != nil {
+		if err := processSymbol(ctx, client, symbol, startTime, endTime, adjusted, runID, busInstance, busConfig, cfg); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: Failed to process %s: %v\n", symbol, err)
 			continue
 		}
@@ -186,7 +181,7 @@ func runPull(cmd *cobra.Command, args []string) error {
 
 	if successCount == 0 {
 		fmt.Fprintf(os.Stderr, "ERROR: No symbols processed successfully\n")
-		os.Exit(ExitGeneral)
+		os.Exit(cmd.ExitGeneral)
 	}
 
 	fmt.Printf("Successfully processed %d/%d symbols\n", successCount, len(symbols))
@@ -194,20 +189,20 @@ func runPull(cmd *cobra.Command, args []string) error {
 }
 
 // validatePullFlags validates pull command flags
-func validatePullFlags() error {
-	if pullConfig.Ticker == "" && pullConfig.UniverseFile == "" {
+func validatePullFlags(cfg *pullConfig) error {
+	if cfg.Ticker == "" && cfg.UniverseFile == "" {
 		return fmt.Errorf("either --ticker or --universe-file must be specified")
 	}
-	if pullConfig.Ticker != "" && pullConfig.UniverseFile != "" {
+	if cfg.Ticker != "" && cfg.UniverseFile != "" {
 		return fmt.Errorf("cannot specify both --ticker and --universe-file")
 	}
-	if pullConfig.Start == "" || pullConfig.End == "" {
+	if cfg.Start == "" || cfg.End == "" {
 		return fmt.Errorf("--start and --end are required")
 	}
-	if pullConfig.Adjusted != "raw" && pullConfig.Adjusted != "split_dividend" {
+	if cfg.Adjusted != "raw" && cfg.Adjusted != "split_dividend" {
 		return fmt.Errorf("--adjusted must be 'raw' or 'split_dividend'")
 	}
-	if pullConfig.Out != "" && pullConfig.Out != "json" && pullConfig.Out != "parquet" {
+	if cfg.Out != "" && cfg.Out != "json" && cfg.Out != "parquet" {
 		return fmt.Errorf("--out must be 'json' or 'parquet'")
 	}
 	return nil
@@ -267,10 +262,10 @@ func getSymbols(ticker, universeFile string) ([]string, error) {
 }
 
 // processSymbol processes a single symbol for bars
-func processSymbol(ctx context.Context, client *cliClient, symbol string, start, end time.Time, adjusted bool, runID string, busInstance *bus.Bus, busConfig *bus.Config) error {
+func processSymbol(ctx context.Context, client *cmd.CliClient, symbol string, start, end time.Time, adjusted bool, runID string, busInstance *bus.Bus, busConfig *bus.Config, cfg *pullConfig) error {
 	// Fetch bars via the CLI helper (svc/yahoo + internal/norm). This keeps
 	// the ScaledDecimal precision the bus-publishing code needs.
-	bars, err := fetchDailyBarsNorm(ctx, client.Yahoo, symbol, start, end, adjusted, runID)
+	bars, err := cmd.FetchDailyBarsNorm(ctx, client.Yahoo, symbol, start, end, adjusted, runID)
 	if err != nil {
 		return err
 	}
@@ -281,26 +276,26 @@ func processSymbol(ctx context.Context, client *cliClient, symbol string, start,
 	}
 
 	// Print preview
-	printBarsPreview(bars, runID, pullConfig.Env, pullConfig.TopicPrefix)
+	printBarsPreview(bars, runID, cfg.Env, cfg.TopicPrefix)
 
 	// Handle FX preview if requested
-	if pullConfig.FXTarget != "" {
-		if err := handleFXPreview(ctx, bars, pullConfig.FXTarget); err != nil {
+	if cfg.FXTarget != "" {
+		if err := handleFXPreview(ctx, bars, cfg.FXTarget); err != nil {
 			fmt.Printf("FX preview failed: %v\n", err)
 		}
 	}
 
 	// Handle bus publishing
 	if busInstance != nil {
-		preview := pullConfig.Preview || pullConfig.DryRunPublish
+		preview := cfg.Preview || cfg.DryRunPublish
 		if err := handleBusPublishing(ctx, bars, busInstance, busConfig, runID, preview); err != nil {
 			return fmt.Errorf("bus publishing failed: %v", err)
 		}
 	}
 
 	// Handle local export
-	if pullConfig.Out != "" && pullConfig.OutDir != "" {
-		if err := handleLocalExport(bars, symbol, start, end, adjusted, pullConfig.Out, pullConfig.OutDir); err != nil {
+	if cfg.Out != "" && cfg.OutDir != "" {
+		if err := handleLocalExport(bars, symbol, start, end, adjusted, cfg.Out, cfg.OutDir); err != nil {
 			return fmt.Errorf("local export failed: %v", err)
 		}
 	}

@@ -3,7 +3,7 @@
 // and the JSON local-export sink used by `pull` (also reused by `quote`).
 // Capacity: 5 test functions covering `validatePullFlags` / `parseDates` /
 // `parseAdjusted` / `getSymbols` / `writeJSONFile`.
-package cmd
+package market
 
 import (
 	"os"
@@ -18,12 +18,12 @@ import (
 func TestValidatePullFlags(t *testing.T) {
 	tests := []struct {
 		name    string
-		config  PullConfig
+		config  pullConfig
 		wantErr bool
 	}{
 		{
 			name: "valid with ticker",
-			config: PullConfig{
+			config: pullConfig{
 				Ticker:   "AAPL",
 				Start:    "2024-01-01",
 				End:      "2024-01-31",
@@ -33,7 +33,7 @@ func TestValidatePullFlags(t *testing.T) {
 		},
 		{
 			name: "invalid - no ticker or universe",
-			config: PullConfig{
+			config: pullConfig{
 				Start:    "2024-01-01",
 				End:      "2024-01-31",
 				Adjusted: "split_dividend",
@@ -42,7 +42,7 @@ func TestValidatePullFlags(t *testing.T) {
 		},
 		{
 			name: "invalid - bad adjusted value",
-			config: PullConfig{
+			config: pullConfig{
 				Ticker:   "AAPL",
 				Start:    "2024-01-01",
 				End:      "2024-01-31",
@@ -54,8 +54,7 @@ func TestValidatePullFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			pullConfig = tt.config
-			err := validatePullFlags()
+			err := validatePullFlags(&tt.config)
 			if tt.wantErr {
 				assert.Error(t, err)
 			} else {

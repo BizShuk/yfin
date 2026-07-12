@@ -1,10 +1,7 @@
-// config.go — `config` cobra subcommand (`--print-effective` dumps the
-// resolved ampy-config to stdout) plus the `printEffectiveConfig` /
-// `flattenConfigMap` helpers that turn a nested map into dot-notation
-// key=value lines. Capacity: 1 `ConfigConfig` + 1 var + 1 `configCmd` +
-// 1 `init()` (2 flags) + `runConfig` / `printEffectiveConfig` /
-// `flattenConfigMap`.
-package cmd
+// admin.go — `config` + `version` cobra subcommands grouped under one
+// sub-package because both are admin/maintenance commands (no network I/O).
+// Capacity: 1 `Register(rootCmd)` exporting both commands.
+package admin
 
 import (
 	"encoding/json"
@@ -13,45 +10,54 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/bizshuk/yfin/cmd"
 	"github.com/bizshuk/yfin/config"
 	"github.com/spf13/cobra"
 )
 
+// Register attaches the `config` and `version` subcommands onto rootCmd.
+func Register(rootCmd *cobra.Command) {
+	rootCmd.AddCommand(newConfigCmd())
+	rootCmd.AddCommand(newVersionCmd())
+}
+
+// configCmd builders + RunE -----------------------------------------------
+
 // ConfigConfig holds configuration for the config command
-type ConfigConfig struct {
+type configConfig struct {
 	PrintEffective bool
 	JSON           bool
 }
 
-var configConfig ConfigConfig
+// newConfigCmd returns the `config` cobra command. It dumps the resolved
+// ampy-config (flattened to dot-notation key=value, or JSON) to stdout.
+func newConfigCmd() *cobra.Command {
+	cfg := &configConfig{}
+	cmd := &cobra.Command{
+		Use:   "config",
+		Short: "組態管理 (Configuration management)",
+		Long: `yfin CLI 組態管理：載入並驗證 ampy-config 檔。
+(Configuration management for yfinance-go.
+Loads and validates configuration from ampy-config files.)
 
-// configCmd represents the config command
-var configCmd = &cobra.Command{
-	Use:   "config",
-	Short: "Configuration management",
-	Long: `Configuration management for yfinance-go.
-Loads and validates configuration from ampy-config files.
-
-Examples:
+範例 (Examples):
   yfin config --file ./config/example.dev.yaml --print-effective
   yfin config --print-effective --json`,
-	RunE: runConfig,
-}
-
-func init() {
-	configCmd.Flags().BoolVar(&configConfig.PrintEffective, "print-effective", false, "Print effective configuration")
-	configCmd.Flags().BoolVar(&configConfig.JSON, "json", false, "Output in JSON format")
-	rootCmd.AddCommand(configCmd)
+		RunE: func(c *cobra.Command, args []string) error { return runConfig(cfg) },
+	}
+	cmd.Flags().BoolVar(&cfg.PrintEffective, "print-effective", false, "Print effective configuration")
+	cmd.Flags().BoolVar(&cfg.JSON, "json", false, "Output in JSON format")
+	return cmd
 }
 
 // runConfig executes the config command
-func runConfig(cmd *cobra.Command, args []string) error {
-	if !configConfig.PrintEffective {
+func runConfig(cfg *configConfig) error {
+	if !cfg.PrintEffective {
 		return fmt.Errorf("--print-effective flag is required")
 	}
 
 	// Determine effective config path
-	effectivePath := globalConfig.ConfigFile
+	effectivePath := cmd.Global.ConfigFile
 	if effectivePath == "" {
 		// Default to a standard effective config path
 		effectivePath = "config/effective.yaml"
@@ -62,24 +68,24 @@ func runConfig(cmd *cobra.Command, args []string) error {
 	_, err := loader.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to load configuration: %v\n", err)
-		os.Exit(ExitConfigError)
+		os.Exit(cmd.ExitConfigError)
 	}
 
 	// Get effective configuration
 	effectiveConfig, err := loader.GetEffectiveConfig()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to get effective configuration: %v\n", err)
-		os.Exit(ExitConfigError)
+		os.Exit(cmd.ExitConfigError)
 	}
 
 	// Print configuration
-	if configConfig.JSON {
+	if cfg.JSON {
 		// Print as JSON
 		encoder := json.NewEncoder(os.Stdout)
 		encoder.SetIndent("", "  ")
 		if err := encoder.Encode(effectiveConfig); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: Failed to encode configuration as JSON: %v\n", err)
-			os.Exit(ExitConfigError)
+			os.Exit(cmd.ExitConfigError)
 		}
 	} else {
 		// Print as key=value pairs
@@ -143,4 +149,22 @@ func flattenConfigMap(configMap map[string]interface{}, prefix string) map[strin
 	}
 
 	return result
+}
+
+// versionCmd builders + RunE ----------------------------------------------
+
+// newVersionCmd returns the `version` cobra command. Reads cmd.Version /
+// cmd.Commit / cmd.Date injected via `-ldflags`.
+func newVersionCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "version",
+		Short: "列印版本資訊 (Print version information)",
+		Long:  `列印 CLI 版本與 build 細節 (Print version information including build details).`,
+		RunE: func(c *cobra.Command, args []string) error {
+			fmt.Printf("yfin version %s\n", cmd.Version)
+			fmt.Printf("commit: %s\n", cmd.Commit)
+			fmt.Printf("build date: %s\n", cmd.Date)
+			return nil
+		},
+	}
 }

@@ -1,10 +1,17 @@
-// cmd/fetch.go — thin helpers that route the yfin CLI through svc/yahoo and
-// internal/norm so the CLI keeps the full ScaledDecimal/emit proto precision
-// needed for bus publishing. As of Step 6 of plans/spicy-singing-swan.md, the
-// public facade.Client returns plain SDK structs (facade.BarBatch, facade.Quote,
-// facade.FundamentalsSnapshot, facade.MarketData); the CLI's print*/handle*
-// code still wants the norm.* shape, so it calls these helpers directly
-// instead of going through the SDK surface. Capacity: 5 fetch helpers (`fetchDailyBarsNorm`/`fetchQuoteNorm`/`fetchFundamentalsNorm`/`fetchMarketDataNorm`/`isPaidYahooAuthError`).
+// fetch.go — thin helpers that route the yfin CLI through svc/yahoo and
+// svc/norm so the CLI keeps the full ScaledDecimal/emit proto precision
+// needed for bus publishing. After Step 6 of plans/spicy-singing-swan.md,
+// the public facade.Client returns plain SDK structs; the CLI's
+// print*/handle* code still wants the norm.* shape, so it calls these
+// helpers directly instead of going through the SDK surface.
+//
+// The helpers are EXPORTED so that sub-packages (cmd/market, cmd/fundamentals)
+// can call them. They bridge svc/yahoo → svc/norm and stay co-located with
+// cmd/ root rather than in each sub-package to keep the wiring logic in
+// one place.
+//
+// Capacity: 4 fetch helpers (FetchDailyBarsNorm / FetchQuoteNorm /
+// FetchFundamentalsNorm / FetchMarketDataNorm) + 1 paid-auth detector.
 
 package cmd
 
@@ -18,15 +25,15 @@ import (
 	"github.com/bizshuk/yfin/svc/yahoo"
 )
 
-// fetchDailyBarsNorm fetches daily bars via yahoo.Client and returns the
+// FetchDailyBarsNorm fetches daily bars via yahoo.Client and returns the
 // internal *norm.NormalizedBarBatch that emit.EmitBarBatch expects.
 //
 // Mirrors facade.Client.FetchDailyBars but skips the FromBarBatch conversion —
 // the yfin CLI's downstream code (printBarsPreview, handleBusPublishing)
 // already handles norm.* types and uses ScaledDecimal for sub-cent precision.
-func fetchDailyBarsNorm(ctx context.Context, yahooClient *yahoo.Client, symbol string, start, end time.Time, adjusted bool, runID string) (*norm.NormalizedBarBatch, error) {
+func FetchDailyBarsNorm(ctx context.Context, yahooClient *yahoo.Client, symbol string, start, end time.Time, adjusted bool, runID string) (*norm.NormalizedBarBatch, error) {
 	if yahooClient == nil {
-		return nil, fmt.Errorf("fetchDailyBarsNorm: yahooClient is nil")
+		return nil, fmt.Errorf("FetchDailyBarsNorm: yahooClient is nil")
 	}
 
 	barsResp, err := yahooClient.FetchDailyBars(ctx, symbol, start, end, adjusted)
@@ -47,12 +54,12 @@ func fetchDailyBarsNorm(ctx context.Context, yahooClient *yahoo.Client, symbol s
 	return norm.NormalizeBars(bars, meta, runID)
 }
 
-// fetchQuoteNorm fetches a quote via yahoo.Client and returns the internal
+// FetchQuoteNorm fetches a quote via yahoo.Client and returns the internal
 // *norm.NormalizedQuote. Mirrors facade.Client.FetchQuote's internals but
 // skips the FromQuote conversion.
-func fetchQuoteNorm(ctx context.Context, yahooClient *yahoo.Client, symbol, runID string) (*norm.NormalizedQuote, error) {
+func FetchQuoteNorm(ctx context.Context, yahooClient *yahoo.Client, symbol, runID string) (*norm.NormalizedQuote, error) {
 	if yahooClient == nil {
-		return nil, fmt.Errorf("fetchQuoteNorm: yahooClient is nil")
+		return nil, fmt.Errorf("FetchQuoteNorm: yahooClient is nil")
 	}
 
 	quoteResp, err := yahooClient.FetchQuote(ctx, symbol)
@@ -68,12 +75,12 @@ func fetchQuoteNorm(ctx context.Context, yahooClient *yahoo.Client, symbol, runI
 	return norm.NormalizeQuote(quotes[0], runID)
 }
 
-// fetchFundamentalsNorm fetches quarterly fundamentals via yahoo.Client and
+// FetchFundamentalsNorm fetches quarterly fundamentals via yahoo.Client and
 // returns *norm.NormalizedFundamentalsSnapshot. The 401-class error handling
 // is preserved so the CLI can emit ExitPaidFeature.
-func fetchFundamentalsNorm(ctx context.Context, yahooClient *yahoo.Client, symbol, runID string) (*norm.NormalizedFundamentalsSnapshot, error) {
+func FetchFundamentalsNorm(ctx context.Context, yahooClient *yahoo.Client, symbol, runID string) (*norm.NormalizedFundamentalsSnapshot, error) {
 	if yahooClient == nil {
-		return nil, fmt.Errorf("fetchFundamentalsNorm: yahooClient is nil")
+		return nil, fmt.Errorf("FetchFundamentalsNorm: yahooClient is nil")
 	}
 
 	fundResp, err := yahooClient.FetchFundamentalsQuarterly(ctx, symbol)
@@ -92,11 +99,11 @@ func fetchFundamentalsNorm(ctx context.Context, yahooClient *yahoo.Client, symbo
 	return norm.NormalizeFundamentals(fundamentals, symbol, runID)
 }
 
-// fetchMarketDataNorm fetches comprehensive market data via yahoo.Client and
+// FetchMarketDataNorm fetches comprehensive market data via yahoo.Client and
 // returns *norm.NormalizedMarketData. Mirrors facade.Client.FetchMarketData.
-func fetchMarketDataNorm(ctx context.Context, yahooClient *yahoo.Client, symbol, runID string) (*norm.NormalizedMarketData, error) {
+func FetchMarketDataNorm(ctx context.Context, yahooClient *yahoo.Client, symbol, runID string) (*norm.NormalizedMarketData, error) {
 	if yahooClient == nil {
-		return nil, fmt.Errorf("fetchMarketDataNorm: yahooClient is nil")
+		return nil, fmt.Errorf("FetchMarketDataNorm: yahooClient is nil")
 	}
 
 	// Use the same chart-endpoint window (last 1 day) that facade.Client uses.

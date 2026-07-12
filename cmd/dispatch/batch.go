@@ -1,5 +1,7 @@
-// batch.go — `batch` cobra subcommand + worker-pool driver that fans every ticker through every entry in `commandRegistry`, honoring the tiered cache and writing per-command JSON files (plus `_failed` error logs). Capacity: 1 `batchCmd` + 3 flags + `runBatchForTicker`/`runBatch` worker loop with bounded concurrency (`batchMaxWorkers` semaphore).
-package cmd
+// batch.go — `batch` cobra subcommand + worker-pool driver that fans every
+// ticker through every entry in `commandRegistry`, honoring the tiered cache
+// and writing per-command JSON files (plus `_failed` error logs).
+package dispatch
 
 import (
 	"context"
@@ -19,6 +21,11 @@ const batchRetries = 3
 type tickerResult struct {
 	Ticker   string
 	Commands map[string]string
+}
+
+// Register attaches the `batch` subcommand onto rootCmd.
+func Register(rootCmd *cobra.Command) {
+	rootCmd.AddCommand(newBatchCmd())
 }
 
 // runBatchForTicker fetches each command for a single ticker, honoring the
@@ -72,17 +79,16 @@ var (
 	batchForce      bool
 )
 
-var batchCmd = &cobra.Command{
-	Use:   "batch",
-	Short: "Batch-fetch all commands for a ticker universe (skills/scripts parity)",
-	RunE:  runBatch,
-}
-
-func init() {
-	batchCmd.Flags().StringVar(&batchTicker, "ticker", "", "Single ticker (default: ticker_list.csv)")
-	batchCmd.Flags().IntVar(&batchMaxWorkers, "max-workers", 10, "Max concurrent workers")
-	batchCmd.Flags().BoolVar(&batchForce, "force", false, "Force re-fetch, ignore cache")
-	rootCmd.AddCommand(batchCmd)
+func newBatchCmd() *cobra.Command {
+	c := &cobra.Command{
+		Use:   "batch",
+		Short: "批次擷取 universe 全部 commands 對齊 skills/scripts 行為 (Batch-fetch all commands for a ticker universe — skills/scripts parity)",
+		RunE:  runBatch,
+	}
+	c.Flags().StringVar(&batchTicker, "ticker", "", "Single ticker (default: ticker_list.csv)")
+	c.Flags().IntVar(&batchMaxWorkers, "max-workers", 10, "Max concurrent workers")
+	c.Flags().BoolVar(&batchForce, "force", false, "Force re-fetch, ignore cache")
+	return c
 }
 
 func runBatch(cmd *cobra.Command, args []string) error {
