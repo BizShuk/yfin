@@ -245,7 +245,7 @@ yfin scrape --ticker AAPL --endpoint news --check
 ```yaml
 scrape:
   # 使用較通用的 user-agent（不要偽裝瀏覽器）
-  user_agent: "AmpyFin-yfin/1.x (contact@example.com)"
+  user_agent: "yfin/1.x (contact@example.com)"
   # 開發期可暫時改為 warn
   robots_policy: warn
 ```

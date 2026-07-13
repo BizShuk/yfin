@@ -39,7 +39,7 @@ go run ./cmd/soak \
   --preview
 ```
 
-### 啟用發佈
+### 長時段測試
 
 ```bash
 go run ./cmd/soak \
@@ -78,6 +78,10 @@ go run ./cmd/soak \
 | `--duration` | `2h` | 測試持續時間 |
 | `--concurrency` | `12` | 並行 worker 數 |
 | `--qps` | `5.0` | 目標每秒查詢數 |
+| `--preview` | `false` | 預覽模式（不實際發佈） |
+| `--publish` | `false` | 啟用匯流排發佈 |
+| `--env` | `dev` | 發佈環境 |
+| `--topic-prefix` | `ampy.dev` | 發佈 topic 前綴 |
 | `--probe-interval` | `1h` | 正確性探測週期間隔 |
 | `--failure-rate` | `0.1` | 模擬失敗率（0.0–1.0） |
 | `--memory-check` | `true` | 啟用記憶體與 goroutine 洩漏偵測 |
