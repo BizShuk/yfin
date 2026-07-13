@@ -1,18 +1,21 @@
-// twse.go — `twse` cobra subcommand + `twseNameToFetcher` dispatch map wiring all 21 svc/twse endpoints (`MI_INDEX`/`STOCK_DAY`/`FMSRFK`/`MI_WEEK`/`FMTQIK`/...) behind the uniform `twseFetcher(ctx, client, date, opts)` contract. HTTP transport builder lives in client.go.
+// twse.go — `twse` cobra subcommand. All TWSE dispatch logic
+// (23 fetcher map / endpoint registry / URL builder / no-data
+// detection / process-wide client construction) lives in
+// `facade/twse.go` so this file is purely a thin cobra wrapper.
 //
-// Capacity: 1 `Register` + 1 `twseConfig` + 1 `twseCmd` var (kept exported-style for test access via `twseCfg` and `twseCmd`) + 1 `twseFetcher` type + 1 dispatch map (23 entries) + `runTwseEndpoint` RunE.
+// Capacity: 1 `Register` + 1 `twseConfig` + 1 `twseCmd` var (kept for
+// test introspection) + `runTwseEndpoint` RunE.
 package twse
 
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 
+	"github.com/bizshuk/yfin/facade"
 	svcTWSE "github.com/bizshuk/yfin/svc/twse"
 	"github.com/spf13/cobra"
 )
@@ -29,8 +32,8 @@ type twseConfig struct {
 
 var twseCfg twseConfig
 
-// twseCmd is kept as a package-level var so tests can introspect and invoke
-// `runTwseEndpoint(cmd, ...)` directly. Register attaches it to rootCmd.
+// twseCmd is kept as a package-level var so tests can introspect and
+// invoke `runTwseEndpoint(cmd, ...)` directly.
 var twseCmd = &cobra.Command{
 	Use:   "twse",
 	Short: "查詢任一 21 個 TWSE endpoints（臺灣證券交易所）(Query any of the 21 TWSE endpoints — Taiwan Stock Exchange)",
@@ -44,42 +47,6 @@ svc/twse package and print the raw JSON envelope to stdout.)
   yfin twse --endpoint FMSRFK --stock 2330 --date 2022
   yfin twse --endpoint MI_WEEK --date 20221230 --pretty`,
 	RunE: runTwseEndpoint,
-}
-
-// twseFetcher is the uniform function signature used by nameToFetcher.
-type twseFetcher func(ctx context.Context, client *svcTWSE.Client, date string, opts url.Values) (any, error)
-
-// twseNameToFetcher maps an endpoint name to its fetcher.
-var twseNameToFetcher = map[string]twseFetcher{
-	"MI_INDEX":      svcTWSE.FetchMI_INDEX,
-	"STOCK_DAY":     svcTWSE.FetchSTOCK_DAY,
-	"BWIBBU_d":      svcTWSE.FetchBWIBBU_d,
-	"MI_INDEX_PLUS": svcTWSE.FetchMI_INDEX_PLUS,
-	"MI_INDEX_ODD":  svcTWSE.FetchMI_INDEX_ODD,
-	"MI_5MINS":      svcTWSE.FetchMI_5MINS,
-	"TWTB4U":        svcTWSE.FetchTWTB4U,
-	"MI_MARGN":      svcTWSE.FetchMI_MARGN,
-	"T86":           svcTWSE.FetchT86,
-	"MI_QFIIS":      svcTWSE.FetchMI_QFIIS,
-	"BFI82U":        svcTWSE.FetchBFI82U,
-	"TWT38U":        svcTWSE.FetchTWT38U,
-	"TWT43U":        svcTWSE.FetchTWT43U,
-	"TWT44U":        svcTWSE.FetchTWT44U,
-	"BFIAUU":        svcTWSE.FetchBlockBFIAUU, //nolint:misspell // upstream naming; 4-col & 10-col were consolidated to 10-col
-	"BFIAUU_STOCK":  svcTWSE.FetchBFIAUUSTOCK,
-	"BFIMUU":        svcTWSE.FetchBFIMUU,
-	"BFIAUU_YEAR":   svcTWSE.FetchBFIAUUYEAR,
-	"FMTQIK":        svcTWSE.FetchFMTQIK,
-	"STOCK_DAY_AVG": svcTWSE.FetchStockDayAvg,
-	"FMSRFK": func(ctx context.Context, client *svcTWSE.Client, date string, opts url.Values) (any, error) {
-		stockNo := opts.Get("stockNo")
-		if stockNo == "" {
-			return nil, fmt.Errorf("FMSRFK: --stock is required")
-		}
-		return svcTWSE.FetchFMSRFK(ctx, client, stockNo, date, opts)
-	},
-	"BFIAMU":  svcTWSE.FetchBFIAMU,
-	"MI_WEEK": svcTWSE.FetchMI_WEEK,
 }
 
 func init() {
@@ -98,26 +65,19 @@ func Register(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(twseCmd)
 }
 
+// twseClientProvider returns the *svcTWSE.Client used by every twse
+// command invocation. Production wiring points at facade.NewTwseClient;
+// tests reassign this variable via `setTwseClientForTest` in
+// cmd/twse/twse_test.go.
+var twseClientProvider = func() *svcTWSE.Client {
+	return facade.NewTwseClient()
+}
+
 // runTwseEndpoint is the RunE for `yfin twse`.
 func runTwseEndpoint(cmd *cobra.Command, args []string) error {
-	ep, ok := svcTWSE.Registry[twseCfg.endpoint]
-	if !ok {
+	if _, ok := facade.TwseRegistry[twseCfg.endpoint]; !ok {
 		fmt.Fprintf(os.Stderr, "ERROR: unknown endpoint %q (use --endpoint MI_INDEX, STOCK_DAY, ...)\n", twseCfg.endpoint)
 		return fmt.Errorf("unknown endpoint")
-	}
-	if ep.NeedsStock && twseCfg.stockNo == "" {
-		fmt.Fprintf(os.Stderr, "ERROR: endpoint %q requires --stock <code>\n", twseCfg.endpoint)
-		return fmt.Errorf("missing --stock")
-	}
-	if ep.NeedsMonth && twseCfg.month == "" {
-		fmt.Fprintf(os.Stderr, "ERROR: endpoint %q requires --month YYYYMM\n", twseCfg.endpoint)
-		return fmt.Errorf("missing --month")
-	}
-
-	fetcher, ok := twseNameToFetcher[twseCfg.endpoint]
-	if !ok {
-		fmt.Fprintf(os.Stderr, "ERROR: endpoint %q has no fetcher wired in cmd/twse/twse.go\n", twseCfg.endpoint)
-		return fmt.Errorf("no fetcher")
 	}
 
 	opts := url.Values{}
@@ -132,9 +92,9 @@ func runTwseEndpoint(cmd *cobra.Command, args []string) error {
 	defer cancel()
 
 	client := twseClientProvider()
-	raw, err := fetcher(ctx, client, twseCfg.date, opts)
+	raw, err := facade.TwseDispatch(ctx, client, twseCfg.endpoint, twseCfg.date, opts)
 	if err != nil {
-		if errors.Is(err, svcTWSE.ErrNoData) || strings.Contains(err.Error(), "no data") {
+		if facade.TwseIsNoData(err) {
 			fmt.Fprintf(os.Stderr, "INFO: TWSE returned no data for %s on %s\n", twseCfg.endpoint, twseCfg.date)
 			return nil
 		}
@@ -151,11 +111,4 @@ func runTwseEndpoint(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	return nil
-}
-
-// twseClientProvider returns the `*svcTWSE.Client` used by every twse
-// command invocation. Production wiring points at `buildTWSEClient`; tests
-// reassign this variable via `setTwseClientForTest` in cmd/twse/twse_test.go.
-var twseClientProvider = func() *svcTWSE.Client {
-	return buildTWSEClient()
 }

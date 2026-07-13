@@ -1,35 +1,22 @@
-// mi_margn.go — `MI_MARGN` (/marginTrading/MI_MARGN) per-stock margin + short balance snapshot (buy/sell/repay/balance × 2). Capacity: ~1900 stocks per response.
 package twse
 
 import (
 	"context"
 	"fmt"
 	"net/url"
+	"github.com/bizshuk/yfin/model"
+)
+
+// Type aliases — structs now live in model/twse.go.
+type (
+	MI_MARGNResponse = model.MI_MARGNResponse
+	MI_MARGNRow = model.MI_MARGNRow
 )
 
 // MI_MARGNResponse embeds the common Response envelope and adds the
 // `date` field that TWSE returns on this endpoint.
-type MI_MARGNResponse struct {
-	Response
-	Date string `json:"date"`
-}
-
-// GetStat returns the embedded stat field.
-func (r *MI_MARGNResponse) GetStat() string { return r.Response.Stat }
 
 // MI_MARGNRow is a typed representation of one MI_MARGN data row.
-type MI_MARGNRow struct {
-	Code          string // 股票代號
-	Name          string // 股票名稱
-	MarginBuy     int64  // 融資買進
-	MarginSell    int64  // 融資賣出
-	MarginRepay   int64  // 融資現償
-	MarginBalance int64  // 融資餘額
-	ShortBuy      int64  // 融券買進
-	ShortSell     int64  // 融券賣出
-	ShortRepay    int64  // 融券現償
-	ShortBalance  int64  // 融券餘額
-}
 
 // FetchMI_MARGN retrieves the margin trading balances for `date`.
 // selectType=ALL is always added by this fetcher.

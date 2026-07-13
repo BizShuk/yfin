@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/bizshuk/yfin/cmd"
-	"github.com/bizshuk/yfin/config"
-	"github.com/bizshuk/yfin/svc/scrape"
+	"github.com/bizshuk/yfin/config/types"
+	"github.com/bizshuk/yfin/facade"
 	"github.com/bizshuk/yfin/utils/obsv"
 	"github.com/spf13/cobra"
 )
@@ -51,7 +51,7 @@ func runComprehensiveProfile(cobraCmd *cobra.Command, cfg *comprehensiveProfileC
 		runID = fmt.Sprintf("yfin_comprehensive_profile_%d", time.Now().Unix())
 	}
 
-	loader := config.NewLoader(cmd.Global.ConfigFile)
+	loader := types.NewLoader(cmd.Global.ConfigFile)
 	ycfg, err := loader.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to load configuration: %v\n", err)
@@ -84,16 +84,17 @@ func runComprehensiveProfile(cobraCmd *cobra.Command, cfg *comprehensiveProfileC
 	}
 	defer func() { _ = obsv.Shutdown(ctx) }()
 
-	scrapeClient, err := scrapeNewClient(scrapeCfg)
+	client, err := cmd.CreateClient()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: Failed to create scrape client: %v\n", err)
+		fmt.Fprintf(os.Stderr, "ERROR: Failed to create client: %v\n", err)
 		os.Exit(cmd.ExitGeneral)
 	}
-	return runComprehensiveProfileExtraction(ctx, scrapeClient, cfg.Ticker, runID)
+	_ = scrapeCfg
+	return runComprehensiveProfileExtraction(ctx, client, cfg.Ticker, runID)
 }
 
 // runComprehensiveProfileExtraction executes comprehensive profile extraction
-func runComprehensiveProfileExtraction(ctx context.Context, client scrape.Client, ticker, runID string) error {
+func runComprehensiveProfileExtraction(ctx context.Context, client *facade.Client, ticker, runID string) error {
 	if ticker == "" {
 		return fmt.Errorf("ticker is required for comprehensive profile extraction")
 	}
@@ -101,15 +102,14 @@ func runComprehensiveProfileExtraction(ctx context.Context, client scrape.Client
 	extractionCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	url := buildScrapeURL(ticker, "profile")
-	body, meta, err := client.Fetch(extractionCtx, url)
+	body, meta, err := client.ScrapeFetch(extractionCtx, ticker, "profile")
 	if err != nil {
-		return fmt.Errorf("failed to fetch %s: %w", url, err)
+		return fmt.Errorf("failed to fetch: %w", err)
 	}
 	fmt.Printf("FETCHED: host=%s status=%d bytes=%d gzip=%t\n",
 		meta.Host, meta.Status, meta.Bytes, meta.Gzip)
 
-	dto, err := scrape.ParseComprehensiveProfile(body, ticker, "NMS")
+	dto, err := facade.ParseComprehensiveProfile(body, ticker, "NMS")
 	if err != nil {
 		return fmt.Errorf("failed to parse comprehensive profile: %w", err)
 	}

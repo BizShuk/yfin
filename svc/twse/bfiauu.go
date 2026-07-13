@@ -1,4 +1,3 @@
-// bfiauu.go — `BFIAUU` (/block/BFIAUU) per-day block-trade (鉅額交易) records (seq/code/brokers/volume/price/time). Capacity: 0-200 trades per response (variable by market activity).
 package twse
 
 import (
@@ -6,34 +5,22 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"github.com/bizshuk/yfin/model"
+)
+
+// Type aliases — structs now live in model/twse.go.
+type (
+	BlockBFIAUUResponse = model.BlockBFIAUUResponse
+	BlockBFIAUURow = model.BlockBFIAUURow
 )
 
 // BlockBFIAUUResponse embeds the common Response envelope and adds
 // the `date` and optional `stockNo` fields that TWSE returns on the
 // /block/BFIAUU block-trade endpoint.
-type BlockBFIAUUResponse struct {
-	Response
-	Date    string `json:"date"`
-	StockNo string `json:"stockNo,omitempty"`
-}
 
-// GetStat returns the embedded stat field.
-func (r *BlockBFIAUUResponse) GetStat() string { return r.Response.Stat }
 
 // BlockBFIAUURow is a typed representation of one /block/BFIAUU data row.
 // Fields: 序號, 證券代號, 證券名稱, 買進證券商, 賣出證券商, 成交數量, 成交金額, 成交價格, 成交時間, 買進成交價.
-type BlockBFIAUURow struct {
-	Seq           string  // 序號
-	StockCode     string  // 證券代號
-	StockName     string  // 證券名稱
-	BuyBroker     string  // 買進證券商
-	SellBroker    string  // 賣出證券商
-	TradeVolume   int64   // 成交數量
-	TradeAmount   float64 // 成交金額
-	TradePrice    float64 // 成交價格
-	TradeTime     string  // 成交時間
-	BuyTradePrice float64 // 買進成交價
-}
 
 // FetchBlockBFIAUU retrieves block-trade (鉅額交易) data for `date`.
 // If `stockNo` is set in `opts`, the response is filtered to that symbol.

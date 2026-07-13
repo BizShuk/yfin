@@ -1,7 +1,8 @@
 // scrape_run.go — `scrape` cobra subcommand 的 4 種 mode runners + 通用 helper
-// (URL builder / 連線 client builder / 時間字串 helper)。scrape.go 只負責
-// Register，scrape_format.go 負責 DTO → stdout formatter，本檔負責實際的
-// orchestration。
+// (時間/字串 helper)。scrape.go 只負責 Register，scrape_format.go 負責 DTO →
+// stdout formatter，本檔負責實際的 orchestration。所有 svc 呼叫都透過
+// facade（ScrapeFetch / ParseComprehensiveXxx / BuildScrapeURL /
+// ScrapeMapperConfig 等）。
 package scrape
 
 import (
@@ -12,9 +13,9 @@ import (
 	"time"
 
 	"github.com/bizshuk/yfin/cmd"
-	"github.com/bizshuk/yfin/config"
+	"github.com/bizshuk/yfin/config/types"
+	"github.com/bizshuk/yfin/facade"
 	"github.com/bizshuk/yfin/svc/emit"
-	"github.com/bizshuk/yfin/svc/scrape"
 	"github.com/bizshuk/yfin/utils/obsv"
 	"github.com/spf13/cobra"
 )
@@ -75,7 +76,7 @@ func runScrape(cobraCmd *cobra.Command, cfg *scrapeConfig) error {
 		runID = fmt.Sprintf("yfin_scrape_%d", time.Now().Unix())
 	}
 
-	loader := config.NewLoader(cmd.Global.ConfigFile)
+	loader := types.NewLoader(cmd.Global.ConfigFile)
 	ycfg, err := loader.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to load configuration: %v\n", err)
@@ -111,23 +112,28 @@ func runScrape(cobraCmd *cobra.Command, cfg *scrapeConfig) error {
 	}
 	defer func() { _ = obsv.Shutdown(ctx) }()
 
-	scrapeClient, err := createScrapeClient(scrapeCfg)
+	// Build a facade.Client that wraps both the yahoo and scrape HTTP
+	// clients. facade is the single handler between cmd → svc; the CLI flag
+	// overrides (--qps / --retry-max / --timeout) are applied in
+	// cmd.CreateClient() on top of the ampy-config scrape settings.
+	client, err := cmd.CreateClient()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: Failed to create scrape client: %v\n", err)
+		fmt.Fprintf(os.Stderr, "ERROR: Failed to create client: %v\n", err)
 		os.Exit(cmd.ExitGeneral)
 	}
+	_ = scrapeCfg // scrapeCfg.Enabled already validated above; facade handles client construction.
 
 	if cfg.Check {
-		return runScrapeCheck(ctx, scrapeClient, cfg.Ticker, cfg.Endpoint, runID)
+		return runScrapeCheck(ctx, client, cfg.Ticker, cfg.Endpoint, runID)
 	}
 	if cfg.PreviewJSON {
-		return runScrapePreviewJSON(ctx, scrapeClient, cfg.Ticker, cfg.Endpoints, runID)
+		return runScrapePreviewJSON(ctx, client, cfg.Ticker, cfg.Endpoints, runID)
 	}
 	if cfg.PreviewNews {
-		return runScrapePreviewNews(ctx, scrapeClient, cfg.Ticker, runID)
+		return runScrapePreviewNews(ctx, client, cfg.Ticker, runID)
 	}
 	if cfg.PreviewProto {
-		return runScrapePreviewProto(ctx, scrapeClient, cfg.Ticker, cfg.Endpoints, runID)
+		return runScrapePreviewProto(ctx, client, cfg.Ticker, cfg.Endpoints, runID)
 	}
 
 	fmt.Fprintf(os.Stderr, "ERROR: Either --check, --preview-json, --preview-news, or --preview-proto mode is required\n")
@@ -211,38 +217,11 @@ func validateScrapeFlags(cfg *scrapeConfig) error {
 	return nil
 }
 
-// createScrapeClient creates a scrape client with configuration
-func createScrapeClient(cfg *config.ScrapeConfig) (scrape.Client, error) {
-	scrapeCfg := &scrape.Config{
-		Enabled:   cfg.Enabled,
-		UserAgent: cfg.UserAgent,
-		TimeoutMs: cfg.TimeoutMs,
-		QPS:       cfg.QPS,
-		Burst:     cfg.Burst,
-		Retry: scrape.RetryConfig{
-			Attempts:   cfg.Retry.Attempts,
-			BaseMs:     cfg.Retry.BaseMs,
-			MaxDelayMs: cfg.Retry.MaxDelayMs,
-		},
-		RobotsPolicy: cfg.RobotsPolicy,
-		CacheTTLMs:   cfg.CacheTTLMs,
-		Endpoints: scrape.EndpointConfig{
-			KeyStatistics: cfg.Endpoints.KeyStatistics,
-			Financials:    cfg.Endpoints.Financials,
-			Analysis:      cfg.Endpoints.Analysis,
-			Profile:       cfg.Endpoints.Profile,
-			News:          cfg.Endpoints.News,
-		},
-	}
-	return scrape.NewClient(scrapeCfg, nil)
-}
-
 // runScrapeCheck runs a scrape connectivity check
-func runScrapeCheck(ctx context.Context, client scrape.Client, ticker, endpoint, runID string) error {
-	url := buildScrapeURL(ticker, endpoint)
-	body, meta, err := client.Fetch(ctx, url)
+func runScrapeCheck(ctx context.Context, client *facade.Client, ticker, endpoint, runID string) error {
+	body, meta, err := client.ScrapeFetch(ctx, ticker, endpoint)
 	if err != nil {
-		return fmt.Errorf("failed to fetch %s: %v", url, err)
+		return err
 	}
 
 	fmt.Printf("SCRAPE CHECK host=%s url=%s status=%d bytes=%d gzip=%t redirects=%d latency_p50≈%dms\n",
@@ -252,7 +231,7 @@ func runScrapeCheck(ctx context.Context, client scrape.Client, ticker, endpoint,
 }
 
 // runScrapePreviewNews executes the preview-news mode for testing news parser
-func runScrapePreviewNews(ctx context.Context, client scrape.Client, ticker, runID string) error {
+func runScrapePreviewNews(ctx context.Context, client *facade.Client, ticker, runID string) error {
 	if ticker == "" {
 		return fmt.Errorf("ticker is required for preview-news mode")
 	}
@@ -261,8 +240,7 @@ func runScrapePreviewNews(ctx context.Context, client scrape.Client, ticker, run
 	newsCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	url := buildScrapeURL(ticker, "news")
-	body, meta, err := client.Fetch(newsCtx, url)
+	body, meta, err := client.ScrapeFetch(newsCtx, ticker, "news")
 	if err != nil {
 		return fmt.Errorf("failed to fetch news for %s: %v", ticker, err)
 	}
@@ -272,7 +250,7 @@ func runScrapePreviewNews(ctx context.Context, client scrape.Client, ticker, run
 
 	now := time.Now()
 	baseURL := fmt.Sprintf("https://%s", meta.Host)
-	articles, stats, err := scrape.ParseNews(body, baseURL, now)
+	articles, stats, err := facade.ParseNews(body, baseURL, now)
 	if err != nil {
 		return fmt.Errorf("failed to parse news: %v", err)
 	}
@@ -339,7 +317,7 @@ func truncateString(s string, maxLen int) string {
 }
 
 // runScrapePreviewJSON executes the preview-json mode for testing extractors
-func runScrapePreviewJSON(ctx context.Context, client scrape.Client, ticker, endpoints, runID string) error {
+func runScrapePreviewJSON(ctx context.Context, client *facade.Client, ticker, endpoints, runID string) error {
 	if ticker == "" {
 		return fmt.Errorf("ticker is required for preview-json mode")
 	}
@@ -361,12 +339,11 @@ func runScrapePreviewJSON(ctx context.Context, client scrape.Client, ticker, end
 		fmt.Printf("\n--- %s ---\n", strings.ToUpper(endpoint))
 
 		endpointCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
-		url := buildScrapeURL(ticker, endpoint)
-		body, meta, err := client.Fetch(endpointCtx, url)
+		body, meta, err := client.ScrapeFetch(endpointCtx, ticker, endpoint)
 		cancel()
 
 		if err != nil {
-			fmt.Printf("ERROR: Failed to fetch %s: %v\n", url, err)
+			fmt.Printf("ERROR: Failed to fetch: %v\n", err)
 			continue
 		}
 		fmt.Printf("FETCHED: host=%s status=%d bytes=%d gzip=%t\n",
@@ -374,30 +351,29 @@ func runScrapePreviewJSON(ctx context.Context, client scrape.Client, ticker, end
 
 		switch endpoint {
 		case "key-statistics":
-			if dto, err := scrape.ParseComprehensiveKeyStatistics(body, ticker, "NMS"); err != nil {
+			if dto, err := facade.ParseComprehensiveKeyStatistics(body, ticker, "NMS"); err != nil {
 				fmt.Printf("PARSE ERROR: %v\n", err)
 			} else {
 				printComprehensiveStatisticsSummary(dto)
 			}
 		case "profile":
-			if dto, err := scrape.ParseComprehensiveProfile(body, ticker, "NMS"); err != nil {
+			if dto, err := facade.ParseComprehensiveProfile(body, ticker, "NMS"); err != nil {
 				fmt.Printf("PARSE ERROR: %v\n", err)
 			} else {
 				printComprehensiveProfileSummary(dto)
 			}
 		case "financials":
-			if dto, err := scrape.ParseComprehensiveFinancials(body, ticker, "NMS"); err != nil {
+			if dto, err := facade.ParseComprehensiveFinancials(body, ticker, "NMS"); err != nil {
 				fmt.Printf("PARSE ERROR: %v\n", err)
 			} else {
 				printComprehensiveFinancialsSummary(dto)
 			}
 		case "balance-sheet", "cash-flow":
-			financialsURL := buildScrapeURL(ticker, "financials")
-			fmt.Printf("FETCHING CURRENCY: %s\n", financialsURL)
-			financialsBody, financialsMeta, err := client.Fetch(ctx, financialsURL)
+			// For balance sheet and cash flow, we need to fetch financials page to get currency
+			financialsBody, financialsMeta, err := client.ScrapeFetch(ctx, ticker, "financials")
 			if err != nil {
 				fmt.Printf("CURRENCY FETCH ERROR: %v\n", err)
-				if dto, err := scrape.ParseComprehensiveFinancials(body, ticker, "NMS"); err != nil {
+				if dto, err := facade.ParseComprehensiveFinancials(body, ticker, "NMS"); err != nil {
 					fmt.Printf("PARSE ERROR: %v\n", err)
 				} else {
 					printComprehensiveFinancialsSummary(dto)
@@ -405,20 +381,20 @@ func runScrapePreviewJSON(ctx context.Context, client scrape.Client, ticker, end
 			} else {
 				fmt.Printf("CURRENCY FETCHED: host=%s status=%d bytes=%d gzip=%t\n",
 					financialsMeta.Host, financialsMeta.Status, financialsMeta.Bytes, financialsMeta.Gzip)
-				if dto, err := scrape.ParseComprehensiveFinancialsWithCurrency(body, financialsBody, ticker, "NMS"); err != nil {
+				if dto, err := facade.ParseComprehensiveFinancialsWithCurrency(body, financialsBody, ticker, "NMS"); err != nil {
 					fmt.Printf("PARSE ERROR: %v\n", err)
 				} else {
 					printComprehensiveFinancialsSummary(dto)
 				}
 			}
 		case "analysis":
-			if dto, err := scrape.ParseAnalysis(body, ticker, "NMS"); err != nil {
+			if dto, err := facade.ParseAnalysis(body, ticker, "NMS"); err != nil {
 				fmt.Printf("PARSE ERROR: %v\n", err)
 			} else {
 				printAnalysisSummary(dto)
 			}
 		case "analyst-insights":
-			if dto, err := scrape.ParseAnalystInsights(body, ticker, "NMS"); err != nil {
+			if dto, err := facade.ParseAnalystInsights(body, ticker, "NMS"); err != nil {
 				fmt.Printf("PARSE ERROR: %v\n", err)
 			} else {
 				printAnalystInsightsSummary(dto)
@@ -430,33 +406,8 @@ func runScrapePreviewJSON(ctx context.Context, client scrape.Client, ticker, end
 	return nil
 }
 
-// buildScrapeURL builds the URL for a given ticker and endpoint
-func buildScrapeURL(ticker, endpoint string) string {
-	baseURL := "https://finance.yahoo.com"
-	switch endpoint {
-	case "profile":
-		return fmt.Sprintf("%s/quote/%s/profile", baseURL, ticker)
-	case "key-statistics":
-		return fmt.Sprintf("%s/quote/%s/key-statistics", baseURL, ticker)
-	case "financials":
-		return fmt.Sprintf("%s/quote/%s/financials", baseURL, ticker)
-	case "balance-sheet":
-		return fmt.Sprintf("%s/quote/%s/balance-sheet", baseURL, ticker)
-	case "cash-flow":
-		return fmt.Sprintf("%s/quote/%s/cash-flow", baseURL, ticker)
-	case "analysis":
-		return fmt.Sprintf("%s/quote/%s/analysis", baseURL, ticker)
-	case "analyst-insights":
-		return fmt.Sprintf("%s/quote/%s/analyst-insights", baseURL, ticker)
-	case "news":
-		return fmt.Sprintf("%s/quote/%s/news", baseURL, ticker)
-	default:
-		return fmt.Sprintf("%s/quote/%s", baseURL, ticker)
-	}
-}
-
 // runScrapePreviewProto executes the preview-proto mode for testing proto emission
-func runScrapePreviewProto(ctx context.Context, client scrape.Client, ticker, endpoints, runID string) error {
+func runScrapePreviewProto(ctx context.Context, client *facade.Client, ticker, endpoints, runID string) error {
 	if ticker == "" {
 		return fmt.Errorf("ticker is required for preview-proto mode")
 	}
@@ -485,12 +436,11 @@ func runScrapePreviewProto(ctx context.Context, client scrape.Client, ticker, en
 		fmt.Printf("\n--- %s ---\n", strings.ToUpper(endpoint))
 
 		endpointCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
-		url := buildScrapeURL(ticker, endpoint)
-		body, meta, err := client.Fetch(endpointCtx, url)
+		body, meta, err := client.ScrapeFetch(endpointCtx, ticker, endpoint)
 		cancel()
 
 		if err != nil {
-			fmt.Printf("ERROR: Failed to fetch %s: %v\n", url, err)
+			fmt.Printf("ERROR: Failed to fetch: %v\n", err)
 			continue
 		}
 		fmt.Printf("FETCH META: host=%s status=%d bytes=%d gzip=%t redirects=%d latency=%dms\n",
@@ -498,7 +448,7 @@ func runScrapePreviewProto(ctx context.Context, client scrape.Client, ticker, en
 
 		switch endpoint {
 		case "financials":
-			if dto, err := scrape.ParseComprehensiveFinancials(body, ticker, "XNAS"); err != nil {
+			if dto, err := facade.ParseComprehensiveFinancials(body, ticker, "XNAS"); err != nil {
 				fmt.Printf("PARSE ERROR: %v\n", err)
 			} else if snapshots, err := emit.MapComprehensiveFinancialsDTO(dto, runID, mapperConfig.Producer); err != nil {
 				fmt.Printf("MAPPING ERROR: %v\n", err)
@@ -508,7 +458,7 @@ func runScrapePreviewProto(ctx context.Context, client scrape.Client, ticker, en
 				}
 			}
 		case "profile":
-			if dto, err := scrape.ParseComprehensiveProfile(body, ticker, "XNAS"); err != nil {
+			if dto, err := facade.ParseComprehensiveProfile(body, ticker, "XNAS"); err != nil {
 				fmt.Printf("PARSE ERROR: %v\n", err)
 			} else if result, err := emit.MapProfileDTO(dto, runID, mapperConfig.Producer); err != nil {
 				fmt.Printf("MAPPING ERROR: %v\n", err)
@@ -516,7 +466,7 @@ func runScrapePreviewProto(ctx context.Context, client scrape.Client, ticker, en
 				printProfileResult(result)
 			}
 		case "news":
-			if articles, stats, err := scrape.ParseNews(body, "https://finance.yahoo.com", time.Now()); err != nil {
+			if articles, stats, err := facade.ParseNews(body, "https://finance.yahoo.com", time.Now()); err != nil {
 				fmt.Printf("PARSE ERROR: %v\n", err)
 			} else if protoArticles, err := emit.MapNewsItems(articles, ticker, runID, mapperConfig.Producer); err != nil {
 				fmt.Printf("MAPPING ERROR: %v\n", err)
@@ -524,7 +474,7 @@ func runScrapePreviewProto(ctx context.Context, client scrape.Client, ticker, en
 				printNewsArticles(protoArticles, stats)
 			}
 		case "balance-sheet":
-			if dto, err := scrape.ParseComprehensiveFinancials(body, ticker, "XNAS"); err != nil {
+			if dto, err := facade.ParseComprehensiveFinancials(body, ticker, "XNAS"); err != nil {
 				fmt.Printf("PARSE ERROR: %v\n", err)
 			} else if snapshots, err := emit.MapComprehensiveFinancialsDTO(dto, runID, mapperConfig.Producer); err != nil {
 				fmt.Printf("MAPPING ERROR: %v\n", err)
@@ -534,7 +484,7 @@ func runScrapePreviewProto(ctx context.Context, client scrape.Client, ticker, en
 				}
 			}
 		case "cash-flow":
-			if dto, err := scrape.ParseComprehensiveFinancials(body, ticker, "XNAS"); err != nil {
+			if dto, err := facade.ParseComprehensiveFinancials(body, ticker, "XNAS"); err != nil {
 				fmt.Printf("PARSE ERROR: %v\n", err)
 			} else if snapshots, err := emit.MapComprehensiveFinancialsDTO(dto, runID, mapperConfig.Producer); err != nil {
 				fmt.Printf("MAPPING ERROR: %v\n", err)
@@ -544,7 +494,7 @@ func runScrapePreviewProto(ctx context.Context, client scrape.Client, ticker, en
 				}
 			}
 		case "key-statistics":
-			if dto, err := scrape.ParseComprehensiveKeyStatistics(body, ticker, "XNAS"); err != nil {
+			if dto, err := facade.ParseComprehensiveKeyStatistics(body, ticker, "XNAS"); err != nil {
 				fmt.Printf("PARSE ERROR: %v\n", err)
 			} else if snapshot, err := emit.MapKeyStatisticsDTO(dto, runID, mapperConfig.Producer); err != nil {
 				fmt.Printf("MAPPING ERROR: %v\n", err)
@@ -552,7 +502,7 @@ func runScrapePreviewProto(ctx context.Context, client scrape.Client, ticker, en
 				printFundamentalsSnapshot(snapshot)
 			}
 		case "analysis":
-			if dto, err := scrape.ParseAnalysis(body, ticker, "XNAS"); err != nil {
+			if dto, err := facade.ParseAnalysis(body, ticker, "XNAS"); err != nil {
 				fmt.Printf("PARSE ERROR: %v\n", err)
 			} else if snapshot, err := emit.MapAnalysisDTO(dto, runID, mapperConfig.Producer); err != nil {
 				fmt.Printf("MAPPING ERROR: %v\n", err)
@@ -560,7 +510,7 @@ func runScrapePreviewProto(ctx context.Context, client scrape.Client, ticker, en
 				printFundamentalsSnapshot(snapshot)
 			}
 		case "analyst-insights":
-			if dto, err := scrape.ParseAnalystInsights(body, ticker, "XNAS"); err != nil {
+			if dto, err := facade.ParseAnalystInsights(body, ticker, "XNAS"); err != nil {
 				fmt.Printf("PARSE ERROR: %v\n", err)
 			} else if snapshot, err := emit.MapAnalystInsightsDTO(dto, runID, mapperConfig.Producer); err != nil {
 				fmt.Printf("MAPPING ERROR: %v\n", err)

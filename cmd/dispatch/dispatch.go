@@ -1,89 +1,93 @@
-// dispatch.go — `commandRegistry` mapping 30+ Python-style yfinance command
-// names (`info`/`history`/`actions`/`income`/`news`/`options`/`isin`/...) to
-// fetch closures over `FetchContext` (`*facade.Client` + `*yahoo.Client`).
-// Capacity: 1 `FetchContext` struct + 1 `fetchFunc` type + 30+ registry entries.
+// dispatch.go — `commandRegistry` mapping 30+ Python-style yfinance-style
+// command names (`info`/`history`/`actions`/`income`/`news`/`options`/
+// `isin`/...) to fetch closures over `FetchContext` (`*facade.Client`).
+//
+// All svc calls route through facade (`YahooDispatch` / `ScrapeFinancials` /
+// etc.); dispatch.go never imports svc/yahoo or svc/scrape directly.
+//
+// Capacity: 1 `FetchContext` struct + 1 `fetchFunc` type + 30+ registry
+// entries.
 package dispatch
 
 import (
 	"context"
-	"time"
 
 	"github.com/bizshuk/yfin/facade"
-	"github.com/bizshuk/yfin/svc/yahoo"
 )
 
 // FetchContext bundles everything a command needs to fetch its data.
 type FetchContext struct {
-	Root  *facade.Client // top-level client (provides Scrape*, Fetch*)
-	Y     *yahoo.Client
+	Root  *facade.Client // top-level client (provides Fetch*, YahooDispatch, Scrape*)
 	RunID string
 }
 
 // fetchFunc fetches a single command's data; result must be JSON-marshalable.
 type fetchFunc func(ctx context.Context, fc *FetchContext, symbol string) (any, error)
 
-// commandRegistry maps Python-style command names to fetchers.
+// commandRegistry maps Python-style command names to fetchers. All entries
+// route through facade — never svc/yahoo or svc/scrape directly.
 var commandRegistry = map[string]fetchFunc{
-	// New quoteSummary-based fetchers (authed yahoo.Client).
+	// Yahoo chart / quoteSummary-based fetchers (authed yahoo.Client).
 	"info": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Y.FetchInfo(ctx, s)
+		return fc.Root.YahooDispatch(ctx, "info", s)
 	},
 	"actions": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Y.FetchActions(ctx, s)
+		return fc.Root.YahooDispatch(ctx, "actions", s)
 	},
 	"metadata": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Y.FetchMetadata(ctx, s)
+		return fc.Root.YahooDispatch(ctx, "metadata", s)
 	},
 	"major-holders": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Y.FetchHolders(ctx, s)
+		return fc.Root.YahooDispatch(ctx, "major-holders", s)
 	},
 	"institutional-holders": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Y.FetchHolders(ctx, s)
+		return fc.Root.YahooDispatch(ctx, "institutional-holders", s)
 	},
 	"mutualfund-holders": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Y.FetchHolders(ctx, s)
+		return fc.Root.YahooDispatch(ctx, "mutualfund-holders", s)
 	},
 	"insider-transactions": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Y.FetchInsider(ctx, s)
+		return fc.Root.YahooDispatch(ctx, "insider-transactions", s)
 	},
 	"insider-purchases": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Y.FetchInsider(ctx, s)
+		return fc.Root.YahooDispatch(ctx, "insider-purchases", s)
 	},
 	"insider-roster": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Y.FetchInsider(ctx, s)
+		return fc.Root.YahooDispatch(ctx, "insider-roster", s)
 	},
 	"upgrades": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Y.FetchUpgrades(ctx, s)
+		return fc.Root.YahooDispatch(ctx, "upgrades", s)
 	},
 	"calendar": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Y.FetchCalendar(ctx, s)
+		return fc.Root.YahooDispatch(ctx, "calendar", s)
 	},
 	"earnings-dates": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Y.FetchEarningsDates(ctx, s)
+		return fc.Root.YahooDispatch(ctx, "earnings-dates", s)
 	},
 	"sec-filings": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Y.FetchSecFilings(ctx, s)
+		return fc.Root.YahooDispatch(ctx, "sec-filings", s)
 	},
 	"sustainability": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Y.FetchESG(ctx, s)
+		return fc.Root.YahooDispatch(ctx, "sustainability", s)
 	},
 	"recommendations": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Y.FetchRecommendationTrend(ctx, s)
+		return fc.Root.YahooDispatch(ctx, "recommendations", s)
 	},
 	"recommendations-summary": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Y.FetchRecommendationTrend(ctx, s)
+		return fc.Root.YahooDispatch(ctx, "recommendations-summary", s)
 	},
 	"options": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Y.FetchOptions(ctx, s)
+		return fc.Root.YahooDispatch(ctx, "options", s)
 	},
 	"isin": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Y.FetchISIN(ctx, s)
+		return fc.Root.YahooDispatch(ctx, "isin", s)
 	},
-	// Legacy chart-based history.
+	// Legacy chart-based history — 30-day lookback window via facade.
 	"history": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Root.FetchDailyBars(ctx, s, time.Now().AddDate(0, 0, -30), time.Now(), true, fc.RunID)
+		return fc.Root.YahooFetchHistory(ctx, s)
 	},
-	// Legacy scrape-based fundamentals/analysis/insights/news.
+	// Legacy scrape-based fundamentals/analysis/insights/news — all route
+	// through facade.Scrape* which already wraps svc/scrape.
 	"income": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
 		return fc.Root.ScrapeFinancials(ctx, s, fc.RunID)
 	},

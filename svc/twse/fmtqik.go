@@ -1,31 +1,23 @@
-// fmtqik.go — `FMTQIK` (/exchangeReport/FMTQIK) TAIEX index and daily volume/amount/trade-count snapshot. Capacity: 1 day-row per response.
 package twse
 
 import (
 	"context"
 	"fmt"
 	"net/url"
+	"github.com/bizshuk/yfin/model"
+)
+
+// Type aliases — structs now live in model/twse.go.
+type (
+	FMTQIKResponse = model.FMTQIKResponse
+	FMTQIKRow = model.FMTQIKRow
 )
 
 // FMTQIKResponse embeds the common Response envelope and adds the
 // `date` field that TWSE returns on this endpoint.
-type FMTQIKResponse struct {
-	Response
-	Date string `json:"date"`
-}
-
-// GetStat returns the embedded stat field.
-func (r *FMTQIKResponse) GetStat() string { return r.Response.Stat }
 
 // FMTQIKRow is a typed representation of one FMTQIK data row.
 // Fields: 日期, 成交股數, 成交金額, 成交筆數, 發行量加權股價指數.
-type FMTQIKRow struct {
-	Date         string  // 日期
-	Volume       int64   // 成交股數
-	Amount       int64   // 成交金額
-	Transactions int64   // 成交筆數
-	Index        float64 // 發行量加權股價指數
-}
 
 // FetchFMTQIK retrieves the TAIEX index and trading volume for `date`.
 // `date` should be YYYYMMDD (month-start or month-end).

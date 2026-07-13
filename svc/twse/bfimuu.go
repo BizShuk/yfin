@@ -1,30 +1,23 @@
-// bfimuu.go — `BFIMUU` (/block/BFIMUU) monthly block-trade aggregate (period/trades/volume/amount, date = YYYYMM01). Capacity: multi-year monthly rows per response.
 package twse
 
 import (
 	"context"
 	"fmt"
 	"net/url"
+	"github.com/bizshuk/yfin/model"
+)
+
+// Type aliases — structs now live in model/twse.go.
+type (
+	BFIMUResponse = model.BFIMUResponse
+	BFIMUURow = model.BFIMUURow
 )
 
 // BFIMUResponse embeds the common Response envelope and adds the
 // `date` field that TWSE returns on this endpoint.
-type BFIMUResponse struct {
-	Response
-	Date string `json:"date"`
-}
-
-// GetStat returns the embedded stat field.
-func (r *BFIMUResponse) GetStat() string { return r.Response.Stat }
 
 // BFIMUURow is a typed representation of one BFIMUU data row.
 // Fields: 年月份, 成交筆數, 成交股數, 成交金額.
-type BFIMUURow struct {
-	Period       string // 年月份
-	Transactions int64  // 成交筆數
-	Volume       int64  // 成交股數
-	Amount       int64  // 成交金額
-}
 
 // FetchBFIMUU retrieves the monthly block-trade report for `date` (YYYYMM01).
 func FetchBFIMUU(ctx context.Context, client *Client, date string, opts url.Values) (any, error) {

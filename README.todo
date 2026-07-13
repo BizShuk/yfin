@@ -1,1 +1,12 @@
 # TODO
+
+## Archive
+
+- [x] docs/\* 同步至現況 (2026-07-13) @2026-07-13_01:26:12 @Completed
+    - CLI 樹對齊 flat subcommand 結構（`yfin pull`、`yfin quote`、`yfin batch`、`yfin config-effective`、`yfin scrape`、`yfin twse` 等）
+    - 套件路徑 `internal/*` → `config/` + `svc/{yahoo,scrape,emit,norm,twse}/` + `utils/{httpx,bus,cache,obsv}/`
+    - `yfinance.NewClient()` → `facade.NewClient()`（CLI 改走 `cmd.CreateClient()`）
+    - 移除 `NewClientWithSessionRotation()`、Docker image、Homebrew tap（皆未發佈）
+    - `yfinance-go` repo 名 → `yfin`（僅 CLAUDE.md 保留「曾用名」標記）
+    - session rotation 全線標記為「已移除」（`--sessions` flag 仍存在但 vestigial）
+    - 移除 cmd/fetch.go 誤刪的 Tier C 檔（scrapping.md、ampy-proto_scrapping.md、audit/、releases/、mapping/ 已 git checkout 還原）

@@ -1,4 +1,3 @@
-// bfiamu.go — `BFIAMU` (/afterTrading/BFIAMU) per-day index close + change + change-pct across all major index categories. Capacity: ~50 indices per response.
 package twse
 
 import (
@@ -6,26 +5,20 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"github.com/bizshuk/yfin/model"
+)
+
+// Type aliases — structs now live in model/twse.go.
+type (
+	BFIAMUResponse = model.BFIAMUResponse
+	BFIAMURow = model.BFIAMURow
 )
 
 // BFIAMUResponse embeds the common Response envelope and adds the `date`
 // field that TWSE returns for /afterTrading/BFIAMU.
-type BFIAMUResponse struct {
-	Response
-	Date string `json:"date"`
-}
-
-// GetStat returns the embedded stat field.
-func (r *BFIAMUResponse) GetStat() string { return r.Response.Stat }
 
 // BFIAMURow is a typed representation of one BFIAMU data row.
 // Columns: 指數, 收盤指數, 漲跌, 百分比.
-type BFIAMURow struct {
-	IndexName string  // 指數
-	Close     float64 // 收盤指數
-	Change    float64 // 漲跌
-	ChangePct float64 // 百分比
-}
 
 // FetchBFIAMU retrieves per-day index close & change values for `date`.
 // `date` is required (YYYYMMDD).

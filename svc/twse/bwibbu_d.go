@@ -1,4 +1,3 @@
-// bwibbu_d.go — `BWIBBU_d` (/afterTrading/BWIBBU_d) per-stock P/E ratio, dividend yield %, and price-to-book ratio snapshot. Capacity: ~1900 stocks per response.
 package twse
 
 import (
@@ -6,27 +5,21 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"github.com/bizshuk/yfin/model"
+)
+
+// Type aliases — structs now live in model/twse.go.
+type (
+	BWIBBU_dResponse = model.BWIBBU_dResponse
+	BWIBBUdRow = model.BWIBBUdRow
 )
 
 // BWIBBU_dResponse embeds the common Response envelope and adds the
 // `date` field that TWSE returns on this endpoint.
-type BWIBBU_dResponse struct {
-	Response
-	Date string `json:"date"`
-}
 
-// GetStat returns the embedded stat field.
-func (r *BWIBBU_dResponse) GetStat() string { return r.Response.Stat }
 
 // BWIBBUdRow is a typed representation of one BWIBBU_d data row.
 // Fields: 證券代號, 證券名稱, 本益比, 殖利率(%), 股價淨值比.
-type BWIBBUdRow struct {
-	Code     string  // 證券代號
-	Name     string  // 證券名稱
-	PE       float64 // 本益比
-	YieldPct float64 // 殖利率(%)
-	PBR      float64 // 股價淨值比
-}
 
 // FetchBWIBBU_d retrieves the per-stock P/E, dividend yield, and P/B
 // ratio snapshot for `date`. `opts` may include `selectType=ALL`

@@ -1,4 +1,3 @@
-// stock_day.go — `STOCK_DAY` (/afterTrading/STOCK_DAY) per-stock daily trade info (OHLCV + amount + trade count + change spread). Capacity: 1 stock × 1 day per request (stockNo required).
 package twse
 
 import (
@@ -6,32 +5,20 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"github.com/bizshuk/yfin/model"
+)
+
+// Type aliases — structs now live in model/twse.go.
+type (
+	STOCK_DAYResponse = model.STOCK_DAYResponse
+	StockDayRow = model.StockDayRow
 )
 
 // STOCK_DAYResponse embeds the common Response envelope and adds the
 // `date` and `stockNo` fields that TWSE returns on this endpoint.
-type STOCK_DAYResponse struct {
-	Response
-	Date    string `json:"date"`
-	StockNo string `json:"stockNo"`
-}
-
-// GetStat returns the embedded stat field.
-func (r *STOCK_DAYResponse) GetStat() string { return r.Response.Stat }
 
 // StockDayRow is a typed representation of one STOCK_DAY data row.
 // Fields: 日期, 成交股數, 成交金額, 開盤, 最高, 最低, 收盤, 漲跌價差, 成交筆數.
-type StockDayRow struct {
-	Date         string  // 日期
-	Volume       int64   // 成交股數
-	Amount       int64   // 成交金額
-	Open         float64 // 開盤
-	High         float64 // 最高
-	Low          float64 // 最低
-	Close        float64 // 收盤
-	Change       float64 // 漲跌價差
-	Transactions int64   // 成交筆數
-}
 
 // FetchSTOCK_DAY retrieves per-stock daily trade info for `date` and
 // `stockNo` (must be supplied via opts).

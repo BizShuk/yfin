@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bizshuk/yfin/config"
+	"github.com/bizshuk/yfin/config/types"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -27,7 +27,7 @@ GOOGL`
 	}
 
 	// Create test configuration
-	cfg := &config.Config{
+	cfg := &types.Config{
 		// Add minimal required config fields
 	}
 
@@ -159,7 +159,7 @@ func TestOrchestratorShortRun(t *testing.T) {
 	}
 
 	// Create test configuration
-	cfg := &config.Config{
+	cfg := &types.Config{
 		// Add minimal required config fields
 	}
 

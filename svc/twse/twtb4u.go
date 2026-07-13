@@ -1,31 +1,23 @@
-// twtb4u.go — `TWTB4U` (/afterTrading/TWTB4U) daily day-trade (當日沖銷) targets and buy/sell amount stats per stock. Capacity: ~1900 stocks per response.
 package twse
 
 import (
 	"context"
 	"fmt"
 	"net/url"
+	"github.com/bizshuk/yfin/model"
+)
+
+// Type aliases — structs now live in model/twse.go.
+type (
+	TWTB4UResponse = model.TWTB4UResponse
+	TWTB4URow = model.TWTB4URow
 )
 
 // TWTB4UResponse embeds the common Response envelope and adds the
 // `date` field that TWSE returns on this endpoint.
-type TWTB4UResponse struct {
-	Response
-	Date string `json:"date"`
-}
 
-// GetStat returns the embedded stat field.
-func (r *TWTB4UResponse) GetStat() string { return r.Response.Stat }
 
 // TWTB4URow is a typed representation of one TWTB4U data row.
-type TWTB4URow struct {
-	Code        string // 證券代號
-	Name        string // 證券名稱
-	TradeShares int64  // 當日沖銷交易成交股數
-	TradeAmount int64  // 當日沖銷交易成交金額
-	BuyAmount   int64  // 當日沖銷交易買進成交金額
-	SellAmount  int64  // 當日沖銷交易賣出成交金額
-}
 
 // FetchTWTB4U retrieves the daily day-trade targets and statistics for `date`.
 func FetchTWTB4U(ctx context.Context, client *Client, date string, opts url.Values) (any, error) {

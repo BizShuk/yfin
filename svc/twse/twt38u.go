@@ -1,4 +1,3 @@
-// twt38u.go — `TWT38U` (/fund/TWT38U) foreign + mainland investor daily aggregated buy/sell/net volume. Capacity: 1 summary row per response.
 package twse
 
 import (
@@ -6,26 +5,21 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"github.com/bizshuk/yfin/model"
+)
+
+// Type aliases — structs now live in model/twse.go.
+type (
+	TWT38UResponse = model.TWT38UResponse
+	TWT38URow = model.TWT38URow
 )
 
 // TWT38UResponse embeds the common Response envelope and adds the
 // `date` field that TWSE returns on this endpoint.
-type TWT38UResponse struct {
-	Response
-	Date string `json:"date"`
-}
 
-// GetStat returns the embedded stat field.
-func (r *TWT38UResponse) GetStat() string { return r.Response.Stat }
 
 // TWT38URow is a typed representation of one TWT38U data row.
 // Fields: 單位名稱, 買進股數, 賣出股數, 買賣差額股數.
-type TWT38URow struct {
-	UnitName string // 單位名稱
-	Buy      int64  // 買進股數
-	Sell     int64  // 賣出股數
-	Net      int64  // 買賣差額股數
-}
 
 // FetchTWT38U retrieves the daily aggregated buy/sell volume of
 // foreign investors (含陸資) for `date`.

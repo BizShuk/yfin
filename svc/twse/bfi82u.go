@@ -1,4 +1,3 @@
-// bfi82u.go — `BFI82U` (/fund/BFI82U) three-institution (dealer / trust / foreign+mainland) aggregated buy/sell amounts (day-level). Capacity: 3 institutional summary rows per response.
 package twse
 
 import (
@@ -6,26 +5,21 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"github.com/bizshuk/yfin/model"
+)
+
+// Type aliases — structs now live in model/twse.go.
+type (
+	BFI82UResponse = model.BFI82UResponse
+	BFI82URow = model.BFI82URow
 )
 
 // BFI82UResponse embeds the common Response envelope and adds the
 // `date` field that TWSE returns on this endpoint.
-type BFI82UResponse struct {
-	Response
-	Date string `json:"date"`
-}
 
-// GetStat returns the embedded stat field.
-func (r *BFI82UResponse) GetStat() string { return r.Response.Stat }
 
 // BFI82URow is a typed representation of one BFI82U data row.
 // Fields: 單位名稱, 買進金額, 賣出金額, 買賣差額.
-type BFI82URow struct {
-	UnitName string  // 單位名稱
-	Buy      float64 // 買進金額
-	Sell     float64 // 賣出金額
-	Net      float64 // 買賣差額
-}
 
 // FetchBFI82U retrieves the daily aggregated buy/sell amounts of the
 // three main institutional investors (自營商, 投信, 外資及陸資) for `date`.

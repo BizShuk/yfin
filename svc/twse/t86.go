@@ -1,37 +1,23 @@
-// t86.go — `T86` (/fund/T86) three-institution (foreign+mainland / trust / dealer) daily buy/sell/net volume per stock. Capacity: ~1900 stocks × 3 institutions per response.
 package twse
 
 import (
 	"context"
 	"fmt"
 	"net/url"
+	"github.com/bizshuk/yfin/model"
+)
+
+// Type aliases — structs now live in model/twse.go.
+type (
+	T86Response = model.T86Response
+	T86Row = model.T86Row
 )
 
 // T86Response embeds the common Response envelope and adds the
 // `date` field that TWSE returns on this endpoint.
-type T86Response struct {
-	Response
-	Date string `json:"date"`
-}
 
-// GetStat returns the embedded stat field.
-func (r *T86Response) GetStat() string { return r.Response.Stat }
 
 // T86Row is a typed representation of one T86 data row.
-type T86Row struct {
-	Code        string // 證券代號
-	Name        string // 證券名稱
-	ForeignBuy  int64  // 外陸資買進股數
-	ForeignSell int64  // 外陸資賣出股數
-	ForeignNet  int64  // 外陸資買賣超股數
-	TrustBuy    int64  // 投信買進股數
-	TrustSell   int64  // 投信賣出股數
-	TrustNet    int64  // 投信買賣超股數
-	DealerBuy   int64  // 自營商買進股數
-	DealerSell  int64  // 自營商賣出股數
-	DealerNet   int64  // 自營商買賣超股數
-	TotalNet    int64  // 三大法人買賣超股數
-}
 
 // FetchT86 retrieves the three-institution daily buy/sell for `date`.
 // selectType=ALL is always added by this fetcher.

@@ -1,4 +1,3 @@
-// mi_week.go — `MI_WEEK` (/statistics/MI_WEEK) weekly stock market-cap report (stock code/name + shares issued + market cap). Capacity: ~1900 stocks per response.
 package twse
 
 import (
@@ -6,26 +5,20 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"github.com/bizshuk/yfin/model"
+)
+
+// Type aliases — structs now live in model/twse.go.
+type (
+	MI_WEEKResponse = model.MI_WEEKResponse
+	MIWeekRow = model.MIWeekRow
 )
 
 // MI_WEEKResponse embeds the common Response envelope and adds the `date`
 // field that TWSE returns for /statistics/MI_WEEK.
-type MI_WEEKResponse struct {
-	Response
-	Date string `json:"date"`
-}
-
-// GetStat returns the embedded stat field.
-func (r *MI_WEEKResponse) GetStat() string { return r.Response.Stat }
 
 // MIWeekRow is a typed representation of one MI_WEEK data row.
 // Columns: 股票代號, 股票名稱, 發行股數, 市值.
-type MIWeekRow struct {
-	StockCode    string // 股票代號
-	StockName    string // 股票名稱
-	SharesIssued int64  // 發行股數
-	MarketCap    int64  // 市值
-}
 
 // FetchMI_WEEK retrieves the weekly stock market-cap report for `date`.
 // `date` is required (YYYYMMDD).

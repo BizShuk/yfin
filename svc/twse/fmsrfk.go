@@ -1,4 +1,3 @@
-// fmsrfk.go — `FMSRFK` (/exchangeReport/FMSRFK) per-stock monthly aggregate (year-month/high/low/weighted avg + volume + turnover %). Capacity: 1 stock × 12 monthly rows per year-long request.
 package twse
 
 import (
@@ -6,31 +5,20 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"github.com/bizshuk/yfin/model"
+)
+
+// Type aliases — structs now live in model/twse.go.
+type (
+	FMSRFKResponse = model.FMSRFKResponse
+	FMSRFKRow = model.FMSRFKRow
 )
 
 // FMSRFKResponse embeds the common Response envelope and adds stockNo/date
 // (year) fields that TWSE returns for /exchangeReport/FMSRFK.
-type FMSRFKResponse struct {
-	Response
-	StockNo string `json:"stockNo"`
-	Date    string `json:"date"`
-}
-
-// GetStat returns the embedded stat field.
-func (r *FMSRFKResponse) GetStat() string { return r.Response.Stat }
 
 // FMSRFKRow is a typed representation of one FMSRFK data row.
 // Columns: 年度, 月份, 最高, 最低, 加權平均價, 成交股數, 成交金額, 週轉率%.
-type FMSRFKRow struct {
-	Year        string  // 年度
-	Month       string  // 月份
-	High        float64 // 最高
-	Low         float64 // 最低
-	WAvgPrice   float64 // 加權平均價
-	TradeVolume int64   // 成交股數
-	TradeValue  int64   // 成交金額
-	TurnoverPct float64 // 週轉率%
-}
 
 // FetchFMSRFK retrieves per-stock monthly trading info for the year `date`.
 // `stockNo` is required (e.g. "2330"); `date` is the year (e.g. "2022").

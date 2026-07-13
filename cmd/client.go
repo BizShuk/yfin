@@ -1,87 +1,81 @@
-// client.go — shared client builders used by every sub-package:
-// `cliClient` (thin handle the yfin path uses to drive fetch helpers),
-// `CreateClient` (yahoo.Client construction from global config), and
-// `CreateBusConfig` (NATS/Kafka bus config with safe fallback).
-// TWSE-specific builders (`buildTWSEClient` + `twseUserAgent`) live in
-// `cmd/twse/client.go`; the local JSON sink (`writeJSONFile`) used by
-// `pull` + `quote` lives in `cmd/market/client_json.go`.
-// Capacity: 1 `cliClient` type + 2 exported builder functions.
+// client.go — shared builders used by every sub-package:
+// `CreateClient` (facade.NewClientWithConfig with cmd.Global flag overrides)
+// + `CreateBusConfig` (NATS/Kafka bus config with safe fallback).
+//
+// facade is the single handler bridging cmd/ → svc/; CreateClient returns
+// *facade.Client. bus publishing stays in cmd (transport, not data
+// fetching), so CreateBusConfig remains a cmd-local helper.
+//
+// Capacity: 2 builder functions.
 package cmd
 
 import (
 	"fmt"
 
-	"github.com/bizshuk/yfin/config"
-	"github.com/bizshuk/yfin/svc/yahoo"
+	"github.com/bizshuk/yfin/config/types"
+	"github.com/bizshuk/yfin/facade"
 	"github.com/bizshuk/yfin/utils/bus"
 	"github.com/bizshuk/yfin/utils/httpx"
 )
 
-// CliClient is a thin handle the yfin path uses to drive fetch helpers. As of
-// Step 6 of plans/spicy-singing-swan.md, the yfin CLI no longer constructs a
-// facade.Client — facade.Client is the SDK surface and returns plain structs,
-// while the yfin bus-publishing code wants the internal *norm.* types for
-// emit→proto. CliClient only holds the *yahoo.Client; the fetch.go helpers
-// reach through it to call yahoo + norm directly.
-type CliClient struct {
-	Yahoo *yahoo.Client
-}
-
-// CreateClient creates the yfin CLI's fetch handle. Returns *CliClient — a
-// small struct that wraps *yahoo.Client. The facade.Client constructor is no
-// longer called from the yfin path (Step 6).
-func CreateClient() (*CliClient, error) {
+// CreateClient builds the yfin CLI's fetch handle. Returns *facade.Client —
+// the same SDK surface external consumers use. CLI flag overrides
+// (`--qps`, `--retry-max`, `--timeout`) are applied on top of the
+// ampy-config HTTP settings so `yfin --qps=10` wins over `cfg.qps=2`.
+func CreateClient() (*facade.Client, error) {
 	// Determine effective config path
 	effectivePath := Global.ConfigFile
 	if effectivePath == "" {
-		// Default to a standard effective config path
 		effectivePath = "config/effective.yaml"
 	}
 
 	// Load configuration using ampy-config
-	loader := config.NewLoader(effectivePath)
+	loader := types.NewLoader(effectivePath)
 	cfg, err := loader.Load()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	// Convert to HTTP config
-	httpConfig := cfg.GetHTTPConfig()
+	// Convert types.HTTPConfig → httpx.Config and apply CLI flag overrides.
+	httpxConfig := httpConfigToHttpx(cfg.GetHTTPConfig())
 
-	// Apply global flags if set (CLI flags override config)
 	if Global.QPS > 0 {
-		httpConfig.QPS = Global.QPS
+		httpxConfig.QPS = Global.QPS
 	}
 	if Global.RetryMax > 0 {
-		httpConfig.MaxAttempts = Global.RetryMax
+		httpxConfig.MaxAttempts = Global.RetryMax
 	}
 	if Global.Timeout > 0 {
-		httpConfig.Timeout = Global.Timeout
+		httpxConfig.Timeout = Global.Timeout
 	}
 
-	// Create httpx config from our config
-	httpxConfig := &httpx.Config{
-		BaseURL:          httpConfig.BaseURL,
-		Timeout:          httpConfig.Timeout,
-		IdleTimeout:      httpConfig.IdleTimeout,
-		MaxConnsPerHost:  httpConfig.MaxConnsPerHost,
-		UserAgent:        httpConfig.UserAgent,
-		MaxAttempts:      httpConfig.MaxAttempts,
-		BackoffBaseMs:    httpConfig.BackoffBaseMs,
-		BackoffJitterMs:  httpConfig.BackoffJitterMs,
-		MaxDelayMs:       httpConfig.MaxDelayMs,
-		QPS:              httpConfig.QPS,
-		Burst:            httpConfig.Burst,
-		CircuitWindow:    httpConfig.CircuitWindow,
-		FailureThreshold: int(httpConfig.FailureThreshold * 100), // Convert to percentage
-		ResetTimeout:     httpConfig.ResetTimeout,
-	}
+	return facade.NewClientWithConfig(httpxConfig), nil
+}
 
-	// Build the underlying *yahoo.Client directly. The CLI does not need a
-	// facade.Client — its process* helpers route through fetchDailyBarsNorm /
-	// fetchQuoteNorm / fetchFundamentalsNorm in cmd/fetch.go.
-	httpClient := httpx.NewClient(httpxConfig)
-	return &CliClient{Yahoo: yahoo.NewClient(httpClient, httpxConfig.BaseURL)}, nil
+// httpConfigToHttpx converts the flat types.HTTPConfig (loaded from YAML)
+// into the *httpx.Config facade.NewClientWithConfig expects. Field-by-field
+// mapping is mechanical; FailureThreshold gets converted from a 0–1 fraction
+// to a 0–100 percentage (httpx's expected unit).
+func httpConfigToHttpx(cfg *types.HTTPConfig) *httpx.Config {
+	return &httpx.Config{
+		BaseURL:          cfg.BaseURL,
+		Timeout:          cfg.Timeout,
+		IdleTimeout:      cfg.IdleTimeout,
+		MaxConnsPerHost:  cfg.MaxConnsPerHost,
+		UserAgent:        cfg.UserAgent,
+		MaxAttempts:      cfg.MaxAttempts,
+		BackoffBaseMs:    cfg.BackoffBaseMs,
+		BackoffJitterMs:  cfg.BackoffJitterMs,
+		MaxDelayMs:       cfg.MaxDelayMs,
+		QPS:              cfg.QPS,
+		Burst:            cfg.Burst,
+		CircuitWindow:    cfg.CircuitWindow,
+		FailureThreshold: int(cfg.FailureThreshold * 100), // 0–1 → 0–100
+		ResetTimeout:     cfg.ResetTimeout,
+		// MaxBodyBytes defaulting to 0 (unlimited) matches the previous
+		// cmd/client.go behaviour before the facade indirection.
+		MaxBodyBytes: 0,
+	}
 }
 
 // CreateBusConfig creates bus configuration
@@ -94,7 +88,7 @@ func CreateBusConfig(env, topicPrefix string) *bus.Config {
 	}
 
 	// Load configuration using ampy-config
-	loader := config.NewLoader(effectivePath)
+	loader := types.NewLoader(effectivePath)
 	cfg, err := loader.Load()
 	if err != nil {
 		// Fallback to default config if loading fails
@@ -165,3 +159,5 @@ func CreateBusConfig(env, topicPrefix string) *bus.Config {
 		},
 	}
 }
+
+// _ keeps httpx package referenced; helps future fields find the import.

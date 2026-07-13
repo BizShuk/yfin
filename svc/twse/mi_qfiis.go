@@ -1,29 +1,22 @@
-// mi_qfiis.go — `MI_QFIIS` (/fund/MI_QFIIS) foreign + mainland investor holdings per stock (shares held + % of issued). Capacity: ~1900 stocks per response.
 package twse
 
 import (
 	"context"
 	"fmt"
 	"net/url"
+	"github.com/bizshuk/yfin/model"
+)
+
+// Type aliases — structs now live in model/twse.go.
+type (
+	MI_QFIISResponse = model.MI_QFIISResponse
+	MI_QFIISRow = model.MI_QFIISRow
 )
 
 // MI_QFIISResponse embeds the common Response envelope and adds the
 // `date` field that TWSE returns on this endpoint.
-type MI_QFIISResponse struct {
-	Response
-	Date string `json:"date"`
-}
-
-// GetStat returns the embedded stat field.
-func (r *MI_QFIISResponse) GetStat() string { return r.Response.Stat }
 
 // MI_QFIISRow is a typed representation of one MI_QFIIS data row.
-type MI_QFIISRow struct {
-	Code       string  // 證券代號
-	Name       string  // 證券名稱
-	SharesHeld int64   // 持有股數
-	IssuePct   float64 // 佔發行股數%
-}
 
 // FetchMI_QFIIS retrieves the foreign+mainland investor holdings for `date`.
 // selectType=ALL is always added by this fetcher.

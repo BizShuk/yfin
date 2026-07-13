@@ -1,35 +1,24 @@
-// stock_day_avg.go — `STOCK_DAY_AVG` (/exchangeReport/STOCK_DAY_AVG) per-stock monthly average price (high/low/weighted + trades/volume/amount, date = YYYYMM01). Capacity: 1 stock × 1 month-row per request.
 package twse
 
 import (
 	"context"
 	"fmt"
 	"net/url"
+	"github.com/bizshuk/yfin/model"
+)
+
+// Type aliases — structs now live in model/twse.go.
+type (
+	StockDayAvgResponse = model.StockDayAvgResponse
+	StockDayAvgRow = model.StockDayAvgRow
 )
 
 // StockDayAvgResponse embeds the common Response envelope and adds the
 // `date` and `stockNo` fields that TWSE returns on this endpoint.
-type StockDayAvgResponse struct {
-	Response
-	Date    string `json:"date"`
-	StockNo string `json:"stockNo"`
-}
 
-// GetStat returns the embedded stat field.
-func (r *StockDayAvgResponse) GetStat() string { return r.Response.Stat }
 
 // StockDayAvgRow is a typed representation of one STOCK_DAY_AVG data row.
 // Fields: 年度, 月份, 最高, 最低, 加權平均價, 成交筆數, 成交股數, 成交金額.
-type StockDayAvgRow struct {
-	Year         string  // 年度
-	Month        string  // 月份
-	High         float64 // 最高
-	Low          float64 // 最低
-	WeightedAvg  float64 // 加權平均價
-	Transactions int64   // 成交筆數
-	Volume       int64   // 成交股數
-	Amount       int64   // 成交金額
-}
 
 // FetchStockDayAvg retrieves the per-stock monthly average price for `date`
 // (YYYYMM01). `stockNo` must be supplied via opts.

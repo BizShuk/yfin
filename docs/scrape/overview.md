@@ -1,20 +1,19 @@
-# Scrape Fallback System Overview
+# 爬蟲備援系統概觀 (Scrape Fallback System Overview)
 
-## Architecture & Data Flow
+## 架構與資料流 (Architecture & Data Flow)
 
-The yfinance-go scraper fallback system provides a robust, production-ready alternative to Yahoo Finance's API endpoints. When API access is unavailable, rate-limited, or requires paid subscriptions, the system automatically falls back to web scraping with full data consistency guarantees.
+`yfin` 爬蟲備援系統提供一個 production-ready 的替代路徑，於 Yahoo Finance API 不可用、被限速、或需要付費訂閱時接手。整體設計以單一 `http.Client` + 完整重試/熔斷/限速策略為核心。
 
-```
+```tree
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   User Request  │    │   Orchestrator  │    │  Data Pipeline  │
+│   User Request  │    │  Orchestrator   │    │  Data Pipeline  │
 │                 │    │                 │    │                 │
-│ • CLI Command   │───▶│ • Fallback      │───▶│ • Normalization │
-│ • Library Call  │    │   Logic         │    │ • Validation    │
-│ • Batch Job     │    │ • Rate Limiting │    │ • Mapping       │
-└─────────────────┘    │ • Session Mgmt  │    │ • Publishing    │
-                       └─────────────────┘    └─────────────────┘
-                                │                       │
-                                ▼                       ▼
+│ • CLI Command   │───▶│ • Rate Limiting │───▶│ • Normalization │
+│ • Library Call  │    │ • Retry/Backoff │    │ • Validation    │
+│ • Batch Job     │    │ • Circuit Break │    │ • Mapping       │
+└─────────────────┘    └─────────────────┘    │ • Publishing    │
+                                │              └─────────────────┘
+                                ▼
                        ┌─────────────────┐    ┌─────────────────┐
                        │   Data Sources  │    │     Output      │
                        │                 │    │                 │
@@ -24,51 +23,47 @@ The yfinance-go scraper fallback system provides a robust, production-ready alte
                        └─────────────────┘    └─────────────────┘
 ```
 
-## Why Scrape Fallback Was Created
+## 為何需要爬蟲備援 (Why Scrape Fallback Was Created)
 
-### Problem Statement
+### 問題陳述 (Problem Statement)
 
-Yahoo Finance's API has several limitations that affect production systems:
+Yahoo Finance API 有數項限制會直接衝擊 production 系統：
 
-1. **Authentication Requirements**: Many endpoints require paid subscriptions
-2. **Rate Limiting**: Aggressive throttling can block legitimate requests
-3. **Data Availability**: Some data is only available through web interfaces
-4. **Reliability**: API endpoints can be unstable or temporarily unavailable
+1. **認證要求**：多數進階 endpoint 需付費訂閱
+2. **速率限制**：積極的節流策略會擋掉合法請求
+3. **資料可用性**：部分資料只出現在網頁介面
+4. **可靠性**：API endpoint 不穩定或暫時性失效
 
-### Solution Benefits
+### 解法帶來的好處 (Solution Benefits)
 
-The scrape fallback system addresses these challenges by:
+- **自動備援**：API 與 scrape 之間無縫切換
+- **資料一致性**：不同來源輸出一致
+- **生產安全**：遵守 robots.txt，實施嚴格速率限制
+- **完整覆蓋**：取得 API 無法取得的欄位
 
-- **Automatic Fallback**: Seamlessly switches between API and scraping
-- **Data Consistency**: Maintains identical output formats regardless of source
-- **Production Safety**: Respects robots.txt, implements proper rate limiting
-- **Comprehensive Coverage**: Accesses data not available through APIs
+## 支援的資料來源 (Supported Data Sources)
 
-## Supported Data Sources
+### API Endpoints (主要)
+- **Quotes**：即時與延遲報價
+- **Historical Bars**：日/週/月 OHLCV
+- **Fundamentals**：季度財報（需訂閱）
 
-### API Endpoints (Primary)
-- **Quotes**: Real-time and delayed market quotes
-- **Historical Bars**: Daily, weekly, monthly OHLCV data
-- **Fundamentals**: Quarterly financial statements (requires subscription)
+### Scrape Endpoints (備援)
+- **Key Statistics**：P/E ratios、market cap、財務指標
+- **Financials**：損益表、資產負債表、現金流量
+- **Analysis**：分析師推薦與目標價
+- **Profile**：公司資訊、經營階層、業務摘要
+- **News**：近期新聞與新聞稿
 
-### Scrape Endpoints (Fallback)
-- **Key Statistics**: P/E ratios, market cap, financial metrics
-- **Financials**: Income statements, balance sheets, cash flow
-- **Analysis**: Analyst recommendations and price targets
-- **Profile**: Company information, executives, business summary
-- **News**: Recent news articles and press releases
+## 資料流架構 (Data Flow Architecture)
 
-## Data Flow Architecture
-
-### 1. Request Orchestration
+### 1. 請求編排 (Request Orchestration)
 
 ```go
-// Simplified orchestration flow
+// 簡化版 orchestration 流程
 func (o *Orchestrator) ProcessRequest(ctx context.Context, symbol string, endpoint string) (*Data, error) {
-    // 1. Determine strategy
     strategy := o.determineStrategy(endpoint)
-    
-    // 2. Execute with fallback
+
     switch strategy {
     case "api-first":
         data, err := o.tryAPI(ctx, symbol, endpoint)
@@ -82,159 +77,84 @@ func (o *Orchestrator) ProcessRequest(ctx context.Context, symbol string, endpoi
 }
 ```
 
-### 2. Data Normalization Pipeline
+### 2. 資料正規化管線 (Data Normalization Pipeline)
 
 ```
 Raw Data → Parser → Validator → Mapper → ampy-proto Message
     │         │         │         │            │
-    │         │         │         │            ▼
-    │         │         │         │    ┌─────────────────┐
-    │         │         │         │    │   Standardized  │
-    │         │         │         │    │     Output      │
-    │         │         │         │    │                 │
-    │         │         │         │    │ • UTC Times     │
-    │         │         │         │    │ • Scaled Decimals│
-    │         │         │         │    │ • ISO Currency  │
-    │         │         │         │    │ • Lineage Meta  │
-    │         │         │         │    └─────────────────┘
-    │         │         │         │
-    │         │         │         ▼
-    │         │         │  ┌─────────────────┐
-    │         │         │  │   Field Mapper  │
-    │         │         │  │                 │
-    │         │         │  │ • Type Conversion│
-    │         │         │  │ • Unit Scaling  │
-    │         │         │  │ • Currency Norm │
-    │         │         │  └─────────────────┘
-    │         │         │
-    │         │         ▼
-    │         │  ┌─────────────────┐
-    │         │  │    Validator    │
-    │         │  │                 │
-    │         │  │ • Schema Check  │
-    │         │  │ • Range Limits  │
-    │         │  │ • Required Fields│
-    │         │  └─────────────────┘
-    │         │
-    │         ▼
-    │  ┌─────────────────┐
-    │  │     Parser      │
-    │  │                 │
-    │  │ • HTML/JSON     │
-    │  │ • Regex Extract │
-    │  │ • Error Recovery│
-    │  └─────────────────┘
-    │
-    ▼
-┌─────────────────┐
-│    Raw Data     │
-│                 │
-│ • HTML Pages    │
-│ • JSON APIs     │
-│ • CSV Exports   │
-└─────────────────┘
+    ▼         ▼         ▼         ▼            ▼
+  HTML/JSON  Regex   Schema    ScaledDec    UTC times
+  嵌入 JSON  Extract Check     Currency     ISO codes
 ```
 
-## Data Contracts & Guarantees
+對應實作位置：
 
-### 1. Time Standardization
-- **All timestamps in UTC**: Consistent timezone handling
-- **ISO-8601 format**: Standard time representation
-- **Event time semantics**: Bar close times, news publication dates
+- `svc/scrape/` — HTML 解析、regex extractor、parser
+- `svc/norm/` — 型別轉換、ScaledDecimal 包裝
+- `svc/emit/` — DTO → ampy-proto mapper
+- `utils/httpx` — 共用 HTTP client（限速/重試/熔斷）
+- `utils/obsv` — observability bootstrap（metrics/tracing/logs）
 
-### 2. Precision & Currency
-- **Scaled decimals**: Exact financial arithmetic
-- **ISO-4217 currency codes**: Standard currency representation
-- **Consistent scaling**: Prices, volumes, and amounts properly scaled
+## 資料契約與保證 (Data Contracts & Guarantees)
 
-### 3. Lineage & Metadata
-- **Run ID tracking**: Every request has unique identifier
-- **Source attribution**: Clear data provenance
-- **Schema versioning**: Forward/backward compatibility
+### 1. 時間標準化 (Time Standardization)
+- 所有時間戳記皆為 UTC
+- ISO-8601 格式
+- 事件時間語意：bar close、新聞發布時間
 
-### 4. Error Handling
-- **Typed errors**: Specific error types for different failure modes
-- **Graceful degradation**: Partial data better than no data
-- **Retry semantics**: Intelligent retry with backoff
+### 2. 精度與貨幣 (Precision & Currency)
+- ScaledDecimal：精確財務運算
+- ISO-4217 貨幣代碼
+- 價格、量、金額皆經 scaling 處理
 
-## Fallback Decision Logic
+### 3. 血緣與 metadata (Lineage & Metadata)
+- Run ID tracking：每個請求都有唯一識別
+- 來源標註：清楚的資料來源
+- Schema 版本化：相容性管理
 
-### Automatic Fallback Triggers
+### 4. 錯誤處理 (Error Handling)
+- 型別化錯誤：不同失敗模式對應特定 error type
+- 優雅降級：部分資料仍勝過完全失敗
+- 重試語意：智慧型 backoff retry
 
-1. **Authentication Errors (401/403)**
-   ```
-   API Request → 401 Unauthorized → Scrape Fallback
-   ```
-
-2. **Rate Limiting (429)**
-   ```
-   API Request → 429 Too Many Requests → Backoff → Scrape Fallback
-   ```
-
-3. **Server Errors (5xx)**
-   ```
-   API Request → 500/502/503 → Retry → Scrape Fallback
-   ```
-
-4. **Timeout/Network Errors**
-   ```
-   API Request → Timeout → Retry → Scrape Fallback
-   ```
-
-### Fallback Strategy Configuration
-
-```yaml
-# Example configuration
-scrape:
-  fallback_strategy: "auto"  # auto, api-only, scrape-only
-  fallback_triggers:
-    - "401"  # Authentication required
-    - "429"  # Rate limited
-    - "5xx"  # Server errors
-  retry_before_fallback: 2
-  fallback_timeout_ms: 30000
-```
-
-## Safety & Compliance
+## 安全與合規 (Safety & Compliance)
 
 ### Robots.txt Compliance
 
-The system respects robots.txt policies with three enforcement levels:
+系統支援三種執行層級（透過 `scrape.robots_policy`）：
 
-1. **Enforce Mode** (Production)
-   - Strictly follows robots.txt rules
-   - Blocks disallowed requests
-   - Logs compliance violations
+1. **enforce**（生產環境）
+   - 嚴格遵守 robots.txt 規則
+   - 阻擋 disallowed 請求
+   - 記錄違規事件
 
-2. **Warn Mode** (Development)
-   - Logs robots.txt violations
-   - Allows requests to proceed
-   - Useful for testing
+2. **warn**（開發環境）
+   - 記錄 robots.txt 違規但放行
+   - 用於測試階段
 
-3. **Ignore Mode** (Testing Only)
-   - Bypasses robots.txt checks
-   - Only for controlled testing environments
+3. **ignore**（僅測試）
+   - 完全跳過 robots.txt 檢查
+   - 僅在受控測試環境使用
 
 ### Rate Limiting
 
-- **Per-host QPS limits**: Configurable request rates
-- **Burst allowances**: Handle traffic spikes
-- **Exponential backoff**: Intelligent retry timing
-- **Session rotation**: Distribute load across sessions
+- **Per-host QPS limit**：可設定請求速率（`scrape.qps`、`scrape.burst`）
+- **Burst allowance**：處理瞬間流量
+- **Exponential backoff**：智慧型重試時機（透過 `scrape.retry.{attempts,base_ms,max_delay_ms}`）
 
 ### Error Recovery
 
-- **Circuit breakers**: Prevent cascade failures
-- **Graceful degradation**: Partial data over failures
-- **Health checks**: Monitor endpoint availability
-- **Automatic recovery**: Resume normal operation when possible
+- **Circuit breaker**（`utils/httpx` 提供）：避免 cascade failure
+- **Graceful degradation**：部分資料勝過完全失敗
+- **Health check**：監控 endpoint 可用性
+- **Automatic recovery**：狀態穩定後自動恢復正常操作
 
-## Performance Characteristics
+## 效能特性 (Performance Characteristics)
 
 ### Throughput Benchmarks
 
-| Endpoint | API (req/s) | Scrape (req/s) | Fallback Overhead |
-|----------|-------------|----------------|-------------------|
+| Endpoint | API (req/s) | Scrape (req/s) | Fallback 額外成本 |
+| --- | --- | --- | --- |
 | Quotes | 10-15 | 2-3 | ~200ms |
 | Key Stats | N/A | 1-2 | N/A |
 | Financials | 5-8 | 1-2 | ~500ms |
@@ -242,67 +162,66 @@ The system respects robots.txt policies with three enforcement levels:
 
 ### Latency Profiles
 
-- **API Requests**: 100-500ms typical
-- **Scrape Requests**: 800-2000ms typical
-- **Fallback Decision**: <10ms
-- **Data Normalization**: 10-50ms
+- API 請求：典型 100-500ms
+- Scrape 請求：典型 800-2000ms
+- Fallback 決策：<10ms
+- 資料正規化：10-50ms
 
-## Integration Points
+## 整合介面 (Integration Points)
 
-### Library Usage
+### Library 用法
 
 ```go
-// Automatic fallback
-client := yfinance.NewClient()
-data, err := client.ScrapeKeyStatistics(ctx, "AAPL", runID)
+import "github.com/bizshuk/yfin/svc/scrape"
 
-// Explicit fallback control
-client := yfinance.NewClientWithConfig(&httpx.Config{
-    FallbackStrategy: "scrape-only",
-})
+client := scrape.NewClient(&scrape.Config{
+    Enabled:   true,
+    UserAgent: "AmpyFin-yfin/1.x",
+    TimeoutMs: 10000,
+    QPS:       0.7,
+    Burst:     1,
+    Retry:     scrape.RetryConfig{Attempts: 4, BaseMs: 300, MaxDelayMs: 4000},
+    RobotsPolicy: "enforce",
+    CacheTTLMs:   60000,
+}, nil)
+
+body, meta, err := client.Fetch(ctx, "https://finance.yahoo.com/quote/AAPL/key-statistics")
 ```
 
-### CLI Usage
+### CLI 用法
 
 ```bash
-# Automatic fallback
-yfin scrape --ticker AAPL --endpoint key-statistics --fallback auto
+# 連線測試
+yfin scrape --ticker AAPL --endpoint key-statistics --check
 
-# Force scraping
-yfin scrape --ticker AAPL --endpoint key-statistics --fallback scrape-only
+# extractor 乾跑
+yfin scrape --ticker AAPL --endpoints key-statistics,financials,analysis,profile --preview-json
 
-# Preview mode
-yfin scrape --preview-json --ticker AAPL --endpoints key-statistics,financials
+# proto 完整輸出乾跑
+yfin scrape --ticker AAPL --endpoints financials,analysis,profile,news --preview-proto
 ```
 
-### Bus Integration
+## 監控與可觀測性 (Monitoring & Observability)
 
-```bash
-# Publish scraped data
-yfin scrape --ticker AAPL --endpoint news --publish --env prod --topic-prefix ampy
-```
+### 關鍵指標 (Key Metrics)
 
-## Monitoring & Observability
+- **Fallback rate**：使用 scrape fallback 的請求比例
+- **Success rate**：整體請求成功率
+- **Latency percentiles**：P50、P95、P99
+- **Error rates**：依 error type 與 endpoint 區分
 
-### Key Metrics
+### 健康指標 (Health Indicators)
 
-- **Fallback rate**: Percentage of requests using scrape fallback
-- **Success rate**: Overall request success percentage
-- **Latency percentiles**: P50, P95, P99 response times
-- **Error rates**: By error type and endpoint
+- **Robots compliance**：enforce 模式下違規次數為零
+- **Rate limit hits**：低於設定閾值
+- **Parse success**：高抽取成功率
+- **Schema validation**：所有輸出皆通過驗證
 
-### Health Indicators
+### 告警閾值 (Alerting Thresholds)
 
-- **Robots compliance**: Zero violations in enforce mode
-- **Rate limit hits**: Below configured thresholds
-- **Parse success**: High success rate for data extraction
-- **Schema validation**: All outputs pass validation
+- 高 fallback rate：>50% 持續一段時間
+- Parse failure：>5% 錯誤率
+- Rate limit violation：生產環境中任何違規
+- Schema drift：新的 parsing 錯誤
 
-### Alerting Thresholds
-
-- **High fallback rate**: >50% for sustained periods
-- **Parse failures**: >5% error rate
-- **Rate limit violations**: Any in production
-- **Schema drift**: New parsing errors
-
-This overview provides the foundation for understanding the scrape fallback system. For detailed configuration, usage examples, and troubleshooting, see the related documentation sections.
+本概觀為理解爬蟲備援系統的基礎。詳細配置、使用範例、疑難排解請參考其他章節。

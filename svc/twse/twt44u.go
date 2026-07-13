@@ -1,4 +1,3 @@
-// twt44u.go — `TWT44U` (/fund/TWT44U) dealer (自營商) daily aggregated buy/sell/net volume. Capacity: 1 summary row per response.
 package twse
 
 import (
@@ -6,26 +5,21 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"github.com/bizshuk/yfin/model"
+)
+
+// Type aliases — structs now live in model/twse.go.
+type (
+	TWT44UResponse = model.TWT44UResponse
+	TWT44URow = model.TWT44URow
 )
 
 // TWT44UResponse embeds the common Response envelope and adds the
 // `date` field that TWSE returns on this endpoint.
-type TWT44UResponse struct {
-	Response
-	Date string `json:"date"`
-}
 
-// GetStat returns the embedded stat field.
-func (r *TWT44UResponse) GetStat() string { return r.Response.Stat }
 
 // TWT44URow is a typed representation of one TWT44U data row.
 // Fields: 單位名稱, 買進股數, 賣出股數, 買賣差額股數.
-type TWT44URow struct {
-	UnitName string // 單位名稱
-	Buy      int64  // 買進股數
-	Sell     int64  // 賣出股數
-	Net      int64  // 買賣差額股數
-}
 
 // FetchTWT44U retrieves the daily aggregated buy/sell volume of
 // dealers (自營商) for `date`.

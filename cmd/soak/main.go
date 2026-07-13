@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/bizshuk/yfin/config"
+	"github.com/bizshuk/yfin/config/types"
 	"github.com/spf13/cobra"
 )
 
@@ -72,7 +72,7 @@ func runSoak(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 
 	// Load configuration
-	loader := config.NewLoader(globalConfig.ConfigFile)
+	loader := types.NewLoader(globalConfig.ConfigFile)
 	cfg, err := loader.Load()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)

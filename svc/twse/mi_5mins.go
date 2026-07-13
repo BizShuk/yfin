@@ -1,32 +1,23 @@
-// mi_5mins.go — `MI_5MINS` (/afterTrading/MI_5MINS) every-5-seconds cumulative order-book + trade stats (cumulative buy/sell orders and lots). Capacity: ~270 snapshots per trading day.
 package twse
 
 import (
 	"context"
 	"fmt"
 	"net/url"
+	"github.com/bizshuk/yfin/model"
+)
+
+// Type aliases — structs now live in model/twse.go.
+type (
+	MI_5MINSResponse = model.MI_5MINSResponse
+	MI_5MINSRow = model.MI_5MINSRow
 )
 
 // MI_5MINSResponse embeds the common Response envelope and adds the
 // `date` field that TWSE returns on this endpoint.
-type MI_5MINSResponse struct {
-	Response
-	Date string `json:"date"`
-}
 
-// GetStat returns the embedded stat field.
-func (r *MI_5MINSResponse) GetStat() string { return r.Response.Stat }
 
 // MI_5MINSRow is a typed representation of one MI_5MINS data row.
-type MI_5MINSRow struct {
-	Time           string // 時間
-	CumBuyOrders   int64  // 累積委買筆數
-	CumBuyLots     int64  // 累積委買張數
-	CumSellOrders  int64  // 累積委賣筆數
-	CumSellLots    int64  // 累積委賣張數
-	CumTradeOrders int64  // 累計成交筆數
-	CumTradeLots   int64  // 累計成交張數
-}
 
 // FetchMI_5MINS retrieves the every-5-seconds order/trade statistics for `date`.
 func FetchMI_5MINS(ctx context.Context, client *Client, date string, opts url.Values) (any, error) {

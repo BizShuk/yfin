@@ -1,6 +1,6 @@
-# yfinance-go — Yahoo Finance Client for Go
+# yfin — Yahoo Finance Client for Go
 
-[![Go Version](https://img.shields.io/badge/go-1.23+-blue.svg)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/go-1.26+-blue.svg)](https://golang.org/)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/bizshuk/yfin)](https://goreportcard.com/report/github.com/bizshuk/yfin)
 [![GoDoc](https://godoc.org/github.com/bizshuk/yfin?status.svg)](https://godoc.org/github.com/bizshuk/yfin)
@@ -51,8 +51,8 @@ go get github.com/bizshuk/yfin
 
 ```bash
 git clone https://github.com/bizshuk/yfin.git
-cd yfinance-go
-go build ./cmd/yfin
+cd yfin
+go build -o yfin ./cmd/yfin
 ```
 
 ---
@@ -70,29 +70,28 @@ import (
     "log"
     "time"
 
-    "github.com/bizshuk/yfin"
+    "github.com/bizshuk/yfin/facade"
 )
 
 func main() {
-    // Create a new client
-    client := yfinance.NewClient()
+    // Create a new client (uses default HTTP config).
+    client := facade.NewClient()
     ctx := context.Background()
 
     // Fetch daily bars for Apple
     start := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
     end := time.Date(2024, 1, 31, 0, 0, 0, 0, time.UTC)
 
-    bars, err := client.FetchDailyBars(ctx, "AAPL", start, end, true, "my-run-id")
+    // facade returns plain structs with float64 prices — no ScaledDecimal math.
+    batch, err := client.FetchDailyBars(ctx, "AAPL", start, end, true, "my-run-id")
     if err != nil {
         log.Fatal(err)
     }
 
-    fmt.Printf("Fetched %d bars for AAPL\n", len(bars.Bars))
-    for _, bar := range bars.Bars {
-        price := float64(bar.Close.Scaled) / float64(bar.Close.Scale)
+    fmt.Printf("Fetched %d bars for %s\n", len(batch.Bars), batch.Symbol)
+    for _, bar := range batch.Bars {
         fmt.Printf("Date: %s, Close: %.4f %s\n",
-            bar.EventTime.Format("2006-01-02"),
-            price, bar.CurrencyCode)
+            bar.Date, bar.Close, bar.CurrencyCode)
     }
 }
 ```
@@ -105,7 +104,10 @@ func main() {
 
 ```go
 // Default client with standard configuration
-client := yfinance.NewClient()
+client := facade.NewClient()
+
+// Custom HTTP config (QPS, retries, timeout, circuit breaker)
+client := facade.NewClientWithConfig(&httpx.Config{ /* ... */ })
 ```
 
 ### Available Functions
@@ -170,7 +172,9 @@ fundamentals, err := client.FetchFundamentalsQuarterly(ctx, "AAPL", runID)
 
 ## 🗂️ Facade Layer (Reflection-free Plain Go Structs)
 
-The `facade` package re-exports normalized Yahoo Finance models (bars, quotes, company info) as clean, plain Go structs (using standard `float64` types instead of the internal `ScaledDecimal` representations). This allows external consumers to easily consume and serialize the data without needing to handle custom scaled math or internal imports.
+The `facade` package exposes normalized Yahoo Finance models (bars, quotes, company info, market data, fundamentals, news) as plain Go structs that use `float64` for prices and standard `time.Time` for timestamps, instead of the internal `ScaledDecimal` representations. External consumers should use `facade.Client` directly — no manual conversion is needed.
+
+`facade.Client` is the **public contract** for downstream packages (`stock`, `data`, ...). It is the same handle that the CLI uses internally via `cmd.CreateClient()`.
 
 ### Usage Example
 
@@ -183,42 +187,45 @@ import (
     "log"
     "time"
 
-    "github.com/bizshuk/yfin"
     "github.com/bizshuk/yfin/facade"
 )
 
 func main() {
-    client := yfinance.NewClient()
+    client := facade.NewClient()
     ctx := context.Background()
 
-    // Fetch internal normalized bar batch
-    internalBatch, err := client.FetchDailyBars(ctx, "AAPL", time.Now().AddDate(0, 0, -5), time.Now(), true, "run-id")
+    // facade.Client returns plain structs directly — no ScaledDecimal math.
+    batch, err := client.FetchDailyBars(ctx, "AAPL",
+        time.Now().AddDate(0, 0, -5), time.Now(), true, "run-id")
     if err != nil {
         log.Fatal(err)
     }
 
-    // Convert to plain facade struct
-    batch := facade.FromBarBatch(internalBatch)
-
-    fmt.Printf("Symbol: %s\n", batch.Symbol)
+    fmt.Printf("Symbol: %s (MIC=%s)\n", batch.Symbol, batch.MIC)
     for _, bar := range batch.Bars {
         // Close is a float64 directly
-        fmt.Printf("Date: %s, Close: %.2f\n", bar.Date, bar.Close)
+        fmt.Printf("Date: %s, Close: %.2f %s\n",
+            bar.Date, bar.Close, bar.CurrencyCode)
     }
 }
 ```
 
-### Available Conversions
+### Available Public Types
 
-- `facade.FromBarBatch(*norm.NormalizedBarBatch) *facade.BarBatch` (contains float64 prices: `Open`, `High`, `Low`, `Close`, and formatted `Date` as `"YYYY-MM-DD"`)
-- `facade.FromQuote(*norm.NormalizedQuote) *facade.Quote` (contains float64 price: `Price`, standard `EventTime`)
-- `facade.FromCompanyInfo(*norm.NormalizedCompanyInfo) *facade.CompanyInfo` (contains general metadata as clean strings)
+- `*facade.BarBatch` — `{Symbol, MIC, []Bar}`; each `Bar` has `Date` (UTC `YYYY-MM-DD`), `Open/High/Low/Close` as `float64`, `Volume int64`, `Adjusted bool`, `CurrencyCode string`.
+- `*facade.Quote` — `{Symbol, Price float64, Currency, EventTime time.Time}`.
+- `*facade.CompanyInfo` — string pass-through of Security metadata (`Symbol`, `LongName`, `Exchange`, `Currency`, `Timezone`, ...).
+- `*facade.MarketData` — nullable `*float64` price fields + `*int64` volume; `nil` = missing (not zero).
+- `*facade.FundamentalsSnapshot` — quarterly fundamentals (paid subscription required).
+- `[]facade.NewsItem` — `{Title, URL, Source, Summary, PublishedAt, Symbols}`.
+
+The raw `FromBarBatch` / `FromQuote` / `FromCompanyInfo` converters are also exported for callers that already hold an internal `*norm.Normalized*` value, but new code should prefer the `facade.Client` methods which return the plain structs directly.
 
 ---
 
 ## 🕸️ Scrape Fallback System
 
-When Yahoo Finance API endpoints are unavailable, rate-limited, or require paid subscriptions, yfinance-go automatically falls back to web scraping with full data consistency guarantees.
+When Yahoo Finance API endpoints are unavailable, rate-limited, or require paid subscriptions, yfin automatically falls back to web scraping with full data consistency guarantees.
 
 ### Key Features
 
@@ -291,11 +298,11 @@ import (
     "sync"
     "time"
 
-    "github.com/bizshuk/yfin"
+    "github.com/bizshuk/yfin/facade"
 )
 
 func main() {
-    client := yfinance.NewClient()
+    client := facade.NewClient()
     ctx := context.Background()
 
     symbols := []string{"AAPL", "GOOGL", "MSFT", "TSLA"}
@@ -310,13 +317,13 @@ func main() {
         go func(sym string) {
             defer wg.Done()
 
-            bars, err := client.FetchDailyBars(ctx, sym, start, end, true, "batch-run")
+            batch, err := client.FetchDailyBars(ctx, sym, start, end, true, "batch-run")
             if err != nil {
                 results <- fmt.Sprintf("Error fetching %s: %v", sym, err)
                 return
             }
 
-            results <- fmt.Sprintf("%s: %d bars fetched", sym, len(bars.Bars))
+            results <- fmt.Sprintf("%s: %d bars fetched", sym, len(batch.Bars))
         }(symbol)
     }
 
@@ -338,13 +345,12 @@ import (
     "context"
     "fmt"
     "log"
-    "time"
 
-    "github.com/bizshuk/yfin"
+    "github.com/bizshuk/yfin/facade"
 )
 
 func main() {
-    client := yfinance.NewClient()
+    client := facade.NewClient()
     ctx := context.Background()
 
     quote, err := client.FetchQuote(ctx, "AAPL", "quote-run")
@@ -352,15 +358,9 @@ func main() {
         log.Fatal(err)
     }
 
- fmt.Printf("Symbol: %s\n", quote.Security.Symbol)
- if quote.RegularMarketPrice != nil {
-  price := float64(quote.RegularMarketPrice.Scaled) / float64(quote.RegularMarketPrice.Scale)
-  fmt.Printf("Price: %.4f %s\n", price, quote.CurrencyCode)
- }
- if quote.RegularMarketVolume != nil {
-  fmt.Printf("Volume: %d\n", *quote.RegularMarketVolume)
- }
- fmt.Printf("Event Time: %s\n", quote.EventTime.Format("2006-01-02 15:04:05"))
+    fmt.Printf("Symbol: %s\n", quote.Symbol)
+    fmt.Printf("Price: %.4f %s\n", quote.Price, quote.Currency)
+    fmt.Printf("Event Time: %s\n", quote.EventTime.UTC().Format("2006-01-02 15:04:05"))
 }
 ```
 
@@ -374,24 +374,24 @@ import (
     "fmt"
     "log"
 
-    "github.com/bizshuk/yfin"
+    "github.com/bizshuk/yfin/facade"
 )
 
 func main() {
-    client := yfinance.NewClient()
+    client := facade.NewClient()
     ctx := context.Background()
 
-    companyInfo, err := client.FetchCompanyInfo(ctx, "AAPL", "company-run")
+    info, err := client.FetchCompanyInfo(ctx, "AAPL", "company-run")
     if err != nil {
         log.Fatal(err)
     }
 
- fmt.Printf("Company: %s\n", companyInfo.LongName)
- fmt.Printf("Exchange: %s\n", companyInfo.Exchange)
- fmt.Printf("Full Exchange: %s\n", companyInfo.FullExchangeName)
- fmt.Printf("Currency: %s\n", companyInfo.Currency)
- fmt.Printf("Instrument Type: %s\n", companyInfo.InstrumentType)
- fmt.Printf("Timezone: %s\n", companyInfo.Timezone)
+    fmt.Printf("Company: %s\n", info.LongName)
+    fmt.Printf("Exchange: %s\n", info.Exchange)
+    fmt.Printf("Full Exchange: %s\n", info.FullExchangeName)
+    fmt.Printf("Currency: %s\n", info.Currency)
+    fmt.Printf("Instrument Type: %s\n", info.InstrumentType)
+    fmt.Printf("Timezone: %s\n", info.Timezone)
 }
 ```
 
@@ -401,44 +401,42 @@ func main() {
 package main
 
 import (
- "context"
- "fmt"
- "log"
- "time"
+    "context"
+    "fmt"
+    "log"
+    "time"
 
- "github.com/bizshuk/yfin"
+    "github.com/bizshuk/yfin/facade"
 )
 
 func main() {
- client := yfinance.NewClient()
- ctx := context.Background()
+    client := facade.NewClient()
+    ctx := context.Background()
 
- // Fetch data with proper error handling
- bars, err := client.FetchDailyBars(ctx, "AAPL",
-  time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
-  time.Date(2024, 1, 31, 0, 0, 0, 0, time.UTC),
-  true, "error-handling-run")
+    // Fetch data with proper error handling
+    batch, err := client.FetchDailyBars(ctx, "AAPL",
+        time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+        time.Date(2024, 1, 31, 0, 0, 0, 0, time.UTC),
+        true, "error-handling-run")
 
- if err != nil {
-  log.Printf("Error fetching bars: %v", err)
-  return
- }
+    if err != nil {
+        log.Printf("Error fetching bars: %v", err)
+        return
+    }
 
- fmt.Printf("Successfully fetched %d bars\n", len(bars.Bars))
+    fmt.Printf("Successfully fetched %d bars\n", len(batch.Bars))
 
- // Handle empty results
- if len(bars.Bars) == 0 {
-  fmt.Println("No data available for the specified date range")
-  return
- }
+    // Handle empty results
+    if len(batch.Bars) == 0 {
+        fmt.Println("No data available for the specified date range")
+        return
+    }
 
- // Process the data
- for _, bar := range bars.Bars {
-  price := float64(bar.Close.Scaled) / float64(bar.Close.Scale)
-  fmt.Printf("Date: %s, Close: %.4f %s\n",
-   bar.EventTime.Format("2006-01-02"),
-   price, bar.CurrencyCode)
- }
+    // Process the data — Bar.Close is a plain float64
+    for _, bar := range batch.Bars {
+        fmt.Printf("Date: %s, Close: %.4f %s\n",
+            bar.Date, bar.Close, bar.CurrencyCode)
+    }
 }
 ```
 
@@ -497,51 +495,49 @@ go run ./cmd/yfin batch --max-workers 5
 
 ## 📚 Documentation
 
-> **Note:** For the latest release notes, see [Release Notes](docs/releases/RELEASE_NOTES.md). For the complete changelog, see [CHANGELOG.md](CHANGELOG.md).
+> **Note:** For the latest release notes, see [Release Notes](docs/history/releases/RELEASE_NOTES.md). For the complete changelog, see [CHANGELOG.md](CHANGELOG.md).
 
 ### Core Documentation
 
-- **[Installation Guide](docs/install.md)** - Setup and installation instructions
-- **[Usage Guide](docs/usage.md)** - Comprehensive usage examples and patterns
-- **[API Reference](docs/api-reference.md)** - Complete API documentation with method capabilities and limitations
-- **[Data Structures](docs/data-structures.md)** - Detailed data structure guide with field naming conventions
-- **[Complete Examples](docs/examples.md)** - Working code examples with data processing and error handling
+- **[Installation Guide](docs/getting-started/install.md)** - Setup and installation instructions
+- **[Usage Guide](docs/cli/usage.md)** - Comprehensive usage examples and patterns
+- **[API Reference](docs/api/reference.md)** - Complete API documentation with method capabilities and limitations
+- **[Data Structures](docs/api/data-structures.md)** - Detailed data structure guide with field naming conventions
+- **[Complete Examples](docs/api/examples.md)** - Working code examples with data processing and error handling
 
 ### Method Comparison & Migration
 
-- **[Method Comparison](docs/method-comparison.md)** - Method comparison table and use case guidance
-- **[Migration Guide](docs/migration-guide.md)** - Migration from Python yfinance with feature comparison
+- **[Method Comparison](docs/comparisons/method-comparison.md)** - Method comparison table and use case guidance
+- **[Migration Guide](docs/integrations/migration-guide.md)** - Migration from Python yfinance with feature comparison
 
 ### Error Handling & Quality
 
-- **[Error Handling Guide](docs/error-handling.md)** - Comprehensive error handling and troubleshooting
-- **[Data Quality Guide](docs/data-quality.md)** - Data quality expectations and validation guidelines
-- **[Performance Guide](docs/performance.md)** - Performance optimization and best practices
+- **[Error Handling Guide](docs/operations/error-handling.md)** - Comprehensive error handling and troubleshooting
+- **[Data Quality Guide](docs/operations/data-quality.md)** - Data quality expectations and validation guidelines
+- **[Performance Guide](docs/operations/performance.md)** - Performance optimization and best practices
 
 ### Scrape Fallback System
 
 - **[Scrape Overview](docs/scrape/overview.md)** - Architecture and data flow
-- **[Configuration Guide](docs/scrape/config.md)** - All configuration options and best practices
+- **[Configuration Guide](docs/operations/configuration.md)** - All configuration options and best practices
 - **[CLI Usage](docs/scrape/cli.md)** - Command-line interface examples
-- **[Troubleshooting](docs/scrape/troubleshooting.md)** - Common issues and solutions
+- **[Troubleshooting](docs/operations/error-handling.md)** - Common issues and solutions
 
 ### Operations & Monitoring
 
-- **[Observability Guide](docs/observability.md)** - Metrics, logging, and monitoring
-- **[Soak Testing Guide](docs/soak-testing.md)** - Load testing and validation
-- **[Production Readiness Report](docs/production-readiness.md)** - Production readiness assessment and checklist
+- **[Observability Guide](docs/operations/observability.md)** - Metrics, logging, and monitoring
+- **[Soak Testing Guide](docs/cli/soak-testing.md)** - Load testing and validation
+- **[Production Readiness Report](docs/history/production-readiness.md)** - Production readiness assessment and checklist
 
 ### Development & Testing
 
-- **[Testing Implementation](docs/testing-implementation.md)** - Testing strategy and implementation details
-- **[Release Guide](docs/releases/release-guide.md)** - Release process and procedures
-- **[Release Notes](docs/releases/RELEASE_NOTES.md)** - Version release notes and changelog
+- **[Testing Implementation](docs/history/testing-implementation.md)** - Testing strategy and implementation details
+- **[Release Guide](docs/history/releases/RELEASE_GUIDE.md)** - Release process and procedures
+- **[Release Notes](docs/history/releases/RELEASE_NOTES.md)** - Version release notes and changelog
 
 ### Audit & Quality Assurance
 
-- **[Audit Report](docs/audit/AUDIT_REPORT.md)** - Comprehensive repository audit findings
-- **[Audit Summary](docs/audit/AUDIT_SUMMARY.md)** - Summary of audit results and fixes
-- **[Final Audit Summary](docs/audit/FINAL_AUDIT_SUMMARY.md)** - Final audit validation
+- **[Final Audit Summary](docs/history/audit/FINAL_AUDIT_SUMMARY.md)** - Production readiness audit & applied fixes (2025-01-30)
 
 ### Operator Runbooks
 
@@ -622,12 +618,13 @@ yfin soak --universe-file tests/testdata/universe/soak.txt --endpoints key-stati
 - `--ticker` - Single symbol to fetch
 - `--universe-file` - File containing list of symbols
 - `--start`, `--end` - Date range (UTC)
-- `--adjusted` - Adjustment policy (raw, split_only, split_dividend)
+- `--adjusted` - Adjustment policy (`raw` | `split_only` | `split_dividend`); defaults to `markets.default_adjustment_policy` from the YAML config (CLI flag overrides the YAML default)
 - `--publish` - Publish to ampy-bus
 - `--env` - Environment (dev, staging, prod)
 - `--preview` - Show data preview without publishing
 - `--concurrency` - Number of concurrent requests
 - `--qps` - Requests per second limit
+- `--sessions` - Vestigial: retained for backward compatibility. Session rotation has been removed; the HTTP client uses a single shared `http.Client` with rate-limit + retries + circuit breaker. Prefer `--qps` / `--concurrency` / `--retry-max` for tuning.
 
 #### Scraping Options
 
@@ -745,7 +742,7 @@ These data types require paid Yahoo Finance subscriptions through the API, but a
 3. **Currency**: Attach **ISO‑4217** code to monetary fields and fundamentals lines.
 4. **Identity**: Use `SecurityId` = `{ symbol, mic?, figi?, isin? }`. If MIC is unknown, prefer primary listing inference; document fallback rules.
 5. **Adjustments**: Bars declare `adjusted: true|false` and `adjustment_policy_id: "raw" | "split_only" | "split_dividend"`.
-6. **Lineage**: Every message has `meta.run_id`, `meta.source="yfinance-go"`, `meta.producer="<host|pod>"`, `schema_version`.
+6. **Lineage**: Every message has `meta.run_id`, `meta.source="yfin"`, `meta.producer="<host|pod>"`, `schema_version`.
 7. **Batching**: Prefer `BarBatch` for efficiency. Maintain **in‑batch order** by `event_time` ascending.
 8. **Compatibility**: Additive evolution only; breaking changes require new major (`bars.v2`, `fundamentals.v2`).
 
@@ -868,7 +865,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 ```bash
 # Clone the repository
 git clone https://github.com/bizshuk/yfin.git
-cd yfinance-go
+cd yfin
 
 # Install dependencies
 go mod download
@@ -919,7 +916,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 1. **Check Documentation**: Start with [docs/](docs/) for comprehensive guides
 2. **Review Examples**: See [facade/samples/](facade/samples/) and [cmd/samples/](cmd/samples/) for code samples
 3. **Search Issues**: Check existing [GitHub Issues](https://github.com/bizshuk/yfin/issues)
-4. **Troubleshooting**: See [docs/scrape/troubleshooting.md](docs/scrape/troubleshooting.md)
+4. **Troubleshooting**: See [docs/scrape/troubleshooting.md](docs/operations/error-handling.md)
 5. **Runbooks**: For operational issues, see [dashboards/runbooks/](dashboards/runbooks/)
 
 ---

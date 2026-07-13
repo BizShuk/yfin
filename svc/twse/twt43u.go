@@ -1,4 +1,3 @@
-// twt43u.go — `TWT43U` (/fund/TWT43U) investment-trust (投信) daily aggregated buy/sell/net volume. Capacity: 1 summary row per response.
 package twse
 
 import (
@@ -6,26 +5,21 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"github.com/bizshuk/yfin/model"
+)
+
+// Type aliases — structs now live in model/twse.go.
+type (
+	TWT43UResponse = model.TWT43UResponse
+	TWT43URow = model.TWT43URow
 )
 
 // TWT43UResponse embeds the common Response envelope and adds the
 // `date` field that TWSE returns on this endpoint.
-type TWT43UResponse struct {
-	Response
-	Date string `json:"date"`
-}
 
-// GetStat returns the embedded stat field.
-func (r *TWT43UResponse) GetStat() string { return r.Response.Stat }
 
 // TWT43URow is a typed representation of one TWT43U data row.
 // Fields: 單位名稱, 買進股數, 賣出股數, 買賣差額股數.
-type TWT43URow struct {
-	UnitName string // 單位名稱
-	Buy      int64  // 買進股數
-	Sell     int64  // 賣出股數
-	Net      int64  // 買賣差額股數
-}
 
 // FetchTWT43U retrieves the daily aggregated buy/sell volume of
 // investment trust companies (投信) for `date`.

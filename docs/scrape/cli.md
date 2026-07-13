@@ -1,504 +1,234 @@
-# CLI Usage Guide
+# CLI 使用指南 (CLI Usage Guide)
 
-## Overview
+## 概觀 (Overview)
 
-The `yfin` CLI provides comprehensive access to the scrape fallback system with intuitive commands and extensive configuration options. This guide covers all scraping-related CLI functionality with practical examples.
+`yfin` CLI 提供 Yahoo Finance 網頁爬蟲的完整存取介面。本指南涵蓋所有爬蟲相關的 CLI 功能與實際範例。
 
-## Command Structure
+`scrape` 為扁平子命令 (`yfin scrape`，無 nested subcommand)，每次執行需指定一種 mode。
+
+## 命令結構 (Command Structure)
 
 ```bash
-yfin [global-flags] <command> [command-flags] [arguments]
+yfin [global-flags] scrape [flags]
 ```
 
-### Global Flags
-- `--config`: Configuration file path
-- `--log-level`: Logging level (debug, info, warn, error)
-- `--run-id`: Unique identifier for request tracking
-- `--concurrency`: Number of concurrent workers
-- `--qps`: Global queries per second limit
-- `--timeout`: HTTP timeout duration
+## Scrape 命令
 
-## Scrape Command
+### 基本語法 (Basic Syntax)
 
-The primary command for web scraping operations.
-
-### Basic Syntax
 ```bash
 yfin scrape [flags]
 ```
 
+### Modes（互斥，一次只能指定一個）
+
+`scrape` 命令提供四種互斥的執行模式，必須擇一指定：
+
+| Mode | 用途 | 必要搭配旗標 |
+| --- | --- | --- |
+| `--check` | 連線測試（不下載、不解析） | `--ticker` + `--endpoint` |
+| `--preview-json` | extractor 乾跑（解析但不送 proto） | `--ticker` + `--endpoints` |
+| `--preview-news` | news parser 乾跑 | `--ticker` |
+| `--preview-proto` | proto 完整輸出乾跑（含 counts/periods/metadata） | `--ticker` + `--endpoints` |
+
+> 模式旗標不可同時指定；若一個都沒給，`runScrape` 會回錯並退出。
+
 ### Core Flags
 
-| Flag | Type | Default | Description |
-|------|------|---------|-------------|
-| `--ticker` | string | - | Single ticker symbol to scrape |
-| `--endpoint` | string | - | Specific endpoint to scrape |
-| `--endpoints` | string | - | Comma-separated list of endpoints |
-| `--fallback` | string | `auto` | Fallback strategy (auto/api-only/scrape-only) |
-| `--preview` | bool | `false` | Show data preview without processing |
-| `--preview-json` | bool | `false` | Show JSON preview of multiple endpoints |
-| `--preview-news` | bool | `false` | Preview news articles without proto conversion |
-| `--preview-proto` | bool | `false` | Preview proto summaries without full output |
-| `--check` | bool | `false` | Validate endpoint accessibility |
-| `--force` | bool | `false` | Override robots.txt restrictions (testing only) |
+| Flag | Type | 說明 |
+| --- | --- | --- |
+| `--ticker` | string | 必填。股票代號（例如 `AAPL`） |
+| `--endpoint` | string | 單一 endpoint，搭配 `--check` 使用。可選值：`profile`、`key-statistics`、`financials`、`balance-sheet`、`cash-flow`、`analysis`、`analyst-insights`、`news` |
+| `--endpoints` | string | 多個 endpoint（逗號分隔），搭配 `--preview-json` 或 `--preview-proto` 使用。可選值同上 |
+| `--preview` | bool | 顯示 preview |
+| `--preview-json` | bool | extractor 乾跑（mutually exclusive with other modes） |
+| `--preview-news` | bool | news parser 乾跑（mutually exclusive） |
+| `--preview-proto` | bool | proto 完整輸出乾跑（mutually exclusive） |
+| `--check` | bool | 連線測試（mutually exclusive） |
+| `--force` | bool | 覆寫 robots.txt 限制（僅供測試） |
 
-## Usage Examples
+> 註：CLI 不再提供任何 session-pool 旗標；HTTP client 由 `utils/httpx` 統一管理連線、限速與重試。
 
-### Example 1: Basic Key Statistics Scraping
+## 使用範例 (Usage Examples)
 
-```bash
-# Scrape key statistics for Apple
-yfin scrape --config config/dev.yaml --ticker AAPL --endpoint key-statistics --preview
-
-# Expected output:
-# Key Statistics for AAPL:
-# Market Cap: $2.85T
-# P/E Ratio: 28.45
-# EPS: $6.13
-# Revenue: $394.33B
-# Employees: 164,000
-```
-
-**Why this example**: Demonstrates the most common scraping use case - getting key financial metrics not available through free APIs.
-
-**When to use**: 
-- Need P/E ratios, market cap, or other key metrics
-- API access is rate-limited or requires subscription
-- Building financial dashboards or screening tools
-
-### Example 2: Multiple Endpoint Preview
+### 範例 1：基本 Key Statistics 連線測試
 
 ```bash
-# Preview multiple endpoints for comprehensive data
-yfin scrape --config config/dev.yaml --ticker MSFT --preview-json --endpoints key-statistics,financials,analysis,profile
+# 測試 Apple 的 key-statistics 頁面連線狀態
+yfin scrape --ticker AAPL --endpoint key-statistics --check
 
-# Expected output:
-# {
-#   "key-statistics": {
-#     "market_cap": "2.8T",
-#     "pe_ratio": 32.1,
-#     "eps": 11.05
-#   },
-#   "financials": {
-#     "revenue": "211.9B",
-#     "net_income": "72.4B",
-#     "currency": "USD"
-#   },
-#   "analysis": {
-#     "recommendation": "BUY",
-#     "target_price": 420.0,
-#     "analyst_count": 45
-#   },
-#   "profile": {
-#     "company_name": "Microsoft Corporation",
-#     "sector": "Technology",
-#     "employees": 221000
-#   }
-# }
+# 預期輸出：
+# SCRAPE CHECK host=finance.yahoo.com url=https://finance.yahoo.com/quote/AAPL/key-statistics status=200 bytes=xxx gzip=true redirects=0 latency_p50≈xxxms
+# CONTENT PREVIEW: <html>...</html>
 ```
 
-**Why this example**: Shows how to efficiently gather comprehensive company data in a single command.
+**Why this example**：最常見的爬蟲情境——確認 Yahoo Finance 頁面可達、回應內容正常。
 
-**When to use**:
-- Building company profiles or research reports
-- Need data from multiple sources simultaneously
-- Comparing data consistency across endpoints
+**When to use**：
+- 部署前的 health check
+- 排程故障排除時的第一步
+- 確認 robots.txt / rate limit 沒有擋下請求
 
-### Example 3: News Article Scraping
+### 範例 2：多 endpoint JSON preview
 
 ```bash
-# Scrape and preview news articles
-yfin scrape --config config/dev.yaml --ticker TSLA --preview-news
-
-# Expected output:
-# News Articles for TSLA (15 articles found):
-# 
-# 1. "Tesla Delivers Record Q4 Numbers" 
-#    Source: Reuters | Published: 2024-01-03T14:30:00Z
-#    Summary: Tesla reported record quarterly deliveries...
-# 
-# 2. "Musk Announces New Gigafactory Plans"
-#    Source: Bloomberg | Published: 2024-01-02T09:15:00Z
-#    Summary: CEO Elon Musk revealed plans for expansion...
-# 
-# 3. "Tesla Stock Rises on Delivery Beat"
-#    Source: CNBC | Published: 2024-01-03T16:45:00Z
-#    Summary: Shares jumped 8% in after-hours trading...
+# 一次預覽多個 endpoint 的 extractor 結果（不下 proto）
+yfin scrape --ticker MSFT --endpoints key-statistics,financials,analysis,profile --preview-json
 ```
 
-**Why this example**: Demonstrates news scraping capabilities for sentiment analysis and market intelligence.
+**Why this example**：快速驗證多個 extractor 在同一個 ticker 上的解析狀況。
 
-**When to use**:
-- Building news aggregation systems
-- Performing sentiment analysis on stocks
-- Tracking company-specific news events
+**When to use**：
+- 開發新 extractor 時確認 parsing 結果
+- 排查 schema drift
+- 不需送 bus message 的測試情境
 
-## Advanced Usage Patterns
-
-### Example 4: Fallback Strategy Control
+### 範例 3：News parser preview
 
 ```bash
-# Force API-only mode (will fail if API unavailable)
-yfin scrape --config config/prod.yaml --ticker AAPL --endpoint quote --fallback api-only
+# 預覽 news 解析結果
+yfin scrape --ticker TSLA --preview-news
 
-# Force scrape-only mode (bypass API entirely)
-yfin scrape --config config/prod.yaml --ticker AAPL --endpoint key-statistics --fallback scrape-only
-
-# Automatic fallback (recommended for production)
-yfin scrape --config config/prod.yaml --ticker AAPL --endpoint financials --fallback auto
+# 預期輸出（摘要）：
+# PREVIEW NEWS ticker=TSLA
+# FETCH META: host=finance.yahoo.com status=200 bytes=xxx gzip=true ...
+# TSLA news: found=15 deduped=2 returned=13 as_of=2024-01-03T16:45:00Z
+# ARTICLES:
+#  1) 2h ago   | Reuters         | Tesla Delivers Record Q4 Numbers
+#  2) 1d ago   | Bloomberg       | Musk Announces New Gigafactory Plans
+# ...
 ```
 
-**Why this example**: Shows how to control data source selection for different operational scenarios.
+**Why this example**：驗證 news parser 對 dedup、relative time、related tickers 的處理。
 
-**When to use**:
-- Testing API vs scrape data consistency
-- Debugging fallback behavior
-- Ensuring specific data source usage
+**When to use**：
+- 監控 news 解析行為
+- 評估 sentiment analysis pipeline
 
-### Example 5: Batch Processing with Universe Files
+### 範例 4：Proto 完整輸出 preview
 
 ```bash
-# Create universe file
-echo -e "AAPL\nMSFT\nGOOGL\nTSLA\nAMZN" > universe.txt
-
-# Process multiple tickers
-yfin scrape --config config/prod.yaml --universe-file universe.txt --endpoint key-statistics --preview-proto
-
-# Expected output:
-# Processing 5 tickers...
-# 
-# AAPL: ✓ Key statistics extracted (45 fields)
-# MSFT: ✓ Key statistics extracted (43 fields)  
-# GOOGL: ✓ Key statistics extracted (44 fields)
-# TSLA: ✓ Key statistics extracted (42 fields)
-# AMZN: ✓ Key statistics extracted (46 fields)
-# 
-# Summary: 5/5 successful, 0 failures
-# Total fields extracted: 220
-# Average processing time: 1.2s per ticker
+# 預覽完整 proto 輸出（含 counts、periods、metadata）
+yfin scrape --ticker AAPL --endpoints financials,analysis,profile,news --preview-proto
 ```
 
-**Why this example**: Demonstrates efficient batch processing for multiple securities.
+**Why this example**：確認 emit 階段（`svc/emit`）的 mapper 與下游 proto 結構一致。
 
-**When to use**:
-- Building market screening tools
-- Bulk data collection for analysis
-- Regular data updates for portfolios
+**When to use**：
+- 修改 emit mapper 後的驗證
+- 比對不同 endpoint 的 proto schema
 
-### Example 6: Endpoint Validation and Health Checks
+### 範例 5：Force 模式（僅測試）
 
 ```bash
-# Check endpoint accessibility
-yfin scrape --config config/prod.yaml --ticker AAPL --endpoint profile --check
-
-# Expected output:
-# Endpoint Health Check for AAPL/profile:
-# ✓ Robots.txt allows access
-# ✓ Page loads successfully (1.2s)
-# ✓ Required data fields present
-# ✓ Parsing successful
-# ✓ Schema validation passed
-# 
-# Status: HEALTHY
-# Response time: 1.2s
-# Data completeness: 95%
-# Last updated: 2024-01-03T10:30:00Z
+# 覆寫 robots.txt（測試用）
+yfin scrape --ticker AAPL --endpoint profile --check --force
 ```
 
-**Why this example**: Shows how to validate endpoint health before production use.
+> 警告：`--force` 僅供測試環境使用，違規使用可能違反 Yahoo 使用條款並導致 IP 被封鎖。
 
-**When to use**:
-- Pre-deployment health checks
-- Monitoring endpoint availability
-- Debugging parsing issues
+## 進階使用模式 (Advanced Usage Patterns)
 
-## Soak Testing Command
+### 多 ticker 批次處理
 
-Comprehensive load testing and robustness validation.
-
-### Basic Soak Test
-
-```bash
-# Short smoke test (10 minutes)
-yfin soak --config config/dev.yaml \
-  --universe-file tests/testdata/universe/soak.txt \
-  --endpoints key-statistics,financials,analysis,profile,news \
-  --fallback auto \
-  --duration 10m \
-  --concurrency 8 \
-  --qps 5 \
-  --preview
-```
-
-**Expected Output:**
-```
-Starting soak test...
-Universe: 64 tickers
-Endpoints: 5 (key-statistics, financials, analysis, profile, news)
-Duration: 10m0s
-Workers: 8
-Target QPS: 5.0
-
-[10:30:15] INFO: Soak test started
-[10:30:45] INFO: 150 requests completed, 98.7% success rate
-[10:31:15] INFO: 300 requests completed, 97.3% success rate
-[10:32:15] INFO: Memory usage stable: 45MB (+2MB from start)
-...
-
-=== SOAK TEST RESULTS ===
-Duration: 10m15s
-Total Requests: 3,045
-Success Rate: 96.8%
-Actual QPS: 4.95
-Fallback Rate: 23.4%
-Memory Growth: +8MB (stable)
-Goroutine Growth: +2 (stable)
-
-=== ENDPOINT BREAKDOWN ===
-key-statistics: 612 req, 98.2% success, avg 1.2s
-financials: 608 req, 95.1% success, avg 1.8s
-analysis: 615 req, 97.8% success, avg 1.1s
-profile: 605 req, 94.9% success, avg 2.1s
-news: 605 req, 98.5% success, avg 1.4s
-```
-
-### Production Soak Test
-
-```bash
-# Full production soak test (2 hours)
-yfin soak --config config/prod.yaml \
-  --universe-file production-universe.txt \
-  --endpoints key-statistics,financials,analysis,profile,news \
-  --fallback auto \
-  --duration 2h \
-  --concurrency 12 \
-  --qps 5 \
-  --memory-check \
-  --probe-interval 1h \
-  --preview
-```
-
-### Soak Test with Publishing
-
-```bash
-# Test with actual message publishing
-yfin soak --config config/staging.yaml \
-  --universe-file small-universe.txt \
-  --endpoints news \
-  --fallback auto \
-  --duration 30m \
-  --concurrency 8 \
-  --qps 3 \
-  --publish \
-  --env staging \
-  --topic-prefix ampy.staging
-```
-
-## Error Handling and Debugging
-
-### Debug Mode
-
-```bash
-# Enable debug logging
-yfin scrape --config config/dev.yaml --log-level debug --ticker AAPL --endpoint key-statistics
-
-# Expected debug output:
-# [DEBUG] Loading configuration from config/dev.yaml
-# [DEBUG] Creating HTTP client with timeout 30s
-# [DEBUG] Checking robots.txt for finance.yahoo.com
-# [DEBUG] Robots.txt allows /quote/AAPL/key-statistics
-# [DEBUG] Making request to https://finance.yahoo.com/quote/AAPL/key-statistics
-# [DEBUG] Response received: 200 OK (1.2s)
-# [DEBUG] Parsing HTML content (2.1MB)
-# [DEBUG] Extracted 45 data fields
-# [DEBUG] Schema validation passed
-# [INFO] Key statistics scraped successfully
-```
-
-### Force Mode (Testing Only)
-
-```bash
-# Override robots.txt restrictions (use with caution)
-yfin scrape --config config/test.yaml --ticker AAPL --endpoint profile --force --preview
-
-# Warning output:
-# ⚠️  WARNING: --force flag overrides robots.txt restrictions
-# ⚠️  This should only be used for testing purposes
-# ⚠️  Production usage may violate terms of service
-# 
-# Proceeding with forced request...
-```
-
-### Dry Run Mode
-
-```bash
-# Simulate requests without actually making them
-yfin scrape --config config/prod.yaml --ticker AAPL --endpoint key-statistics --dry-run
-
-# Expected output:
-# DRY RUN MODE - No actual requests will be made
-# 
-# Would execute:
-# - Ticker: AAPL
-# - Endpoint: key-statistics  
-# - URL: https://finance.yahoo.com/quote/AAPL/key-statistics
-# - Robots.txt: ✓ Allowed
-# - Rate limit: ✓ Within limits
-# - Fallback strategy: auto
-# 
-# Configuration validated successfully
-```
-
-## CLI Best Practices
-
-### 1. Configuration Management
-
-```bash
-# Use environment-specific configs
-yfin scrape --config config/dev.yaml     # Development
-yfin scrape --config config/staging.yaml # Staging  
-yfin scrape --config config/prod.yaml    # Production
-
-# Validate config before use
-yfin config --file config/prod.yaml --validate
-```
-
-### 2. Rate Limiting
-
-```bash
-# Conservative production settings
-yfin scrape --qps 1.0 --concurrency 4 --timeout 45s
-
-# Development/testing settings  
-yfin scrape --qps 5.0 --concurrency 8 --timeout 30s
-```
-
-### 3. Error Recovery
-
-```bash
-# Enable retries and fallback
-yfin scrape --retry-max 3 --fallback auto --timeout 60s
-
-# Log errors for debugging
-yfin scrape --log-level debug --ticker AAPL --endpoint key-statistics 2>&1 | tee scrape.log
-```
-
-### 4. Monitoring and Observability
-
-```bash
-# Enable metrics collection
-yfin scrape --metrics-enabled --ticker AAPL --endpoint key-statistics
-
-# Track request IDs for debugging
-yfin scrape --run-id "batch-$(date +%s)" --ticker AAPL --endpoint key-statistics
-```
-
-## Common CLI Patterns
-
-### Data Pipeline Integration
+`scrape` 命令本身不支援 `--universe-file`，需透過 shell 迴圈或 `soak` 命令批次處理：
 
 ```bash
 #!/bin/bash
-# daily-scrape.sh - Daily data collection script
-
+# batch-scrape.sh
 TICKERS="AAPL MSFT GOOGL TSLA AMZN"
-DATE=$(date +%Y%m%d)
-RUN_ID="daily-scrape-$DATE"
 
 for ticker in $TICKERS; do
   echo "Processing $ticker..."
-  
-  yfin scrape \
-    --config config/prod.yaml \
-    --ticker "$ticker" \
-    --endpoints key-statistics,financials,news \
-    --fallback auto \
-    --run-id "$RUN_ID" \
-    --publish \
-    --env prod \
-    --topic-prefix ampy.prod
-    
-  if [ $? -eq 0 ]; then
-    echo "✓ $ticker completed successfully"
-  else
-    echo "✗ $ticker failed"
-  fi
-  
-  # Rate limiting
-  sleep 2
+  yfin scrape --ticker "$ticker" --endpoint key-statistics --check
+  sleep 1
 done
+```
+
+### Rate limit 與 backoff 調整
+
+`--qps`、`--concurrency`、`--timeout` 等為 global flags，需在 `yfin` 根命令指定：
+
+```bash
+yfin --qps 1.0 --concurrency 4 --timeout 45s scrape --ticker AAPL --endpoint key-statistics --check
+```
+
+> CLI 旗標優先於 YAML config；若要調整 scrape 細部行為，建議編輯 YAML。
+
+## 錯誤排除與除錯 (Error Handling & Debugging)
+
+### 除錯模式 (Debug Mode)
+
+```bash
+# 開啟 debug 等級 logging
+yfin --log-level debug scrape --ticker AAPL --endpoint key-statistics --check
 ```
 
 ### Health Check Script
 
 ```bash
 #!/bin/bash
-# health-check.sh - Endpoint health monitoring
+# health-check.sh - 每日 endpoint 健康檢查
 
-ENDPOINTS="key-statistics financials analysis profile news"
-TICKER="AAPL"  # Use stable ticker for health checks
+ENDPOINTS="profile key-statistics financials balance-sheet cash-flow analysis analyst-insights news"
+TICKER="AAPL"
 
 for endpoint in $ENDPOINTS; do
   echo "Checking $endpoint..."
-  
-  yfin scrape \
-    --config config/prod.yaml \
-    --ticker "$TICKER" \
-    --endpoint "$endpoint" \
-    --check \
-    --timeout 30s
-    
+  yfin scrape --ticker "$TICKER" --endpoint "$endpoint" --check
   if [ $? -eq 0 ]; then
-    echo "✓ $endpoint is healthy"
+    echo "✓ $endpoint healthy"
   else
-    echo "✗ $endpoint has issues"
+    echo "✗ $endpoint failed"
   fi
 done
 ```
 
-### Batch Processing Script
+## CLI 最佳實踐 (CLI Best Practices)
+
+### 1. 配置管理 (Configuration Management)
+
+```bash
+# 使用環境對應的 config
+yfin --config config/dev.yaml scrape --ticker AAPL --endpoint key-statistics --check
+yfin --config config/prod.yaml scrape --ticker AAPL --endpoint key-statistics --check
+```
+
+### 2. 錯誤恢復 (Error Recovery)
+
+```bash
+# 透過 logging 與 run-id 追蹤問題
+yfin --log-level debug --run-id "scrape-debug-$(date +%s)" \
+  scrape --ticker AAPL --endpoint key-statistics --check 2>&1 | tee scrape.log
+```
+
+## 常見 CLI 模式 (Common CLI Patterns)
+
+### 資料 pipeline 整合 (Data Pipeline Integration)
 
 ```bash
 #!/bin/bash
-# batch-process.sh - Process universe file with error handling
+# daily-scrape.sh - 每日資料蒐集腳本
 
-UNIVERSE_FILE="$1"
-ENDPOINT="$2"
-CONFIG="${3:-config/prod.yaml}"
+TICKERS="AAPL MSFT GOOGL TSLA AMZN"
+RUN_ID="daily-scrape-$(date +%Y%m%d)"
 
-if [ ! -f "$UNIVERSE_FILE" ]; then
-  echo "Error: Universe file not found: $UNIVERSE_FILE"
-  exit 1
-fi
+for ticker in $TICKERS; do
+  echo "Processing $ticker..."
 
-TOTAL=$(wc -l < "$UNIVERSE_FILE")
-CURRENT=0
-FAILED=0
+  yfin --config config/prod.yaml --run-id "$RUN_ID" \
+    scrape --ticker "$ticker" \
+    --endpoints key-statistics,financials,analysis,profile,news \
+    --preview-proto
 
-while IFS= read -r ticker; do
-  CURRENT=$((CURRENT + 1))
-  echo "[$CURRENT/$TOTAL] Processing $ticker..."
-  
-  yfin scrape \
-    --config "$CONFIG" \
-    --ticker "$ticker" \
-    --endpoint "$ENDPOINT" \
-    --fallback auto \
-    --timeout 60s \
-    --preview
-    
-  if [ $? -ne 0 ]; then
-    FAILED=$((FAILED + 1))
-    echo "✗ Failed: $ticker"
+  if [ $? -eq 0 ]; then
+    echo "✓ $ticker completed"
   else
-    echo "✓ Success: $ticker"
+    echo "✗ $ticker failed"
   fi
-  
-  # Rate limiting
-  sleep 1
-done < "$UNIVERSE_FILE"
 
-echo "Batch complete: $((TOTAL - FAILED))/$TOTAL successful"
+  sleep 2
+done
 ```
 
-This CLI guide provides comprehensive coverage of all scraping functionality. For configuration details and troubleshooting, see the related documentation sections.
+本指南涵蓋 `yfin scrape` 所有面向。詳細配置與疑難排解請參考其他章節。

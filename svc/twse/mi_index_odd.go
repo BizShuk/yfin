@@ -1,4 +1,3 @@
-// mi_index_odd.go — `MI_INDEX_ODD` (/afterTrading/MI_INDEX_ODD) odd-lot (零股) trading snapshot per stock (volume/amount/OHLC). Capacity: ~1900 stocks per response.
 package twse
 
 import (
@@ -6,30 +5,20 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+	"github.com/bizshuk/yfin/model"
+)
+
+// Type aliases — structs now live in model/twse.go.
+type (
+	MI_INDEX_ODDResponse = model.MI_INDEX_ODDResponse
+	MIIndexOddRow = model.MIIndexOddRow
 )
 
 // MI_INDEX_ODDResponse embeds the common Response envelope and adds
 // the `date` field that TWSE returns on this endpoint.
-type MI_INDEX_ODDResponse struct {
-	Response
-	Date string `json:"date"`
-}
-
-// GetStat returns the embedded stat field.
-func (r *MI_INDEX_ODDResponse) GetStat() string { return r.Response.Stat }
 
 // MIIndexOddRow is a typed representation of one MI_INDEX_ODD data row.
 // Fields: 證券代號, 證券名稱, 成交股數, 成交金額, 開盤, 最高, 最低, 收盤.
-type MIIndexOddRow struct {
-	Code   string  // 證券代號
-	Name   string  // 證券名稱
-	Volume int64   // 成交股數
-	Amount int64   // 成交金額
-	Open   float64 // 開盤
-	High   float64 // 最高
-	Low    float64 // 最低
-	Close  float64 // 收盤
-}
 
 // FetchMI_INDEX_ODD retrieves the odd-lot (零股) trading snapshot for
 // `date`.

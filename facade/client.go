@@ -16,8 +16,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bizshuk/yfin/model"
 	"github.com/bizshuk/yfin/svc/emit"
-	"github.com/bizshuk/yfin/svc/norm"
 	"github.com/bizshuk/yfin/svc/scrape"
 	"github.com/bizshuk/yfin/svc/yahoo"
 	"github.com/bizshuk/yfin/utils/httpx"
@@ -79,7 +79,7 @@ func (c *Client) FetchDailyBars(ctx context.Context, symbol string, start, end t
 	}
 
 	// Normalize then convert to the plain SDK surface.
-	batch, err := norm.NormalizeBars(bars, meta, runID)
+	batch, err := model.NormalizeBars(bars, meta, runID)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func (c *Client) FetchQuote(ctx context.Context, symbol string, runID string) (*
 	}
 
 	// Normalize then convert to the plain SDK surface.
-	q, err := norm.NormalizeQuote(quotes[0], runID)
+	q, err := model.NormalizeQuote(quotes[0], runID)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +129,7 @@ func (c *Client) FetchFundamentalsQuarterly(ctx context.Context, symbol string, 
 	}
 
 	// Normalize then convert to the plain SDK surface.
-	snap, err := norm.NormalizeFundamentals(fundamentals, symbol, runID)
+	snap, err := model.NormalizeFundamentals(fundamentals, symbol, runID)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +157,7 @@ func (c *Client) FetchIntradayBars(ctx context.Context, symbol string, start, en
 	}
 
 	// Normalize then convert to the plain SDK surface.
-	batch, err := norm.NormalizeBars(bars, meta, runID)
+	batch, err := model.NormalizeBars(bars, meta, runID)
 	if err != nil {
 		return nil, err
 	}
@@ -181,7 +181,7 @@ func (c *Client) FetchWeeklyBars(ctx context.Context, symbol string, start, end 
 		return nil, fmt.Errorf("missing metadata")
 	}
 
-	batch, err := norm.NormalizeBars(bars, meta, runID)
+	batch, err := model.NormalizeBars(bars, meta, runID)
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +205,7 @@ func (c *Client) FetchMonthlyBars(ctx context.Context, symbol string, start, end
 		return nil, fmt.Errorf("missing metadata")
 	}
 
-	batch, err := norm.NormalizeBars(bars, meta, runID)
+	batch, err := model.NormalizeBars(bars, meta, runID)
 	if err != nil {
 		return nil, err
 	}
@@ -229,7 +229,7 @@ func (c *Client) FetchCompanyInfo(ctx context.Context, symbol string, runID stri
 		return nil, fmt.Errorf("missing metadata")
 	}
 
-	info, err := norm.NormalizeCompanyInfo(meta, runID)
+	info, err := model.NormalizeCompanyInfo(meta, runID)
 	if err != nil {
 		return nil, err
 	}
@@ -253,11 +253,98 @@ func (c *Client) FetchMarketData(ctx context.Context, symbol string, runID strin
 		return nil, fmt.Errorf("missing metadata")
 	}
 
-	md, err := norm.NormalizeMarketData(meta, runID)
+	md, err := model.NormalizeMarketData(meta, runID)
 	if err != nil {
 		return nil, err
 	}
 	return FromMarketData(md), nil
+}
+
+// Norm-returning helpers — same fetch logic as FetchDailyBars / FetchQuote /
+// FetchFundamentalsQuarterly / FetchMarketData, but stop at the
+// `model.Normalize*` step and return the internal `*model.Normalized*` types
+// instead of converting to plain SDK. These exist for callers that need
+// ScaledDecimal precision (e.g. cmd's emit→proto pipeline). External SDK
+// consumers should keep using the plain Fetch* methods.
+//
+// Naming convention: `Fetch<Kind>Norm` returns the Norm-internal shape.
+
+// FetchDailyBarsNorm fetches daily bars and returns the internal
+// *model.NormalizedBarBatch (ScaledDecimal precision preserved).
+func (c *Client) FetchDailyBarsNorm(ctx context.Context, symbol string, start, end time.Time, adjusted bool, runID string) (*model.NormalizedBarBatch, error) {
+	barsResp, err := c.yahooClient.FetchDailyBars(ctx, symbol, start, end, adjusted)
+	if err != nil {
+		return nil, err
+	}
+
+	bars, err := barsResp.GetBars()
+	if err != nil {
+		return nil, err
+	}
+
+	meta := barsResp.GetMetadata()
+	if meta == nil {
+		return nil, fmt.Errorf("missing metadata")
+	}
+
+	return model.NormalizeBars(bars, meta, runID)
+}
+
+// FetchQuoteNorm fetches a quote and returns the internal
+// *model.NormalizedQuote.
+func (c *Client) FetchQuoteNorm(ctx context.Context, symbol string, runID string) (*model.NormalizedQuote, error) {
+	quoteResp, err := c.yahooClient.FetchQuote(ctx, symbol)
+	if err != nil {
+		return nil, err
+	}
+
+	quotes := quoteResp.GetQuotes()
+	if len(quotes) == 0 {
+		return nil, fmt.Errorf("no quotes found")
+	}
+
+	return model.NormalizeQuote(quotes[0], runID)
+}
+
+// FetchFundamentalsNorm fetches quarterly fundamentals and returns the
+// internal *model.NormalizedFundamentalsSnapshot. The 401-class error
+// handling is preserved (paid-subscription endpoint) so callers can detect
+// via the "paid subscription" / "401" / "Unauthorized" string in the error.
+func (c *Client) FetchFundamentalsNorm(ctx context.Context, symbol string, runID string) (*model.NormalizedFundamentalsSnapshot, error) {
+	fundResp, err := c.yahooClient.FetchFundamentalsQuarterly(ctx, symbol)
+	if err != nil {
+		if isAuthenticationError(err) {
+			return nil, fmt.Errorf("fundamentals data requires Yahoo Finance paid subscription: %w", err)
+		}
+		return nil, err
+	}
+
+	fundamentals, err := fundResp.GetFundamentals()
+	if err != nil {
+		return nil, err
+	}
+
+	return model.NormalizeFundamentals(fundamentals, symbol, runID)
+}
+
+// FetchMarketDataNorm fetches comprehensive market data and returns the
+// internal *model.NormalizedMarketData. Uses the same chart-endpoint window
+// (last 1 day) as FetchMarketData.
+func (c *Client) FetchMarketDataNorm(ctx context.Context, symbol string, runID string) (*model.NormalizedMarketData, error) {
+	end := time.Now()
+	start := end.AddDate(0, 0, -1)
+
+	barsResp, err := c.yahooClient.FetchDailyBars(ctx, symbol, start, end, true)
+	if err != nil {
+		return nil, err
+	}
+
+	meta := barsResp.GetMetadata()
+	if meta == nil {
+		return nil, fmt.Errorf("missing metadata")
+	}
+
+	return model.NormalizeMarketData(meta, runID)
 }
 
 // Scraping Functions - Return AMPY-PROTO Data
@@ -283,7 +370,7 @@ func (c *Client) inferMICForSymbol(ctx context.Context, symbol string) string {
 		return ""
 	}
 
-	mic := norm.InferMIC(companyInfo.Exchange, companyInfo.FullExchangeName)
+	mic := model.InferMIC(companyInfo.Exchange, companyInfo.FullExchangeName)
 
 	// Cache the result
 	c.micCacheMu.Lock()

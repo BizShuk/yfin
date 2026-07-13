@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bizshuk/yfin/facade"
 	svcTWSE "github.com/bizshuk/yfin/svc/twse"
 	"github.com/bizshuk/yfin/utils/httpx"
 )
@@ -216,9 +217,12 @@ func TestRunTwseEndpoint_FMSRFK_DispatchesWithStock(t *testing.T) {
 }
 
 func TestNameToFetcher_CoversAllRegistryEntries(t *testing.T) {
-	for name, ep := range svcTWSE.Registry {
-		if _, ok := twseNameToFetcher[name]; !ok {
-			t.Errorf("registry entry %q (%s) has no fetcher wired in cmd/twse/twse.go", name, ep.Path)
+	// facade.TwseRegistry mirrors svc/twse.Registry; verify every entry
+	// dispatches successfully (catches "no fetcher wired" regressions).
+	for name := range facade.TwseRegistry {
+		_, err := facade.TwseDispatch(context.Background(), nil, name, "", url.Values{})
+		if err != nil && strings.Contains(err.Error(), "no fetcher wired") {
+			t.Errorf("registry entry %q has no fetcher wired in facade/twse.go", name)
 		}
 	}
 }
@@ -246,20 +250,19 @@ func TestDispatcher_Call_DispatchesViaClient(t *testing.T) {
 	}
 }
 
-// TestBuildTWSEClient verifies the composition-root function in client.go:
-// a successful build must yield a non-nil *svcTWSE.Client whose BaseURL
-// matches the production package-level value and whose injected Caller is
-// non-nil. Catches regressions (e.g. a future flip of Config.BaseURL from
-// "" to svcTWSE.BaseURL, which would double-concatenate).
-func TestBuildTWSEClient(t *testing.T) {
-	client := buildTWSEClient()
+// TestNewTwseClient verifies facade.NewTwseClient (formerly buildTWSEClient
+// in cmd/twse/client.go): a successful build must yield a non-nil
+// *svcTWSE.Client whose BaseURL matches the production package-level value
+// and whose injected Caller is non-nil.
+func TestNewTwseClient(t *testing.T) {
+	client := facade.NewTwseClient()
 	if client == nil {
-		t.Fatal("buildTWSEClient returned nil client")
+		t.Fatal("facade.NewTwseClient returned nil client")
 	}
 	if got, want := client.BaseURL(), svcTWSE.BaseURL; got != want {
 		t.Errorf("client.BaseURL() = %q, want %q (package svc/twse.BaseURL)", got, want)
 	}
 	if client.Caller() == nil {
-		t.Error("client.Caller() returned nil; buildTWSEClient must inject a non-nil httpx.Caller")
+		t.Error("client.Caller() returned nil; facade.NewTwseClient must inject a non-nil httpx.Caller")
 	}
 }
