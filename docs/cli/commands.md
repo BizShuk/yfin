@@ -119,7 +119,7 @@ yfin comprehensive-profile --ticker MSFT --preview
 
 ### `pull`
 
-擷取單一 symbol 或 universe 的每日 bars（**僅支援 daily**）；可本地匯出或送 bus publishing。
+擷取單一 symbol 或 universe 的每日 bars（**僅支援 daily**），支援本地檔案匯出。
 
 | 旗標 | 型別 | 預設值 | 說明 |
 | --- | --- | --- | --- |
@@ -130,10 +130,7 @@ yfin comprehensive-profile --ticker MSFT --preview
 | `--adjusted` | string | `"split_dividend"` | 調整策略（`raw` / `split_dividend`）；可由 YAML `markets.default_adjustment_policy` 覆寫 |
 | `--market` | string | `""` | Market MIC（MIC inference 提示，可選） |
 | `--fx-target` | string | `""` | FX 轉換目標幣別（如 `EUR`、`JPY`） |
-| `--preview` | bool | `false` | 顯示 preview，不實際送 bus 或寫檔 |
-| `--publish` | bool | `false` | 啟用 bus publishing |
-| `--env` | string | `"dev"` | 環境（`dev` / `staging` / `prod`） |
-| `--topic-prefix` | string | `"ampy"` | bus topic prefix |
+| `--preview` | bool | `false` | 顯示 preview，不實際寫檔 |
 | `--out` | string | `""` | 輸出格式（`json` / `parquet`，parquet 尚未實作） |
 | `--out-dir` | string | `""` | 輸出目錄 |
 
@@ -149,10 +146,7 @@ yfin pull --universe-file nasdaq100.txt --start 2024-01-01 --end 2024-12-31 --ou
 | 旗標 | 型別 | 預設值 | 說明 |
 | --- | --- | --- | --- |
 | `--tickers` | string | `""` | 必填。CSV ticker 列表（如 `AAPL,MSFT,TSLA`） |
-| `--preview` | bool | `false` | 顯示 preview，不實際送 bus 或寫檔 |
-| `--publish` | bool | `false` | 啟用 bus publishing |
-| `--env` | string | `"dev"` | 環境 |
-| `--topic-prefix` | string | `"ampy"` | bus topic prefix |
+| `--preview` | bool | `false` | 顯示 preview，不實際寫檔 |
 | `--out` | string | `""` | 輸出格式（僅支援 `json`） |
 | `--out-dir` | string | `""` | 輸出目錄 |
 
@@ -168,9 +162,9 @@ Yahoo Finance 網頁爬蟲，提供 **4 種互斥 mode**（必填其一）。HTT
 | Mode | 旗標 | 必要搭配 | 用途 |
 | --- | --- | --- | --- |
 | 連線測試 | `--check` | `--ticker` + `--endpoint` | 不解析、僅確認可達性 |
-| extractor 乾跑 | `--preview-json` | `--ticker` + `--endpoints` | 解析但不送 proto |
+| extractor 乾跑 | `--preview-json` | `--ticker` + `--endpoints` | 解析 DTO 並輸出 JSON |
 | news parser 乾跑 | `--preview-news` | `--ticker` | 解析 news 文章 |
-| proto 完整輸出乾跑 | `--preview-proto` | `--ticker` + `--endpoints` | 含 counts / periods / metadata |
+| 完整輸出乾跑 | `--preview-proto` | `--ticker` + `--endpoints` | 完整 DTO 含 counts / periods / metadata |
 
 **完整旗標表：**
 
@@ -179,7 +173,7 @@ Yahoo Finance 網頁爬蟲，提供 **4 種互斥 mode**（必填其一）。HTT
 | `--check` | bool | `false` | 連線測試（與其他 mode 互斥） |
 | `--preview-json` | bool | `false` | extractor 乾跑（互斥） |
 | `--preview-news` | bool | `false` | news parser 乾跑（互斥） |
-| `--preview-proto` | bool | `false` | proto 完整輸出乾跑（互斥） |
+| `--preview-proto` | bool | `false` | 完整 DTO 輸出乾跑（互斥） |
 | `--ticker` | string | `""` | 必填。股票代號 |
 | `--endpoint` | string | `""` | 單一 endpoint，搭配 `--check`；可選值：`profile` / `key-statistics` / `financials` / `balance-sheet` / `cash-flow` / `analysis` / `analyst-insights` / `news` |
 | `--endpoints` | string | `""` | CSV 多 endpoint，搭配 `--preview-json` / `--preview-proto` |
@@ -225,7 +219,6 @@ yfin twse --endpoint MI_WEEK --date 20221230 --pretty
 | `1` | `ExitGeneral` | 一般錯誤（網路、執行失敗等） |
 | `2` | `ExitPaidFeature` | 付費功能未授權（fundamentals） |
 | `3` | `ExitConfigError` | 組態錯誤（CLI flag 驗證失敗、YAML 載入失敗） |
-| `4` | `ExitPublishError` | Bus publishing 失敗 |
 
 ## 獨立 binary (Standalone Binary)
 

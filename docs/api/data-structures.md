@@ -326,21 +326,21 @@ for _, line := range financials.Lines {
 }
 ```
 
-## AMPY-PROTO Structures
+## Scrape Result Structures
 
-The scraping methods return structured `ampy-proto` data that follows the same patterns but with additional metadata and validation.
+The scraping methods return structured data that follows the same patterns as the SDK DTOs but with additional metadata and validation. Scrape DTOs live in `model/` (`model.ComprehensiveFinancialsDTO`, `model.KeyStatisticsDTO`, `model.ScrapeNewsItem`, `model.NewsStats`, etc.) and are returned by `Scrape*` methods on `*facade.Client`.
 
-### FundamentalsSnapshot (AMPY-PROTO)
+### FundamentalsSnapshot (scrape result)
 
 ```go
 type FundamentalsSnapshot struct {
-    Meta    *Meta                    `protobuf:"bytes,1,opt,name=meta,proto3"`
-    Lines   []*FundamentalsLine      `protobuf:"bytes,2,rep,name=lines,proto3"`
+    Meta    *Meta                    `json:"meta"`
+    Lines   []*FundamentalsLine      `json:"lines"`
     // ... additional fields
 }
 ```
 
-### NewsItem (AMPY-PROTO)
+### NewsItem (scrape result)
 
 ```go
 type NewsItem struct {

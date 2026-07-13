@@ -583,7 +583,7 @@ price := quote.Price
 // WRONG — `regularMarketPrice` doesn't exist on facade.Quote.
 ```
 
-If you ever need the *internal* precision (e.g. piping into an `ampy-proto` emitter), use the matching `*Norm` variant: `FetchDailyBarsNorm`, `FetchQuoteNorm`, etc. — same call shape, returns `*norm.NormalizedQuote` / `*norm.NormalizedBarBatch` for in-tree consumers.
+If you ever need the *internal* precision (e.g. piping into an internal normalized-struct consumer), use the matching `*Norm` variant: `FetchDailyBarsNorm`, `FetchQuoteNorm`, etc. — same call shape, returns `*model.NormalizedQuote` / `*model.NormalizedBarBatch` for in-tree consumers.
 
 ### 4. Use Context for Cancellation
 

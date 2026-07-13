@@ -12,15 +12,12 @@
 | 1 | `ExitGeneral` | 一般 / 未分類錯誤 | unhandled error、網路失敗、parse 失敗、所有 ticker 全部失敗 |
 | 2 | `ExitPaidFeature` | 此 endpoint 需付費訂閱 | `yfin fundamentals` 在沒有 Yahoo Finance 訂閱時收到 401 / `paid subscription` |
 | 3 | `ExitConfigError` | 使用者 / 配置錯誤 | 旗標值非法、缺少必要旗標、YAML 載入失敗、scrape 停用、interval 非 `1d` |
-| 4 | `ExitPublishError` | 輸出 / 發佈步驟失敗 | bus publishing 失敗、磁碟空間不足、broken pipe、sink error |
 
 **對應命令的發出點：**
 
 - `ExitConfigError` — `cmd/market/pull.go` (validatePullFlags、parseDates、parseAdjusted、YAML load、interval validate)、`cmd/scrape/scrape_run.go` (validateScrapeFlags、YAML load、scrape disabled、observability init)、`cmd/fundamentals/*` (validate flags、YAML load、observability init)、`cmd/admin/admin.go`。
-- `ExitGeneral` — `cmd/market/pull.go` (CreateClient 失敗、bus 初始化失敗、所有 symbol 全失敗)、`cmd/scrape/scrape_run.go` (CreateClient 失敗、未指定 mode)、`cmd/fundamentals/*` (CreateClient 失敗、未分類錯誤)。
+- `ExitGeneral` — `cmd/market/pull.go` (CreateClient 失敗、所有 symbol 全失敗)、`cmd/scrape/scrape_run.go` (CreateClient 失敗、未指定 mode)、`cmd/fundamentals/*` (CreateClient 失敗、未分類錯誤)。
 - `ExitPaidFeature` — `cmd/fundamentals/fundamentals_run.go` (回傳錯誤字串含 `paid subscription` / `401` / `Unauthorized`)。
-
-> 註：退出碼 4 (`ExitPublishError`) 目前在 `cmd/` 中尚未被任何 `os.Exit` 直接呼叫，保留作為 bus publishing 或 sink error 的預留碼 — 詳見 `cmd/exitcodes.go` 註解。
 
 ## Error Classification
 
@@ -160,10 +157,6 @@ observability:
       enabled: true
       addr: ":9090"
 ```
-
-### Exit Code 4 — Publishing Errors
-
-`ExitPublishError` (4) 目前保留作為 bus publishing / sink error 的預留碼。當 `handleBusPublishing` 或本地匯出 (`writeJSONFile` / parquet) 發生錯誤時，未來應回傳退出碼 4。
 
 **典型觸發情境：**
 

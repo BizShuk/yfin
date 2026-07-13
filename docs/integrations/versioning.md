@@ -25,7 +25,7 @@ Increment when you make **breaking changes** to:
 - Removing or renaming exported functions
 - Changing function signatures
 - Changing default CLI behavior
-- Breaking changes to ampy-proto message schemas
+- Breaking changes to public Go API surface or normalized struct shapes
 
 ### MINOR Version (X.Y.0)
 
@@ -62,13 +62,13 @@ Increment for:
 
 ## Schema Compatibility
 
-### ampy-proto Schemas
+### Public SDK Structs
 
-This module emits messages using `ampy-proto` schemas. Version compatibility:
+The module's public surface is the `model.*` struct set (re-exported via `facade.*` aliases). Version compatibility:
 
-- **v1 schemas**: Default and stable
-- **v2+ schemas**: New versions added alongside v1, not replacing
-- **Breaking schema changes**: Require MAJOR version bump
+- **Stable fields**: Once a field is part of the public surface, it is considered stable
+- **Additive changes**: New fields may be added in MINOR versions; existing field meanings and types are preserved
+- **Breaking struct changes**: Require MAJOR version bump
 
 ### Configuration Schema
 
@@ -168,11 +168,11 @@ require github.com/bizshuk/yfin v1.2.3
 
 ## Compatibility Matrix
 
-| yfin         | Go Version | ampy-proto | ampy-config |
-|-------------|------------|------------|-------------|
-| v1.0.x      | 1.23+      | v2.1.x     | v1.1.x      |
-| v1.1.x      | 1.23+      | v2.1.x     | v1.1.x      |
-| v2.0.x      | 1.23+      | v3.0.x     | v2.0.x      |
+| yfin         | Go Version |
+|-------------|------------|
+| v1.0.x      | 1.23+      |
+| v1.1.x      | 1.23+      |
+| v2.0.x      | 1.23+      |
 
 ## Migration Guides
 
@@ -185,7 +185,7 @@ No breaking changes. New features available:
 ### v1.x to v2.0
 
 Breaking changes expected:
-- Updated ampy-proto schemas
+- Updated normalized struct shapes (`model.*`)
 - Modified CLI behavior
 - Configuration format changes
 

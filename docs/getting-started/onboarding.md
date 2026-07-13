@@ -9,7 +9,7 @@
 ## 結論優先 (TL;DR)
 
 - 這是 **Yahoo Finance 非官方 Go SDK + CLI**，提供 reflection-free 的 `facade.*` 資料模型給外部專案（`stock`、`data`）使用。
-- 套件劃分嚴格：對外用 `facade/`；業務服務在 `svc/`（`yahoo`、`scrape`、`emit`、`norm`、`twse`）；底層在 `utils/`（`httpx`、`bus`、`cache`、`obsv`）。
+- 套件劃分嚴格：對外用 `facade/`；業務服務在 `svc/`（`yahoo`、`scrape`、`twse`）；底層在 `utils/`（`httpx`、`cache`、`obsv`）；純資料/正規化在 `model/`。
 - 設定路徑約定 `~/.config/yfin/`（由 `gosdk` 提供），觀測指標自動送往 `inf` 後端。
 - 開始工作只需三步：`go test ./...` → `go build -o yfin ./cmd/yfin` → `./yfin --help`。
 
@@ -34,7 +34,7 @@ cd ~/projects/yfin
 
 ### 1.3 確認外部依賴已就位
 
-`yfin` 依賴 `bizshuk/gosdk` 與 AmpyFin 生態（`ampy-bus`、`ampy-config`、`ampy-observability`）。首次拉取時 Go modules 會自動下載。
+`yfin` 主要依賴 `bizshuk/gosdk`（提供 config loader、slog logger、metric 預設值）。首次拉取時 Go modules 會自動下載。
 
 ```bash
 go mod download   # 預先下載所有依賴
@@ -131,16 +131,14 @@ yfin/
 ├── svc/                       # 業務服務層（SDK-first 設計）
 │   ├── yahoo/                 #   Yahoo 原始 API 呼叫（Crumb 認證、chart API）
 │   ├── scrape/                #   HTML 爬蟲（robots.txt 合規、補 API 缺欄位）
-│   ├── emit/                  #   將正規化資料映射為 ampy-proto 並驗證
-│   ├── norm/                  #   資料正規化（時區→UTC、MIC 推斷、ScaledDecimal 轉換）
 │   └── twse/                  #   台灣證券交易所開放資料
+├── model/                     # 純資料型別 + 正規化邏輯（最低層，不 import svc/）
 ├── utils/                     # 共用基礎設施（utils 不 import svc/*）
 │   ├── httpx/                 #   彈性 HTTP：QPS 限流 + 指數退避 + 斷路器
-│   ├── bus/                   #   ampy-bus 發佈器（含重試、分塊、信封）
 │   ├── cache/                 #   資料更新頻率快取（daily/monthly/quarterly）
 │   └── obsv/                  #   OpenTelemetry + Prometheus 指標
-├── config/                    # 頂層 ampy-config loader（非 internal/）
-│   ├── ampy_config.go         #   wraps AmpyFin/ampy-config v1.1.4
+├── config/                    # 頂層 YAML config loader（非 internal/）
+│   ├── types/                 #   拆分的子設定型別 + 驗證
 │   ├── effective.yaml         #   環境變數插值後的生效設定
 │   └── example.{dev,staging,prod}.yaml
 ├── tests/                     # 測試資產（integration/crosslang/python）
@@ -157,16 +155,15 @@ flowchart TD
     FAC -->|"呼叫"| YC["Client"]
     YC --> YS["svc/yahoo"]
     YC --> SC["svc/scrape"]
-    YC --> NW["svc/norm"]
-    YC --> ET["svc/emit"]
+    YC --> MD["model/"]
     YS --> HX["utils/httpx"]
     SC --> HX
     HX --> OB["utils/obsv"]
-    ET -->|"ampy-proto"| BS["utils/bus"]
 ```
 
 - `facade/` 是唯一對外可見的純資料層；外部專案不應 import `svc/*` 或 `utils/*`。
-- `svc/*` 之間允許互相呼叫（如 `emit` 引用 `norm`）；`utils/*` 不應 import `svc/*`。
+- `model/` 是最低層的純資料/正規化邏輯，不 import `svc/*` 或 `facade/`。
+- `svc/*` 之間可互相呼叫（透過 `model/` 共用型別）；`utils/*` 不應 import `svc/*`。
 - CLI（`cmd/` + `main.go`）是唯一可以引用所有層的「組合根 (composition root)」。
 
 ---
@@ -219,7 +216,7 @@ go run ./facade/samples/fetch_daily
 
 1. 修改 `facade/<file>.go` 加上欄位（**純 struct、無方法、無 reflection**）。
 2. 修改 `svc/yahoo/<file>.go` 在解析原始 API 回應時填入該欄位。
-3. 修改 `svc/emit/<file>.go` 將該欄位映射到 `ampy-proto` 訊息。
+3. 修改 `model/<file>.go` 補上 `Normalize*` 邏輯（如需正規化）。
 4. 在 `facade/market_data_test.go`（或對應的 `<file>_test.go`）加 golden 測試。
 5. `go test ./... && go fmt ./... && golangci-lint run`。
 
@@ -240,8 +237,8 @@ CLI 子指令採用**子套件自治**模型；不要把所有指令塞在單一
 ### 5.3 調整 HTTP 限流參數
 
 1. 修改 `utils/httpx/client.go` 的 `Config` 結構。
-2. 修改 `config/example.prod.yaml` 對應的 ampy-config schema。
-3. 修改 `config/ampy_config.go` 的解析邏輯，必要時加上驗證。
+2. 修改 `config/example.prod.yaml` 對應的 YAML 設定。
+3. 修改 `config/types/` 的解析邏輯，必要時加上驗證。
 4. 透過 `utils/obsv/metrics.go` 暴露新指標。
 
 ### 5.4 寫整合測試
@@ -293,19 +290,18 @@ HTTP 客戶端、斷路器、限流器的 Prometheus 指標會推送至 `inf` Vi
 | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `facade`                      | 對外契約層（`facade/`）。提供 reflection-free 的 plain struct，外部專案（如 `stock`、`data`）只允許 import 此層，避免直接耦合 SDK 內部實作。   |
 | `ScaledDecimal`               | 定點十進位精度模型。內部以 `(Scaled int64, Scale int32)` 表示金額，避免浮點誤差。對外由 `facade` 轉換為 `float64`。                              |
-| `svc/`                        | SDK-first 業務服務層。每個子目錄（`yahoo`、`scrape`、`emit`、`norm`、`twse`）是一個獨立可單測的服務。                                            |
-| `utils/`                      | 共用基礎設施層（`httpx`、`bus`、`cache`、`obsv`）。**不應 import `svc/*`**。                                                                     |
+| `svc/`                        | SDK-first 業務服務層。每個子目錄（`yahoo`、`scrape`、`twse`）是一個獨立可單測的服務。                                                              |
+| `model/`                      | 純資料型別與正規化邏輯（`ScaledDecimal`、`Normalize*`、scrape DTO 等）。**最低層，不 import `svc/*` 或 `facade/`**。                              |
+| `utils/`                      | 共用基礎設施層（`httpx`、`cache`、`obsv`）。**不應 import `svc/*`**。                                                                              |
 | `composition root`            | 組合根，唯一可以引用所有層的進入點（`main.go` + `cmd/`）。                                                                                       |
 | `Register(parent)`            | CLI 子套件慣例介面：每個 `cmd/<group>/` 暴露一個 `Register(parent *cobra.Command)` 函式，由 `main.go` 註冊至根指令。                              |
 | `MIC` (Market Identifier Code) | ISO 10383 市場識別碼。例：`XTAI` = 台灣證交所、`XASE` = 美國 NYSE American。當 API 未提供時，由 `svc/norm/security.go` 靜態推斷。                |
 | `Crumb`                       | Yahoo Finance 的存取令牌（cookie + crumb 對）。由 `svc/yahoo/auth.go` 管理，會自動刷新並快取。                                                  |
-| `emit`                        | 將正規化資料映射為 `ampy-proto` Protobuf 訊息並進行強健驗證的服務。例：OHLC 浮點微調、`low > close` 自癒。                                        |
-| `norm`                        | 資料正規化：時區統一為 UTC、MIC 推斷、ScaledDecimal 轉換、市場時段判定。                                                                          |
+| `norm`                        | 資料正規化：時區統一為 UTC、MIC 推斷、ScaledDecimal 轉換、市場時段判定。位於 `model/` 套件。                                                      |
 | `httpx`                       | 彈性 HTTP 客戶端：QPS 限流（token bucket）、指數退避（exponential backoff with jitter）、斷路器（circuit breaker）。                            |
 | `obsv`                        | 可觀測性封裝：OpenTelemetry tracing + Prometheus 指標。預設對接 `inf` 後端。                                                                    |
 | `gosdk`                       | `bizshuk/gosdk`，跨專案共用 SDK。提供 config loader、slog logger、metric 預設值。                                                               |
 | `inf`                         | 全工作區的觀測後端：VictoriaMetrics（`:8428`）收指標、Loki（`:3100`）收日誌。                                                                   |
-| `ampy-proto`                  | AmpyFin 定義的 Protobuf 訊息契約。`svc/emit` 是其前哨站，負責驗證版本與邊界。                                                                    |
 | `robots.txt`                  | 遠端網站爬蟲協定。`svc/scrape/robots.go` 在每次抓取前先請求並快取，僅對被允許的路徑送出請求。                                                   |
 | `keep-alive`                  | HTTP/1.1 連線復用。`utils/httpx` 採單一共享 `http.Client` 以最大化連線池利用率（Session rotation 已移除）。                                    |
 | `jitter`                      | 退避時的隨機抖動，避免多客戶端同時重試造成的 thundering herd。                                                                                  |

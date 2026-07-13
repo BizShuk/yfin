@@ -12,13 +12,13 @@
 │ • Library Call  │    │ • Retry/Backoff │    │ • Validation    │
 │ • Batch Job     │    │ • Circuit Break │    │ • Mapping       │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
-                                │
+                                │              └─────────────────┘
                                 ▼
                        ┌─────────────────┐    ┌─────────────────┐
                        │   Data Sources  │    │     Output      │
                        │                 │    │                 │
-                       │ • Yahoo API     │    │ • model.*       │
-                       │ • Web Scraping  │    │ • JSON Export   │
+                       │ • Yahoo API     │    │ • JSON Export   │
+                       │ • Web Scraping  │    │ • Local files   │
                        │ • FX Providers  │    │                 │
                        └─────────────────┘    └─────────────────┘
 ```
@@ -80,17 +80,18 @@ func (o *Orchestrator) ProcessRequest(ctx context.Context, symbol string, endpoi
 ### 2. 資料正規化管線 (Data Normalization Pipeline)
 
 ```
-Raw Data → Parser → Validator → Converter → model.* struct
-    │         │         │         │            │
-    ▼         ▼         ▼         ▼            ▼
-  HTML/JSON  Regex   Schema    ScaledDec    UTC times
-  嵌入 JSON  Extract Check     Currency     ISO codes
+Raw Data → Parser → Validator → Normalized Struct
+    │         │         │              │
+    ▼         ▼         ▼              ▼
+  HTML/JSON  Regex   Schema        ScaledDec
+  嵌入 JSON  Extract Check         Currency   UTC times
+                                       ISO codes
 ```
 
 對應實作位置：
 
 - `svc/scrape/` — HTML 解析、regex extractor、parser
-- `model/scrape_convert.go` — scrape DTO → model.* 直轉換器（`Scrape*ToSnapshot` / `ScrapeNewsToItems`）
+- `model/` — 型別轉換、ScaledDecimal 包裝、scrape DTO 集合
 - `utils/httpx` — 共用 HTTP client（限速/重試/熔斷）
 - `utils/obsv` — observability bootstrap（metrics/tracing/logs）
 
@@ -195,6 +196,9 @@ yfin scrape --ticker AAPL --endpoint key-statistics --check
 
 # extractor 乾跑
 yfin scrape --ticker AAPL --endpoints key-statistics,financials,analysis,profile --preview-json
+
+# 完整 DTO 輸出乾跑
+yfin scrape --ticker AAPL --endpoints financials,analysis,profile,news --preview-proto
 ```
 
 ## 監控與可觀測性 (Monitoring & Observability)

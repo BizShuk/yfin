@@ -15,23 +15,17 @@ flowchart TD
 
     YC -->|"原始 API"| YS["svc/yahoo"]
     YC -->|"爬網備援"| SC["svc/scrape"]
-    YC -->|"正規化"| NW["svc/norm"]
-    YC -->|"映射驗證"| ET["svc/emit"]
+    YC -->|"正規化"| MD["model/"]
     YC -->|"台灣市場"| TW["svc/twse"]
 
     YS -->|"HTTP 傳輸"| HX["utils/httpx"]
     SC -->|"HTTP 傳輸"| HX
     HX -->|"指標 / 追蹤"| OB["utils/obsv"]
 
-    ET -->|"ampy-proto 發佈"| BS["utils/bus"]
-
     SOAK["cmd/soak (壓測 binary)"] --> YS
     SOAK --> SC
 
-    CMD["cmd/ (CLI composition root)"] -->|"讀取"| CFG["config/ (ampy-config)"]
-    CMD --> BS
-    CMD --> ET
-    CMD --> NW
+    CMD["cmd/ (CLI composition root)"] -->|"讀取"| CFG["config/ (YAML)"]
     CMD --> YS
     CMD --> SC
     CMD --> TW
@@ -61,7 +55,7 @@ flowchart TD
 - 外部套件在匯入本專案時，應以此套件作為邊界，避免直接存取 `svc/` 或 `utils/`。
 - 將內部的定點十進位 `ScaledDecimal` 轉化為標準的 `float64` 浮點數，便於資料序列化 (serialization) 與一般數值計算。
 - 整合了 `svc/yahoo` 的原始 API 呼叫與 `svc/scrape` 的爬蟲備援引擎；當付費 API 限制、網路逾時或回傳 `429` 時，能自動切換至爬網流程。
-- 所有取回的資料會經由 `svc/norm` 正規化後，以統一格式回傳給呼叫端。
+- 所有取回的資料會經由 `model/` 的 `Normalize*` 函式正規化後，以統一格式回傳給呼叫端。
 
 ---
 
@@ -105,47 +99,31 @@ flowchart TD
 
 ---
 
-## 4. `svc/norm` (資料正規化服務)
+## 4. `model/` (純資料與正規化層)
 
 ### 職責說明
 
-`svc/norm` 負責將抓取到的原始半結構化或非結構化資料，轉換並歸一化為系統標準領域模型 (domain model)。
+`model/` 是專案最低層的純資料型別 + 正規化邏輯，**不 import `svc/*`、`facade/` 或 `cmd/`**。原 `svc/norm/` 已併入此套件。
 
 ### 關鍵檔案
 
-- `conversion.go`: 原始數值與型態之強型態安全轉換器。
-- `security.go`: 推斷與補齊 Market Identifier Code (MIC) 及交易所屬性。
-- `decimal.go`: 處理 `ScaledDecimal` 十進位轉換細節。
-- `time.go`: 將多元時區之時間戳記統一轉換為 `UTC` ISO-8601 格式。
+- `normalize.go`: 9 個 `Normalize*` 函式（`NormalizeBars` / `NormalizedQuote` / `NormalizeFundamentals` / `NormalizeMarketData` / `NormalizeCompanyInfo` / `NormalizeHolders` / `NormalizeInsider`）。
+- `security.go`: `Security` + `InferMIC` + `CreateSecurity` + `ExchangeToMIC`。
+- `scaled.go`: `ScaledDecimal` 與 `FromScaledDecimal` 等定點十進位輔助。
+- `time.go`: `ToUTCDayBoundaries` epoch→day 轉換。
+- `fx.go`: `FXConverter` / `FXMeta` / `MockFXConverter`。
+- `yahoo_raw.go`: 8 個 facade-aligned SDK DTO + Yahoo 原始 API 結構。
+- `scrape_convert.go`: scrape DTO 直通 model（`Scrape*ToSnapshot` / `ScrapeNewsToItems`）。
 
 ### 套件設計與運作
 
 - 處理來自 Yahoo JSON API 的複雜欄位（如 `regularMarketPrice` 與各種時間欄位）。
 - 當 API 未提供 MIC 時，根據 symbol 尾碼（如 `.TW` 代表台灣證券交易所，MIC 為 `XTAI`）進行靜態推導與動態快取，確保識別資訊完整。
+- 對外由 `facade.*` 型別別名重導出；外部消費者可直接 import `model/` 取得 SDK DTO，或透過 `facade/` 取得別名（兩者為相同型別）。
 
 ---
 
-## 5. `svc/emit` (ampy-proto 映射與驗證服務)
-
-### 職責說明
-
-`svc/emit` 負責將正規化的資料格式化為標準的 `ampy-proto` 定義，並在發出前執行強健性驗證 (robust validation)。
-
-### 關鍵檔案
-
-- `decimals.go`: 提供定點十進位 `ScaledDecimal` 的轉換與溢位檢查。
-- `validation.go`: 進行資料邏輯檢驗（例如確保低價 `low` 不大於收盤價 `close` 與開盤價 `open`）。
-- `map_financials.go`, `map_news.go`, `map_profile.go`, `map_bars.go`: 對 scraped / yahoo 欄位進行 canonical 欄位對齊映射。
-
-### 套件設計與運作
-
-- 充當系統向外部輸出 Protobuf 資料的前哨站，保障流入訊息匯流排的資料符合協議版本與邊界約束。
-- 當發現 OHLC 價格存在細微的浮點數誤差或異常時（例如 `low` 因浮點數極小誤差大於 `close`），會自動微調以避免下游解碼失敗。
-- 對接 `utils/bus` 將驗證後的訊息發佈至 `ampy-bus`。
-
----
-
-## 6. `svc/twse` (台灣證券交易所服務)
+## 5. `svc/twse` (台灣證券交易所服務)
 
 ### 職責說明
 
@@ -164,7 +142,7 @@ flowchart TD
 
 ---
 
-## 7. `utils/httpx` (彈性 HTTP 用戶端)
+## 6. `utils/httpx` (彈性 HTTP 用戶端)
 
 ### 職責說明
 
@@ -186,27 +164,7 @@ flowchart TD
 
 ---
 
-## 8. `utils/bus` (訊息匯流排發佈器)
-
-### 職責說明
-
-`utils/bus` 負責將下載完成的正規化金融資料發佈 (publish) 至 `ampy-bus` 訊息系統。
-
-### 關鍵檔案
-
-- `bus.go`: 定義匯流排的介面與基本功能。
-- `publisher.go`: 實作具備自動重試功能的發佈器 (publisher)。
-- `chunking.go`: 當資料批次過大時，自動分切為較小的區塊 (chunks)。
-- `envelope.go`: 包裝資料信封 (envelope) 並注入追蹤用元資料 (metadata)。
-
-### 套件設計與運作
-
-- 提供底層發佈通道，支援異步發佈 (asynchronous publishing)。
-- 在網路不穩定時，內建重試與退避邏輯，確保資料不遺失地傳遞到其他微服務。
-
----
-
-## 9. `utils/cache` (資料更新頻率快取)
+## 7. `utils/cache` (資料更新頻率快取)
 
 ### 職責說明
 
@@ -224,7 +182,7 @@ flowchart TD
 
 ---
 
-## 10. `utils/obsv` (可觀測性基礎設施)
+## 8. `utils/obsv` (可觀測性基礎設施)
 
 ### 職責說明
 
@@ -243,16 +201,18 @@ flowchart TD
 
 ---
 
-## 11. `config/` (頂層 ampy-config loader)
+## 9. `config/` (頂層 YAML 設定 loader)
 
 ### 職責說明
 
-`config/` 是位於 repo 根目錄的頂層 ampy-config loader（**非 `internal/`**），封裝 `AmpyFin/ampy-config v1.1.4` 的 YAML 載入邏輯。
+`config/` 是位於 repo 根目錄的頂層 YAML 設定 loader（**非 `internal/`**），提供 `Load` 與 schema 驗證，並將子型別拆入 `config/types/` 子套件。
 
 ### 關鍵檔案
 
-- `ampy_config.go`: wraps `ampy-config`，提供 `Load` 與 schema 驗證。
-- `ampy_config_test.go`: 解析測試。
+- `types/config.go`: 頂層 `Config` struct。
+- `types/loader.go`: YAML 載入 + 環境變數插值 + 驗證。
+- `types/adapters.go`: HTTP / scrape / FX 等子設定型別。
+- `types/loader_test.go`: 解析測試。
 - `effective.yaml`: 經由環境變數插值後產生的實際生效設定。
 - `example.{dev,staging,prod}.yaml`: 三種環境範本。
 
@@ -264,7 +224,7 @@ flowchart TD
 
 ---
 
-## 12. `cmd/` (CLI composition root)
+## 10. `cmd/` (CLI composition root)
 
 ### 職責說明
 
@@ -287,7 +247,7 @@ flowchart TD
 - `cmd/market/`: `pull`、`quote`。
 - `cmd/scrape/`: `scrape`（4 個互斥 mode）。
 - `cmd/twse/`: `twse`（23 個端點）。
-- `cmd/soak/`: 獨立 binary（見第 13 節）。
+- `cmd/soak/`: 獨立 binary（見第 11 節）。
 - `cmd/samples/`: 可執行的 CLI 子指令範例。
 - `cmd/tools/`: 輔助工具。
 
@@ -298,7 +258,7 @@ flowchart TD
 
 ---
 
-## 13. `cmd/soak` (壓力測試獨立 binary)
+## 11. `cmd/soak` (壓力測試獨立 binary)
 
 ### 職責說明
 
@@ -319,7 +279,7 @@ flowchart TD
 
 ---
 
-## 14. `main.go` (入口點)
+## 12. `main.go` (入口點)
 
 ### 職責說明
 

@@ -1,6 +1,6 @@
 # yfin Documentation Index
 
-`yfin` 是 Yahoo Finance 的 Go 資料擷取與正規化工具，模組路徑 `github.com/bizshuk/yfin` (Go 1.26.0)。提供 CLI 指令（flat 結構，無 nested group）、公開 `facade` 資料型別（外部專案導入邊界），以及 `config/`、`svc/{yahoo,scrape,emit,norm,twse}/`、`utils/{httpx,bus,cache,obsv}/` 等核心套件。本目錄依讀者角色分層收納使用手冊、API 參考、維運指引與歷史歸檔文件。
+`yfin` 是 Yahoo Finance 的 Go 資料擷取與正規化工具，模組路徑 `github.com/bizshuk/yfin` (Go 1.26.0)。提供 CLI 指令（flat 結構，無 nested group）、公開 `facade` 資料型別（外部專案導入邊界），以及 `config/`、`svc/{yahoo,scrape,twse}/`、`utils/{httpx,cache,obsv}/`、`model/` 等核心套件。本目錄依讀者角色分層收納使用手冊、API 參考、維運指引與歷史歸檔文件。
 
 ## Getting Started (新進讀者)
 
@@ -35,7 +35,6 @@
 
 ## Integrations (整合開發者)
 
-- [`integrations/ampy-proto.md`](integrations/ampy-proto.md) — `yfin` 與 `ampy-proto` 資料格式對接
 - [`integrations/migration-guide.md`](integrations/migration-guide.md) — 從舊版 API / 直接讀 Yahoo Finance 遷移至 `yfin`
 
 ## Comparisons
@@ -48,8 +47,8 @@
 
 - `history/audit/` — 過往稽核報告 (`AUDIT_REPORT.md`、`AUDIT_SUMMARY.md`、`FINAL_AUDIT_SUMMARY.md`)
 - `history/releases/` — 舊版 release notes 與 release guide
-- `history/specs/` — 早期 Yahoo → ampy-proto mapping 規格 (2025-09-18)
-- `history/mapping/` — Yahoo 欄位至 `ampy-proto` 欄位對照表
+- `history/specs/` — 早期 Yahoo 欄位映射規格 (2025-09-18)
+- `history/mapping/` — Yahoo 欄位對照表（歷史）
 - `history/production-readiness.md` — 早期 production readiness 自我評估
 - `history/testing-implementation.md` — 早期測試實作紀錄
 - `history/documentation-improvements.md` — 早期 documentation improvement 提案

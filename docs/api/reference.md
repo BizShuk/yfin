@@ -286,7 +286,7 @@ type FundamentalsSnapshot struct {
 
 ## Scraping Methods (plain SDK output)
 
-The scrape methods below use the same Yahoo HTML scraping engine that backs the CLI but expose plain SDK structs — no `ampy-proto` types leak through. They are available even when API endpoints require paid subscriptions.
+The scrape methods below use the same Yahoo HTML scraping engine that backs the CLI but expose plain SDK structs. They are available even when API endpoints require paid subscriptions.
 
 ### `ScrapeFinancials()`
 
@@ -412,7 +412,7 @@ When you genuinely need to distinguish missing from zero, use `MarketData` (null
 
 ### Facade vs Internal Precision
 
-`facade.Client` returns plain structs with `float64` decimals — one conversion per field, all in `norm.FromScaledDecimal`. The internal pipeline still uses `*norm.ScaledDecimal` for the emit→ampy-proto path used by the CLI; that path is exposed via `FetchDailyBarsNorm`, `FetchQuoteNorm`, `FetchFundamentalsNorm`, and `FetchMarketDataNorm` on the same client. **External consumers should stick to the plain `Fetch*` / `Scrape*` methods** — the `*Norm` variants exist only for in-tree consumers (CLI's emit pipeline) that need wire-precision decimals.
+`facade.Client` returns plain structs with `float64` decimals — one conversion per field, all in `model.FromScaledDecimal`. The internal pipeline still uses `*model.ScaledDecimal` for the CLI's high-precision paths; that path is exposed via `FetchDailyBarsNorm`, `FetchQuoteNorm`, `FetchFundamentalsNorm`, and `FetchMarketDataNorm` on the same client. **External consumers should stick to the plain `Fetch*` / `Scrape*` methods** — the `*Norm` variants exist only for in-tree consumers that need wire-precision decimals.
 
 ## Error Handling
 

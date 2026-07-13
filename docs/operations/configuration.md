@@ -1,6 +1,6 @@
 # 組態參考 (Configuration Reference)
 
-`yfin` 的所有可調行為 — HTTP 連線、速率限制、重試、熔斷、scrape 引擎、FX 換算、觀測、密鑰 — 都透過 YAML 統一管理。單一 YAML 檔即承載全部設定。
+`yfin` 的所有可調行為 — HTTP 連線、速率限制、重試、熔斷、scrape 引擎、FX 換算、觀測、密鑰 — 都透過 YAML 設定檔統一管理。單一 YAML 檔即承載全部設定。
 
 ## 1. 總覽 (Overview)
 
@@ -14,8 +14,8 @@ CLI Flags > Environment Variables > Config File > Built-in Defaults
 
 - CLI flag：root 級 persistent flags，例如 `--log-level` / `--qps` / `--timeout` / `--concurrency` / `--retry-max`，在任何子命令之前解析。
 - 環境變數 (Environment Variables)：僅供 log / observability 設定使用（走 `gosdk` 的 `APP_*` 慣例）；YAML 內 `${VAR}` / `${VAR:-default}` 插值則於 `Loader.Load()` 階段展開。
-- 設定檔 (Config File)：單一 YAML（`config/effective.yaml` 或 `--config` 指定路徑），由本地 YAML 載入器讀取。
-- 預設值 (Defaults)：YAML 缺欄位時由 `config/types/loader.go` 內建。
+- 設定檔 (Config File)：單一 YAML（`config/effective.yaml` 或 `--config` 指定路徑），由內建 loader 載入。
+- 預設值 (Defaults)：YAML 缺欄位時由 `config/types/config.go` 內建。
 
 ### 設定檔位置 (File Locations)
 
