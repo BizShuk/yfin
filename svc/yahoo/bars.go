@@ -1,241 +1,129 @@
-// Decodes Yahoo chart/bars responses (`BarsResponse` -> `Bar`). Capacity: ~10 structs (`BarsResponse`, `Chart`, `ChartResult`, `ChartMeta`, `ChartIndicators`, `QuoteIndicator`, `AdjCloseIndicator`, `Bar`, `CurrentTradingPeriod`, `TradingPeriod`) + `DecodeBarsResponse` / `DecodeBarsResponseFromReader` with `Validate` that auto-clamps OHLC inconsistencies and skips bars with missing fields.
+// bars.go — `/v8/finance/chart` HTTP fetch + JSON decode for the
+// chart/bars endpoint. Type definitions (ChartResponse, Chart, ChartResult,
+// ChartMeta, ChartIndicators, ChartBar, etc.) live in `model/yahoo_raw.go`;
+// this file only owns the HTTP/JSON-decode behavior and exposes
+// `model.*` types via type aliases for back-compat.
 package yahoo
 
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
-	"math"
+
+	"github.com/bizshuk/yfin/model"
 )
 
-// BarsResponse represents the Yahoo Finance bars API response
-type BarsResponse struct {
-	Chart Chart `json:"chart"`
-}
+// Back-compat type aliases. New code should import `model` directly
+// (e.g. `model.ChartResponse` / `model.ChartBar`). These aliases keep
+// existing callers (`facade.Client.Fetch*`, dispatch wrappers) compiling
+// without churn.
+type (
+	BarsResponse        = model.ChartResponse
+	Chart               = model.Chart
+	ChartResult         = model.ChartResult
+	ChartMeta           = model.ChartMeta
+	CurrentTradingPeriod = model.CurrentTradingPeriod
+	TradingPeriod       = model.TradingPeriod
+	ChartIndicators     = model.ChartIndicators
+	QuoteIndicator      = model.QuoteIndicator
+	AdjCloseIndicator   = model.AdjCloseIndicator
+	Bar                 = model.ChartBar
+)
 
-// Chart contains the chart data
-type Chart struct {
-	Result []ChartResult `json:"result"`
-	Error  *string       `json:"error"`
-}
-
-// ChartResult contains the actual chart data for a symbol
-type ChartResult struct {
-	Meta       ChartMeta       `json:"meta"`
-	Timestamp  []int64         `json:"timestamp"`
-	Indicators ChartIndicators `json:"indicators"`
-}
-
-// ChartMeta contains metadata about the chart
-type ChartMeta struct {
-	Currency             string                `json:"currency"`
-	Symbol               string                `json:"symbol"`
-	ExchangeName         string                `json:"exchangeName"`
-	FullExchangeName     string                `json:"fullExchangeName"`
-	InstrumentType       string                `json:"instrumentType"`
-	FirstTradeDate       int64                 `json:"firstTradeDate"`
-	RegularMarketTime    int64                 `json:"regularMarketTime"`
-	HasPrePostMarketData bool                  `json:"hasPrePostMarketData"`
-	GmtOffset            int64                 `json:"gmtoffset"`
-	Timezone             string                `json:"timezone"`
-	ExchangeTimezoneName string                `json:"exchangeTimezoneName"`
-	RegularMarketPrice   *float64              `json:"regularMarketPrice"`
-	FiftyTwoWeekHigh     *float64              `json:"fiftyTwoWeekHigh"`
-	FiftyTwoWeekLow      *float64              `json:"fiftyTwoWeekLow"`
-	RegularMarketDayHigh *float64              `json:"regularMarketDayHigh"`
-	RegularMarketDayLow  *float64              `json:"regularMarketDayLow"`
-	RegularMarketVolume  *int64                `json:"regularMarketVolume"`
-	LongName             string                `json:"longName"`
-	ShortName            string                `json:"shortName"`
-	ChartPreviousClose   *float64              `json:"chartPreviousClose"`
-	PreviousClose        *float64              `json:"previousClose"`
-	Scale                int                   `json:"scale"`
-	PriceHint            int                   `json:"priceHint"`
-	CurrentTradingPeriod *CurrentTradingPeriod `json:"currentTradingPeriod"`
-	DataGranularity      string                `json:"dataGranularity"`
-	Range                string                `json:"range"`
-	ValidRanges          []string              `json:"validRanges"`
-}
-
-// CurrentTradingPeriod contains trading period information
-type CurrentTradingPeriod struct {
-	Pre     *TradingPeriod `json:"pre"`
-	Regular *TradingPeriod `json:"regular"`
-	Post    *TradingPeriod `json:"post"`
-}
-
-// TradingPeriod represents a trading period
-type TradingPeriod struct {
-	Timezone  string `json:"timezone"`
-	Start     int64  `json:"start"`
-	End       int64  `json:"end"`
-	GmtOffset int64  `json:"gmtoffset"`
-}
-
-// ChartIndicators contains the price and volume indicators
-type ChartIndicators struct {
-	Quote    []QuoteIndicator    `json:"quote"`
-	AdjClose []AdjCloseIndicator `json:"adjclose"`
-}
-
-// QuoteIndicator contains OHLCV data
-type QuoteIndicator struct {
-	Open   []*float64 `json:"open"`
-	High   []*float64 `json:"high"`
-	Low    []*float64 `json:"low"`
-	Close  []*float64 `json:"close"`
-	Volume []*int64   `json:"volume"`
-}
-
-// AdjCloseIndicator contains adjusted close prices
-type AdjCloseIndicator struct {
-	AdjClose []*float64 `json:"adjclose"`
-}
-
-// DecodeBarsResponse decodes a Yahoo Finance bars response with strict validation
-func DecodeBarsResponse(data []byte) (*BarsResponse, error) {
-	var response BarsResponse
-
-	// Use JSON decoding that allows unknown fields
-	// Yahoo Finance frequently adds new fields, so we need to be flexible
+// DecodeBarsResponse decodes a Yahoo Finance bars response (relaxed JSON:
+// unknown fields allowed because Yahoo adds new fields frequently).
+func DecodeBarsResponse(data []byte) (*model.ChartResponse, error) {
+	var response model.ChartResponse
 	decoder := json.NewDecoder(bytes.NewReader(data))
-	// Allow unknown fields to handle Yahoo Finance API evolution
-	// decoder.DisallowUnknownFields()
-
 	if err := decoder.Decode(&response); err != nil {
 		return nil, fmt.Errorf("failed to decode bars response: %w", err)
 	}
-
-	// Validate response structure
-	if err := response.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid bars response: %w", err)
-	}
-
 	return &response, nil
 }
 
-// Validate validates the bars response structure
-func (r *BarsResponse) Validate() error {
-	if r.Chart.Error != nil {
-		return fmt.Errorf("yahoo finance error: %s", *r.Chart.Error)
+// DecodeBarsResponseFromReader is the streaming variant of DecodeBarsResponse.
+func DecodeBarsResponseFromReader(reader io.Reader) (*model.ChartResponse, error) {
+	var response model.ChartResponse
+	decoder := json.NewDecoder(reader)
+	if err := decoder.Decode(&response); err != nil {
+		return nil, fmt.Errorf("failed to decode bars response: %w", err)
 	}
-
-	if len(r.Chart.Result) == 0 {
-		return fmt.Errorf("no chart results found")
-	}
-
-	for i, result := range r.Chart.Result {
-		if err := result.Validate(); err != nil {
-			return fmt.Errorf("result[%d]: %w", i, err)
-		}
-	}
-
-	return nil
+	return &response, nil
 }
 
-// Validate validates a chart result
-func (r *ChartResult) Validate() error {
-	if r.Meta.Symbol == "" {
-		return fmt.Errorf("missing symbol")
+// ErrChartIncomplete is returned when a chart response is structurally
+// valid but missing required OHLCV slices. Surfaced by svc-level
+// validation functions (kept separate from the model-level ErrNoChartResults
+// sentinel because validation is behavior, not data).
+var ErrChartIncomplete = errors.New("chart response has no results")
+
+// ValidateBars runs structural validation on a decoded chart response.
+// Lives in svc/yahoo because validation is behavior; the data shape itself
+// is owned by model.
+func ValidateBars(r *model.ChartResponse) error {
+	if r == nil || len(r.Chart.Result) == 0 {
+		return ErrChartIncomplete
 	}
-
-	if r.Meta.Currency == "" {
-		return fmt.Errorf("missing currency")
-	}
-
-	if len(r.Timestamp) == 0 {
-		return nil
-	}
-
-	quote := r.Indicators.Quote[0]
-
-	// Validate data consistency
-	expectedLen := len(r.Timestamp)
-	if len(quote.Open) != expectedLen ||
-		len(quote.High) != expectedLen ||
-		len(quote.Low) != expectedLen ||
-		len(quote.Close) != expectedLen ||
-		len(quote.Volume) != expectedLen {
-		return fmt.Errorf("data length mismatch: timestamps=%d, quote data lengths vary", expectedLen)
-	}
-
-	// Validate OHLCV data for each bar - skip bars with missing data
-	validBars := 0
-	for i := 0; i < expectedLen; i++ {
-		// Check if this bar has complete data
-		if quote.Open[i] != nil && quote.High[i] != nil && quote.Low[i] != nil && quote.Close[i] != nil && quote.Volume[i] != nil {
-			if err := validateBarData(quote.Open[i], quote.High[i], quote.Low[i], quote.Close[i], quote.Volume[i]); err != nil {
-				return fmt.Errorf("bar[%d]: %w", i, err)
+	for i, result := range r.Chart.Result {
+		if result.Meta.Symbol == "" {
+			return fmt.Errorf("result[%d]: missing symbol", i)
+		}
+		if result.Meta.Currency == "" {
+			return fmt.Errorf("result[%d]: missing currency", i)
+		}
+		if len(result.Timestamp) == 0 {
+			continue
+		}
+		quote := result.Indicators.Quote[0]
+		expectedLen := len(result.Timestamp)
+		if len(quote.Open) != expectedLen ||
+			len(quote.High) != expectedLen ||
+			len(quote.Low) != expectedLen ||
+			len(quote.Close) != expectedLen ||
+			len(quote.Volume) != expectedLen {
+			return fmt.Errorf("result[%d]: data length mismatch", i)
+		}
+		// Per-bar validation: skip bars with missing data, validate the rest.
+		validBars := 0
+		for j := 0; j < expectedLen; j++ {
+			if quote.Open[j] == nil || quote.High[j] == nil || quote.Low[j] == nil || quote.Close[j] == nil || quote.Volume[j] == nil {
+				continue
+			}
+			if err := validateBarData(quote.Open[j], quote.High[j], quote.Low[j], quote.Close[j], quote.Volume[j]); err != nil {
+				return fmt.Errorf("result[%d].bar[%d]: %w", i, j, err)
 			}
 			validBars++
 		}
-		// Skip bars with missing data - this is common for international markets
-	}
-
-	// Ensure we have at least some valid data
-	if validBars == 0 {
-		return fmt.Errorf("no valid bars found - all bars have missing OHLCV data")
-	}
-
-	// Validate adjusted close if present
-	if len(r.Indicators.AdjClose) > 0 {
-		adjClose := r.Indicators.AdjClose[0]
-		if len(adjClose.AdjClose) != expectedLen {
-			return fmt.Errorf("adjusted close length mismatch: expected=%d, got=%d", expectedLen, len(adjClose.AdjClose))
-		}
-
-		for i := 0; i < expectedLen; i++ {
-			if adjClose.AdjClose[i] != nil {
-				if err := validatePrice(*adjClose.AdjClose[i]); err != nil {
-					return fmt.Errorf("adjusted close[%d]: %w", i, err)
-				}
-			}
+		if validBars == 0 {
+			return fmt.Errorf("result[%d]: no valid bars found", i)
 		}
 	}
-
 	return nil
 }
 
-// validateBarData validates OHLCV data for a single bar
+// validateBarData validates a single OHLCV bar's price + volume
+// invariants and clamps high/low to ensure OHLC consistency.
 func validateBarData(open, high, low, closePrice *float64, volume *int64) error {
-	// Check for nil values - be more specific about which field is missing
-	if open == nil {
-		return fmt.Errorf("missing open price")
+	if open == nil || high == nil || low == nil || closePrice == nil || volume == nil {
+		return fmt.Errorf("missing field")
 	}
-	if high == nil {
-		return fmt.Errorf("missing high price")
-	}
-	if low == nil {
-		return fmt.Errorf("missing low price")
-	}
-	if closePrice == nil {
-		return fmt.Errorf("missing close price")
-	}
-	if volume == nil {
-		return fmt.Errorf("missing volume")
-	}
-
-	// Validate prices
 	if err := validatePrice(*open); err != nil {
-		return fmt.Errorf("invalid open price: %w", err)
+		return fmt.Errorf("invalid open: %w", err)
 	}
 	if err := validatePrice(*high); err != nil {
-		return fmt.Errorf("invalid high price: %w", err)
+		return fmt.Errorf("invalid high: %w", err)
 	}
 	if err := validatePrice(*low); err != nil {
-		return fmt.Errorf("invalid low price: %w", err)
+		return fmt.Errorf("invalid low: %w", err)
 	}
 	if err := validatePrice(*closePrice); err != nil {
-		return fmt.Errorf("invalid close price: %w", err)
+		return fmt.Errorf("invalid close: %w", err)
 	}
-
-	// Validate volume
 	if *volume < 0 {
 		return fmt.Errorf("negative volume: %d", *volume)
 	}
-
-	// Validate OHLC relationships - clamp/adjust to ensure consistency
 	if *high < *low {
 		*high = *low
 	}
@@ -251,110 +139,13 @@ func validateBarData(open, high, low, closePrice *float64, volume *int64) error 
 	if *low > *closePrice {
 		*low = *closePrice
 	}
-
 	return nil
 }
 
-// validatePrice validates a price value
-func validatePrice(price float64) error {
-	if math.IsNaN(price) {
-		return fmt.Errorf("NaN price")
-	}
-	if math.IsInf(price, 0) {
-		return fmt.Errorf("infinite price")
-	}
-	if price < 0 {
-		return fmt.Errorf("negative price: %.4f", price)
-	}
-	return nil
-}
-
-// GetBars extracts bar data from the response
-func (r *BarsResponse) GetBars() ([]Bar, error) {
-	if len(r.Chart.Result) == 0 {
-		return nil, fmt.Errorf("no chart results")
-	}
-
-	result := r.Chart.Result[0]
-	if len(result.Timestamp) == 0 || len(result.Indicators.Quote) == 0 {
-		return []Bar{}, nil
-	}
-	quote := result.Indicators.Quote[0]
-
-	bars := make([]Bar, 0, len(result.Timestamp))
-
-	for i, timestamp := range result.Timestamp {
-		// Skip bars with missing OHLCV data
-		if quote.Open[i] == nil || quote.High[i] == nil || quote.Low[i] == nil || quote.Close[i] == nil || quote.Volume[i] == nil {
-			continue
-		}
-
-		bar := Bar{
-			Timestamp: timestamp,
-			Open:      *quote.Open[i],
-			High:      *quote.High[i],
-			Low:       *quote.Low[i],
-			Close:     *quote.Close[i],
-			Volume:    *quote.Volume[i],
-		}
-
-		// Add adjusted close if available
-		if len(result.Indicators.AdjClose) > 0 &&
-			result.Indicators.AdjClose[0].AdjClose[i] != nil {
-			bar.AdjClose = result.Indicators.AdjClose[0].AdjClose[i]
-		}
-
-		bars = append(bars, bar)
-	}
-
-	return bars, nil
-}
-
-// Bar represents a single bar of OHLCV data
-type Bar struct {
-	Timestamp int64    `json:"timestamp"`
-	Open      float64  `json:"open"`
-	High      float64  `json:"high"`
-	Low       float64  `json:"low"`
-	Close     float64  `json:"close"`
-	Volume    int64    `json:"volume"`
-	AdjClose  *float64 `json:"adjclose,omitempty"`
-}
-
-// GetMetadata returns the chart metadata
-func (r *BarsResponse) GetMetadata() *ChartMeta {
-	if len(r.Chart.Result) == 0 {
-		return nil
-	}
-	return &r.Chart.Result[0].Meta
-}
-
-// IsAdjusted returns true if adjusted close data is available
-func (r *BarsResponse) IsAdjusted() bool {
-	if len(r.Chart.Result) == 0 {
+// IsAdjusted reports whether the chart response carries adjusted-close data.
+func IsAdjusted(r *model.ChartResponse) bool {
+	if r == nil || len(r.Chart.Result) == 0 {
 		return false
 	}
 	return len(r.Chart.Result[0].Indicators.AdjClose) > 0
-}
-
-// DecodeBarsResponseFromReader decodes a Yahoo Finance bars response from an io.Reader
-func DecodeBarsResponseFromReader(reader io.Reader) (*BarsResponse, error) {
-	var response BarsResponse
-
-	// Use JSON decoding that allows unknown fields
-	// Yahoo Finance frequently adds new fields, so we need to be flexible
-	decoder := json.NewDecoder(reader)
-	// Allow unknown fields to handle Yahoo Finance API evolution
-	// decoder.DisallowUnknownFields()
-
-	if err := decoder.Decode(&response); err != nil {
-		return nil, fmt.Errorf("failed to decode bars response: %w", err)
-	}
-
-	// Validate response structure
-	if err := response.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid bars response: %w", err)
-	}
-
-	return &response, nil
 }

@@ -4,8 +4,6 @@ package model
 
 import (
 	"testing"
-
-	"github.com/bizshuk/yfin/svc/yahoo"
 )
 
 // Golden file tests removed - they were testing against outdated scale expectations
@@ -13,13 +11,13 @@ import (
 func TestNormalizeQuoteValidation(t *testing.T) {
 	tests := []struct {
 		name    string
-		quote   yahoo.Quote
+		quote   RawQuote
 		runID   string
 		wantErr bool
 	}{
 		{
 			name: "valid quote",
-			quote: yahoo.Quote{
+			quote: RawQuote{
 				Symbol:   "MSFT",
 				Currency: "USD",
 				Exchange: "NMS",
@@ -33,7 +31,7 @@ func TestNormalizeQuoteValidation(t *testing.T) {
 		},
 		{
 			name: "missing symbol",
-			quote: yahoo.Quote{
+			quote: RawQuote{
 				Symbol:   "",
 				Currency: "USD",
 				Exchange: "NMS",
@@ -43,7 +41,7 @@ func TestNormalizeQuoteValidation(t *testing.T) {
 		},
 		{
 			name: "missing currency",
-			quote: yahoo.Quote{
+			quote: RawQuote{
 				Symbol:   "MSFT",
 				Currency: "",
 				Exchange: "NMS",

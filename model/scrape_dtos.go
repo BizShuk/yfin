@@ -239,10 +239,10 @@ type HistoricalQuarter struct {
 
 // FinancialDataPoint represents a single financial data point from Yahoo Finance
 type FinancialDataPoint struct {
-	DataID       int64  `json:"dataId"`
-	AsOfDate     string `json:"asOfDate"`
-	PeriodType   string `json:"periodType"`
-	CurrencyCode string `json:"currencyCode"`
+	DataID        int64  `json:"dataId"`
+	AsOfDate      string `json:"asOfDate"`
+	PeriodType    string `json:"periodType"`
+	CurrencyCode  string `json:"currencyCode"`
 	ReportedValue struct {
 		Raw float64 `json:"raw"`
 		Fmt string  `json:"fmt"`

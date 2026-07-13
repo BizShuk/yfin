@@ -68,7 +68,7 @@ type YahooNum struct {
 
 // YahooInt represents Yahoo's integer format with raw, fmt, and longFmt
 type YahooInt struct {
-	Raw     *int64  `json:"raw,omitempty"`
+	Raw     *int64 `json:"raw,omitempty"`
 	Fmt     string `json:"fmt,omitempty"`
 	LongFmt string `json:"longFmt,omitempty"`
 }

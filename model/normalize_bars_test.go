@@ -5,8 +5,6 @@ package model
 import (
 	"testing"
 	"time"
-
-	"github.com/bizshuk/yfin/svc/yahoo"
 )
 
 // Golden file tests removed - they were testing against outdated scale expectations
@@ -14,14 +12,14 @@ import (
 func TestNormalizeBarsValidation(t *testing.T) {
 	tests := []struct {
 		name    string
-		bars    []yahoo.Bar
-		meta    *yahoo.ChartMeta
+		bars    []ChartBar
+		meta    *ChartMeta
 		runID   string
 		wantErr bool
 	}{
 		{
 			name: "valid bars",
-			bars: []yahoo.Bar{
+			bars: []ChartBar{
 				{
 					Timestamp: 1704326400,
 					Open:      189.23,
@@ -31,7 +29,7 @@ func TestNormalizeBarsValidation(t *testing.T) {
 					Volume:    43210000,
 				},
 			},
-			meta: &yahoo.ChartMeta{
+			meta: &ChartMeta{
 				Symbol:   "AAPL",
 				Currency: "USD",
 			},
@@ -40,8 +38,8 @@ func TestNormalizeBarsValidation(t *testing.T) {
 		},
 		{
 			name: "empty bars",
-			bars: []yahoo.Bar{},
-			meta: &yahoo.ChartMeta{
+			bars: []ChartBar{},
+			meta: &ChartMeta{
 				Symbol:   "AAPL",
 				Currency: "USD",
 			},
@@ -50,7 +48,7 @@ func TestNormalizeBarsValidation(t *testing.T) {
 		},
 		{
 			name: "nil metadata",
-			bars: []yahoo.Bar{
+			bars: []ChartBar{
 				{
 					Timestamp: 1704326400,
 					Open:      189.23,
@@ -66,7 +64,7 @@ func TestNormalizeBarsValidation(t *testing.T) {
 		},
 		{
 			name: "missing symbol",
-			bars: []yahoo.Bar{
+			bars: []ChartBar{
 				{
 					Timestamp: 1704326400,
 					Open:      189.23,
@@ -76,7 +74,7 @@ func TestNormalizeBarsValidation(t *testing.T) {
 					Volume:    43210000,
 				},
 			},
-			meta: &yahoo.ChartMeta{
+			meta: &ChartMeta{
 				Symbol:   "",
 				Currency: "USD",
 			},

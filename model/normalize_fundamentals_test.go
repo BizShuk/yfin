@@ -4,8 +4,6 @@ package model
 
 import (
 	"testing"
-
-	"github.com/bizshuk/yfin/svc/yahoo"
 )
 
 // Golden file tests removed - they were testing against outdated scale expectations
@@ -13,29 +11,29 @@ import (
 func TestNormalizeFundamentalsValidation(t *testing.T) {
 	tests := []struct {
 		name         string
-		fundamentals *yahoo.Fundamentals
+		fundamentals *Fundamentals
 		symbol       string
 		runID        string
 		wantErr      bool
 	}{
 		{
 			name: "valid fundamentals",
-			fundamentals: &yahoo.Fundamentals{
-				IncomeStatements: []yahoo.IncomeStatement{
+			fundamentals: &Fundamentals{
+				IncomeStatements: []IncomeStatement{
 					{
-						EndDate: yahoo.DateValue{
+						EndDate: DateValue{
 							Raw: 1719705600, // 2024-06-29
 							Fmt: "2024-06-29",
 						},
-						TotalRevenue: &yahoo.Value{
+						TotalRevenue: &Value{
 							Raw: func() *int64 { v := int64(1198700000000); return &v }(),
 							Fmt: func() *string { v := "1.2T"; return &v }(),
 						},
-						NetIncome: &yahoo.Value{
+						NetIncome: &Value{
 							Raw: func() *int64 { v := int64(23860000000); return &v }(),
 							Fmt: func() *string { v := "23.86B"; return &v }(),
 						},
-						EPS: &yahoo.Value{
+						EPS: &Value{
 							Raw: func() *int64 { v := int64(1525); return &v }(),
 							Fmt: func() *string { v := "1.53"; return &v }(),
 						},
@@ -55,8 +53,8 @@ func TestNormalizeFundamentalsValidation(t *testing.T) {
 		},
 		{
 			name: "empty fundamentals",
-			fundamentals: &yahoo.Fundamentals{
-				IncomeStatements: []yahoo.IncomeStatement{},
+			fundamentals: &Fundamentals{
+				IncomeStatements: []IncomeStatement{},
 			},
 			symbol:  "AAPL",
 			runID:   "test_run",
@@ -64,14 +62,14 @@ func TestNormalizeFundamentalsValidation(t *testing.T) {
 		},
 		{
 			name: "missing symbol",
-			fundamentals: &yahoo.Fundamentals{
-				IncomeStatements: []yahoo.IncomeStatement{
+			fundamentals: &Fundamentals{
+				IncomeStatements: []IncomeStatement{
 					{
-						EndDate: yahoo.DateValue{
+						EndDate: DateValue{
 							Raw: 1719705600,
 							Fmt: "2024-06-29",
 						},
-						TotalRevenue: &yahoo.Value{
+						TotalRevenue: &Value{
 							Raw: func() *int64 { v := int64(1198700000000); return &v }(),
 						},
 					},

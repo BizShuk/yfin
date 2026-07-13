@@ -1,26 +1,24 @@
 // normalize.go — `Normalize*` conversion functions from raw Yahoo Finance
-// response shapes into `Normalized*` data types. Originally split across
-// svc/norm/{bars,quotes,fundamentals,market_data,company_info}.go;
-// consolidated here so any layer can construct normalized data without
-// pulling in svc/norm.
+// response shapes (now in `model/yahoo_raw.go`) into `Normalized*` data
+// types. Originally split across svc/norm/{bars,quotes,fundamentals,
+// market_data,company_info}.go; consolidated here so any layer can
+// construct normalized data without pulling in svc/norm.
 //
 // Function bodies retain the original logic verbatim (currency-aware
 // ScaledDecimal conversion, MIC inference, UTC timestamp normalization).
-// The only change vs the original is the package declaration (model vs
-// norm); method receivers resolve automatically because the receiver types
-// (NormalizedBar etc.) are now defined in this same package.
+// All inputs are `model.*` types — no `svc/yahoo` import, no import
+// cycle. svc/yahoo's decoder returns `*model.ChartResponse` /
+// `*model.QuoteResponse` / `*model.FundamentalsResponse` directly.
 
 package model
 
 import (
 	"fmt"
 	"time"
-
-	"github.com/bizshuk/yfin/svc/yahoo"
 )
 
 // NormalizeBars converts Yahoo Finance bars to normalized bars.
-func NormalizeBars(bars []yahoo.Bar, meta *yahoo.ChartMeta, runID string) (*NormalizedBarBatch, error) {
+func NormalizeBars(bars []ChartBar, meta *ChartMeta, runID string) (*NormalizedBarBatch, error) {
 	if len(bars) == 0 {
 		return nil, fmt.Errorf("no bars to normalize")
 	}
@@ -74,7 +72,7 @@ func NormalizeBars(bars []yahoo.Bar, meta *yahoo.ChartMeta, runID string) (*Norm
 	}, nil
 }
 
-func normalizeBar(bar yahoo.Bar, currency string, scale int, isAdjusted bool, adjustmentPolicyID string, now time.Time) (NormalizedBar, error) {
+func normalizeBar(bar ChartBar, currency string, scale int, isAdjusted bool, adjustmentPolicyID string, now time.Time) (NormalizedBar, error) {
 	start, end, eventTime := ToUTCDayBoundaries(bar.Timestamp)
 
 	closePrice := bar.Close
@@ -117,7 +115,7 @@ func normalizeBar(bar yahoo.Bar, currency string, scale int, isAdjusted bool, ad
 }
 
 // NormalizeQuote converts a Yahoo Finance quote to a normalized quote.
-func NormalizeQuote(quote yahoo.Quote, runID string) (*NormalizedQuote, error) {
+func NormalizeQuote(quote RawQuote, runID string) (*NormalizedQuote, error) {
 	if quote.Symbol == "" {
 		return nil, fmt.Errorf("missing symbol")
 	}
@@ -207,7 +205,7 @@ func NormalizeQuote(quote yahoo.Quote, runID string) (*NormalizedQuote, error) {
 }
 
 // NormalizeFundamentals converts Yahoo Finance fundamentals to normalized fundamentals.
-func NormalizeFundamentals(fundamentals *yahoo.Fundamentals, symbol, runID string) (*NormalizedFundamentalsSnapshot, error) {
+func NormalizeFundamentals(fundamentals *Fundamentals, symbol, runID string) (*NormalizedFundamentalsSnapshot, error) {
 	if fundamentals == nil {
 		return nil, fmt.Errorf("no fundamentals data")
 	}
@@ -264,7 +262,7 @@ func NormalizeFundamentals(fundamentals *yahoo.Fundamentals, symbol, runID strin
 	}, nil
 }
 
-func normalizeIncomeStatement(stmt yahoo.IncomeStatement) ([]NormalizedFundamentalsLine, error) {
+func normalizeIncomeStatement(stmt IncomeStatement) ([]NormalizedFundamentalsLine, error) {
 	lines := make([]NormalizedFundamentalsLine, 0)
 	periodStart, periodEnd := convertDateToPeriod(stmt.EndDate)
 
@@ -286,7 +284,7 @@ func normalizeIncomeStatement(stmt yahoo.IncomeStatement) ([]NormalizedFundament
 	return lines, nil
 }
 
-func normalizeBalanceSheet(sheet yahoo.BalanceSheet) ([]NormalizedFundamentalsLine, error) {
+func normalizeBalanceSheet(sheet BalanceSheet) ([]NormalizedFundamentalsLine, error) {
 	lines := make([]NormalizedFundamentalsLine, 0)
 	periodStart, periodEnd := convertDateToPeriod(sheet.EndDate)
 
@@ -308,7 +306,7 @@ func normalizeBalanceSheet(sheet yahoo.BalanceSheet) ([]NormalizedFundamentalsLi
 	return lines, nil
 }
 
-func normalizeCashflowStatement(stmt yahoo.CashflowStatement) ([]NormalizedFundamentalsLine, error) {
+func normalizeCashflowStatement(stmt CashflowStatement) ([]NormalizedFundamentalsLine, error) {
 	lines := make([]NormalizedFundamentalsLine, 0)
 	periodStart, periodEnd := convertDateToPeriod(stmt.EndDate)
 
@@ -359,7 +357,7 @@ func createFundamentalsLine(key string, value int64, currency string, periodStar
 	}, nil
 }
 
-func convertDateToPeriod(dateValue yahoo.DateValue) (periodStart, periodEnd time.Time) {
+func convertDateToPeriod(dateValue DateValue) (periodStart, periodEnd time.Time) {
 	if dateValue.Raw != 0 {
 		periodEnd = time.Unix(dateValue.Raw, 0).UTC()
 		periodStart = periodEnd.AddDate(0, -3, 0)
@@ -371,7 +369,7 @@ func convertDateToPeriod(dateValue yahoo.DateValue) (periodStart, periodEnd time
 }
 
 // NormalizeMarketData normalizes comprehensive market data from chart metadata.
-func NormalizeMarketData(meta *yahoo.ChartMeta, runID string) (*NormalizedMarketData, error) {
+func NormalizeMarketData(meta *ChartMeta, runID string) (*NormalizedMarketData, error) {
 	if meta == nil {
 		return nil, fmt.Errorf("metadata is nil")
 	}
@@ -413,7 +411,7 @@ func NormalizeMarketData(meta *yahoo.ChartMeta, runID string) (*NormalizedMarket
 }
 
 // NormalizeCompanyInfo normalizes company information from chart metadata.
-func NormalizeCompanyInfo(meta *yahoo.ChartMeta, runID string) (*NormalizedCompanyInfo, error) {
+func NormalizeCompanyInfo(meta *ChartMeta, runID string) (*NormalizedCompanyInfo, error) {
 	if meta == nil {
 		return nil, fmt.Errorf("metadata is nil")
 	}

@@ -249,7 +249,7 @@ func TestBarsResponseValidation(t *testing.T) {
 				t.Fatalf("Failed to unmarshal test data: %v", err)
 			}
 
-			err = response.Validate()
+			err = ValidateBars(&response)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Validate() error = %v, wantErr %v", err, tt.wantErr)
 			}
