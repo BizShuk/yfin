@@ -135,14 +135,9 @@ Focus: the crux. Make the SDK return plain structs; keep the CLI on the full-pre
 proto/bus path via its own helpers.
 
 - Convert `facade.Client` return types (internals unchanged — still fetch→norm and
-  scrape→emit→proto, then convert to plain via Step 5 before returning):
-    - `Fetch{Daily,Intraday,Weekly,Monthly}Bars` → `*facade.BarBatch`
-    - `FetchQuote` → `*facade.Quote`; `FetchCompanyInfo` → `*facade.CompanyInfo`
-    - `FetchMarketData` → `*facade.MarketData`
-    - `FetchFundamentalsQuarterly` + all `Scrape{Financials,BalanceSheet,CashFlow,
-      KeyStatistics,Analysis,AnalystInsights}` → `*facade.FundamentalsSnapshot`
-    - `ScrapeNews` → `[]facade.NewsItem`; `ScrapeAllFundamentals` →
-      `[]*facade.FundamentalsSnapshot`
+  scrape→emit→proto, then convert to plain via Step 5 before returning): - `Fetch{Daily,Intraday,Weekly,Monthly}Bars` → `*facade.BarBatch` - `FetchQuote` → `*facade.Quote`; `FetchCompanyInfo` → `*facade.CompanyInfo` - `FetchMarketData` → `*facade.MarketData` - `FetchFundamentalsQuarterly` + all `Scrape{Financials,BalanceSheet,CashFlow,
+KeyStatistics,Analysis,AnalystInsights}` → `*facade.FundamentalsSnapshot` - `ScrapeNews` → `[]facade.NewsItem`; `ScrapeAllFundamentals` →
+  `[]*facade.FundamentalsSnapshot`
 - Add `cmd/fetch.go`: thin `svc/yahoo` + `internal/norm` helpers (glue lifted from
   old `client.go`) — `fetchDailyBarsNorm`, `fetchQuoteNorm`, `fetchFundamentalsNorm`,
   `fetchMarketDataNorm` returning `*norm.*`. Repoint `createClient`,
@@ -181,7 +176,7 @@ notifies when each finishes. Verify before starting the next step.
 
 ### Step 2 — Relocate `client.go` into `facade/`
 
-```
+```text
 You are implementing Step 2 of /Users/shuk/projects/yfinance-go/plans/spicy-singing-swan.md
 in the working directory /Users/shuk/projects/yfinance-go.
 
@@ -224,7 +219,7 @@ Do not commit. Do not touch the plan file.
 
 ### Step 3 — Root `main.go` + `cmd` package
 
-```
+```text
 You are implementing Step 3 of /Users/shuk/projects/yfinance-go/plans/spicy-singing-swan.md
 in the working directory /Users/shuk/projects/yfinance-go.
 
@@ -261,7 +256,7 @@ Reporting: short summary + exact verification output.
 
 ### Step 4 — gosdk config + logging + metric (layered)
 
-```
+```text
 You are implementing Step 4 of /Users/shuk/projects/yfinance-go/plans/spicy-singing-swan.md
 in the working directory /Users/shuk/projects/yfinance-go.
 
@@ -306,7 +301,7 @@ function name differs from what you assumed, cite the file:line you found it at.
 
 ### Step 5 — Add facade plain types + converters (additive)
 
-```
+```text
 You are implementing Step 5 of /Users/shuk/projects/yfinance-go/plans/spicy-singing-swan.md
 in the working directory /Users/shuk/projects/yfinance-go.
 
@@ -353,7 +348,7 @@ slice, document your decision — flat slice loses key ordering but is the simpl
 
 ### Step 6 — Flip facade.Client to plain structs + rewire CLI fetch path
 
-```
+```text
 You are implementing Step 6 of /Users/shuk/projects/yfinance-go/plans/spicy-singing-swan.md
 in the working directory /Users/shuk/projects/yfinance-go.
 

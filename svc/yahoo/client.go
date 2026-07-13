@@ -88,7 +88,7 @@ func (c *Client) FetchQuote(ctx context.Context, symbol string) (*QuoteResponse,
 	}
 
 	// Convert chart metadata to quote response
-	quoteResp, err := c.convertChartToQuote(barsResp, symbol)
+	quoteResp, err := c.convertChartToQuote(barsResp)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert chart to quote: %w", err)
 	}
@@ -133,7 +133,7 @@ func (c *Client) fetchChartRaw(ctx context.Context, symbol string, daysBack int)
 }
 
 // buildBarsURL builds the URL for fetching daily bars
-func (c *Client) buildBarsURL(symbol string, start, end time.Time, adjusted bool) (string, error) {
+func (c *Client) buildBarsURL(symbol string, start, end time.Time, _ bool) (string, error) {
 	u, err := url.Parse(c.baseURL + "/v8/finance/chart/" + symbol)
 	if err != nil {
 		return "", err
@@ -152,7 +152,7 @@ func (c *Client) buildBarsURL(symbol string, start, end time.Time, adjusted bool
 }
 
 // convertChartToQuote converts chart metadata to a quote response
-func (c *Client) convertChartToQuote(barsResp *BarsResponse, symbol string) (*QuoteResponse, error) {
+func (c *Client) convertChartToQuote(barsResp *BarsResponse) (*QuoteResponse, error) {
 	if len(barsResp.Chart.Result) == 0 {
 		return nil, fmt.Errorf("no chart results found")
 	}
@@ -351,7 +351,7 @@ func (c *Client) buildIntradayBarsURL(symbol string, start, end time.Time, inter
 }
 
 // buildWeeklyBarsURL builds the URL for fetching weekly bars
-func (c *Client) buildWeeklyBarsURL(symbol string, start, end time.Time, adjusted bool) (string, error) {
+func (c *Client) buildWeeklyBarsURL(symbol string, start, end time.Time, _ bool) (string, error) {
 	u, err := url.Parse(c.baseURL + "/v8/finance/chart/" + symbol)
 	if err != nil {
 		return "", err
@@ -370,7 +370,7 @@ func (c *Client) buildWeeklyBarsURL(symbol string, start, end time.Time, adjuste
 }
 
 // buildMonthlyBarsURL builds the URL for fetching monthly bars
-func (c *Client) buildMonthlyBarsURL(symbol string, start, end time.Time, adjusted bool) (string, error) {
+func (c *Client) buildMonthlyBarsURL(symbol string, start, end time.Time, _ bool) (string, error) {
 	u, err := url.Parse(c.baseURL + "/v8/finance/chart/" + symbol)
 	if err != nil {
 		return "", err

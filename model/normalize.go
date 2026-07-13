@@ -41,13 +41,11 @@ func NormalizeBars(bars []ChartBar, meta *ChartMeta, runID string) (*NormalizedB
 		}
 	}
 
-	scale := GetScaleForCurrency(meta.Currency)
-
 	normalizedBars := make([]NormalizedBar, 0, len(bars))
 	ingestTime := time.Now().UTC()
 
 	for _, bar := range bars {
-		normalizedBar, err := normalizeBar(bar, meta.Currency, scale, isAdjusted, adjustmentPolicyID, ingestTime)
+		normalizedBar, err := normalizeBar(bar, meta.Currency, isAdjusted, adjustmentPolicyID, ingestTime)
 		if err != nil {
 			continue
 		}
@@ -72,7 +70,7 @@ func NormalizeBars(bars []ChartBar, meta *ChartMeta, runID string) (*NormalizedB
 	}, nil
 }
 
-func normalizeBar(bar ChartBar, currency string, scale int, isAdjusted bool, adjustmentPolicyID string, now time.Time) (NormalizedBar, error) {
+func normalizeBar(bar ChartBar, currency string, isAdjusted bool, adjustmentPolicyID string, now time.Time) (NormalizedBar, error) {
 	start, end, eventTime := ToUTCDayBoundaries(bar.Timestamp)
 
 	closePrice := bar.Close
