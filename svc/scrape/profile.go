@@ -1,4 +1,4 @@
-//  — Parses Yahoo company-profile HTML (assetProfile + quoteResponse script tags) into ComprehensiveProfileDTO with executives and governance risk scores. Capacity: ~22 DTO fields + variable executive list.
+// — Parses Yahoo company-profile HTML (assetProfile + quoteResponse script tags) into ComprehensiveProfileDTO with executives and governance risk scores. Capacity: ~22 DTO fields + variable executive list.
 package scrape
 
 import (
@@ -12,8 +12,8 @@ import (
 
 // DTO aliases — types now live in model/scrape_dtos.go.
 type (
-	Executive                 = model.Executive
-	ComprehensiveProfileDTO   = model.ComprehensiveProfileDTO
+	Executive               = model.Executive
+	ComprehensiveProfileDTO = model.ComprehensiveProfileDTO
 )
 
 // extractCompanyNameFromQuote extracts company name from the quote data in the same script tag

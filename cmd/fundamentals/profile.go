@@ -9,7 +9,8 @@ import (
 	"time"
 
 	"github.com/bizshuk/yfin/cmd"
-	"github.com/bizshuk/yfin/config/types"
+	"github.com/bizshuk/yfin/cmd/format"
+	"github.com/bizshuk/yfin/config"
 	"github.com/bizshuk/yfin/facade"
 	"github.com/bizshuk/yfin/utils/obsv"
 	"github.com/spf13/cobra"
@@ -51,7 +52,7 @@ func runComprehensiveProfile(cobraCmd *cobra.Command, cfg *comprehensiveProfileC
 		runID = fmt.Sprintf("yfin_comprehensive_profile_%d", time.Now().Unix())
 	}
 
-	loader := types.NewLoader(cmd.Global.ConfigFile)
+	loader := config.NewLoader(cmd.Global.ConfigFile)
 	ycfg, err := loader.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to load configuration: %v\n", err)
@@ -113,6 +114,6 @@ func runComprehensiveProfileExtraction(ctx context.Context, client *facade.Clien
 	if err != nil {
 		return fmt.Errorf("failed to parse comprehensive profile: %w", err)
 	}
-	printComprehensiveProfileSummary(dto)
+	format.ComprehensiveProfile(dto)
 	return nil
 }

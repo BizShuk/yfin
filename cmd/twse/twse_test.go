@@ -1,33 +1,34 @@
 // twse_test.go — twse CLI tests using httptest-backed fake TWSE: `MI_INDEX`
 // happy path, empty-data fallback, unknown endpoint, missing `--stock`,
-// `FMSRFK` stock-no dispatch, registry-coverage check over
-// `twseNameToFetcher`, and `buildTWSEClient` composition verification.
-// Capacity: 7 test functions + 3 test helpers
+// `FMSRFK` stock-no dispatch, registry ↔ fetcher-map coverage, and
+// `facade.NewTwseClient` composition verification. Like the production
+// file, this test reaches TWSE only through `facade` — no svc/twse import.
+// Capacity: 6 test functions + 3 test helpers
 // (`setTwseClientForTest`/`captureStdout`/`resetTwseCfg`).
 package twse
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/bizshuk/yfin/facade"
-	svcTWSE "github.com/bizshuk/yfin/svc/twse"
 	"github.com/bizshuk/yfin/utils/httpx"
 )
 
-// newTWSEClientForTest builds a *svcTWSE.Client pointed at srv.URL via a
+// twseBaseURL is the production TWSE origin facade.NewTwseClient must target.
+const twseBaseURL = "https://www.twse.com.tw/rwd/zh"
+
+// newTWSEClientForTest builds a *facade.TwseClient pointed at srv.URL via a
 // real (latency-free) httpx.Client. This exercises the full transport path
 // that production uses — just pointed at a local httptest server.
-func newTWSEClientForTest(t *testing.T, srv *httptest.Server) *svcTWSE.Client {
+func newTWSEClientForTest(t *testing.T, srv *httptest.Server) *facade.TwseClient {
 	t.Helper()
 	hc := httpx.NewClient(&httpx.Config{
 		BaseURL:          "",
@@ -42,7 +43,7 @@ func newTWSEClientForTest(t *testing.T, srv *httptest.Server) *svcTWSE.Client {
 		FailureThreshold: 1000,
 		ResetTimeout:     time.Second,
 	})
-	return svcTWSE.NewClientWithURL(hc, srv.URL)
+	return facade.NewTwseClientWithHTTP(hc, srv.URL)
 }
 
 func resetTwseCfg(t *testing.T) {
@@ -51,10 +52,10 @@ func resetTwseCfg(t *testing.T) {
 }
 
 // setTwseClientForTest swaps the twseClientProvider for the lifetime of one test.
-func setTwseClientForTest(t *testing.T, client *svcTWSE.Client) func() {
+func setTwseClientForTest(t *testing.T, client *facade.TwseClient) func() {
 	t.Helper()
 	prev := twseClientProvider
-	twseClientProvider = func() *svcTWSE.Client { return client }
+	twseClientProvider = func() *facade.TwseClient { return client }
 	return func() { twseClientProvider = prev }
 }
 
@@ -216,51 +217,26 @@ func TestRunTwseEndpoint_FMSRFK_DispatchesWithStock(t *testing.T) {
 	}
 }
 
+// TestNameToFetcher_CoversAllRegistryEntries asserts every endpoint the
+// registry advertises actually has a fetcher wired up, so a new registry
+// entry cannot ship without its dispatch arm.
 func TestNameToFetcher_CoversAllRegistryEntries(t *testing.T) {
-	// facade.TwseRegistry mirrors svc/twse.Registry; verify every entry
-	// dispatches successfully (catches "no fetcher wired" regressions).
 	for name := range facade.TwseRegistry {
-		_, err := facade.TwseDispatch(context.Background(), nil, name, "", url.Values{})
-		if err != nil && strings.Contains(err.Error(), "no fetcher wired") {
-			t.Errorf("registry entry %q has no fetcher wired in facade/twse.go", name)
+		if !facade.TwseHasFetcher(name) {
+			t.Errorf("registry entry %q has no fetcher wired in facade/twse_dispatch.go", name)
 		}
 	}
 }
 
-func TestDispatcher_Call_DispatchesViaClient(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"stat":  "OK",
-			"title": "twse:MI_INDEX",
-			"data":  [][]string{{"1", "2"}},
-			"date":  "20260620",
-		})
-	}))
-	defer srv.Close()
-
-	client := newTWSEClientForTest(t, srv)
-	d := svcTWSE.NewDispatcher(client)
-	raw, err := d.Call(context.Background(), "MI_INDEX", "20260620", url.Values{})
-	if err != nil {
-		t.Fatalf("Dispatcher.Call: %v", err)
-	}
-	if raw == nil {
-		t.Fatal("expected non-nil response")
-	}
-}
-
-// TestNewTwseClient verifies facade.NewTwseClient (formerly buildTWSEClient
-// in cmd/twse/client.go): a successful build must yield a non-nil
-// *svcTWSE.Client whose BaseURL matches the production package-level value
-// and whose injected Caller is non-nil.
+// TestNewTwseClient verifies facade.NewTwseClient yields a non-nil handle
+// pointed at the production TWSE origin with a non-nil injected Caller.
 func TestNewTwseClient(t *testing.T) {
 	client := facade.NewTwseClient()
 	if client == nil {
 		t.Fatal("facade.NewTwseClient returned nil client")
 	}
-	if got, want := client.BaseURL(), svcTWSE.BaseURL; got != want {
-		t.Errorf("client.BaseURL() = %q, want %q (package svc/twse.BaseURL)", got, want)
+	if got, want := client.BaseURL(), twseBaseURL; got != want {
+		t.Errorf("client.BaseURL() = %q, want %q", got, want)
 	}
 	if client.Caller() == nil {
 		t.Error("client.Caller() returned nil; facade.NewTwseClient must inject a non-nil httpx.Caller")

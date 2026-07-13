@@ -1,6 +1,6 @@
 // app.go — application-level runtime identity: environment name + run ID.
 // Capacity: 1 struct (`AppConfig`).
-package types
+package config
 
 // AppConfig represents application-level configuration
 type AppConfig struct {

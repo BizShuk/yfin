@@ -1,10 +1,10 @@
-// loader_test.go — tests for config/types.Loader: NewLoader path
+// loader_test.go — tests for config/config.Loader: NewLoader path
 // capture, full file load + env-var interpolation, missing-file
 // error, daily-only interval validation, GetEffectiveConfig redaction
 // path, not-loaded guard, and the GetHTTPConfig /
 // GetFXConfig / ValidateInterval / ValidateAdjustmentPolicy adapter
 // sanity. Capacity: 11 test functions + 1 createTestConfigFile helper.
-package types
+package config
 
 import (
 	"os"

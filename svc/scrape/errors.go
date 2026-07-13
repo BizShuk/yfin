@@ -1,4 +1,4 @@
-//  — ScrapeError typed errors plus IsRetryableError classification. Capacity: 14 predefined error types (robots, timeout, retry-exhausted, rate-limit, circuit-open, HTTP-status, news-parse, schema-drift).
+// — ScrapeError typed errors plus IsRetryableError classification. Capacity: 14 predefined error types (robots, timeout, retry-exhausted, rate-limit, circuit-open, HTTP-status, news-parse, schema-drift).
 package scrape
 
 import (

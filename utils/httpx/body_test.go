@@ -105,7 +105,7 @@ func TestGet_DecodesGzipByDefault(t *testing.T) {
 // decompressed body, not the wire bytes.
 func TestGet_GzipBodyExceedingLimit(t *testing.T) {
 	const max = int64(1 << 10) // 1 KiB after decompress
-	const payload = 16 << 10  // 16 KiB uncompressed
+	const payload = 16 << 10   // 16 KiB uncompressed
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Encoding", "gzip")

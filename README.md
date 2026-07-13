@@ -30,7 +30,7 @@
 
 **Our Solution:** A production-grade Go client that provides:
 
-✅ **Standardized Data Formats** - Consistent `ampy-proto` message structures  
+✅ **Standardized Data Formats** - One canonical `model.*` shape per concept, whatever the source (API or scrape)  
 ✅ **High Precision Decimals** - Scaled decimal arithmetic for financial accuracy  
 ✅ **Robust Rate Limiting** - Built-in backoff, circuit breakers, and QPS rate limiting  
 ✅ **Multi-Currency Support** - Automatic currency conversion with FX providers  
@@ -49,11 +49,34 @@ go get github.com/bizshuk/yfin
 
 ### From Source
 
+`package main` lives at the repo root — there is no `cmd/yfin` directory.
+
 ```bash
 git clone https://github.com/bizshuk/yfin.git
 cd yfin
-go build -o yfin ./cmd/yfin
+make build          # or: go build -o yfin .
 ```
+
+---
+
+## 🧱 Architecture
+
+Dependencies point strictly downward — the graph is a DAG, and `model/` sits at the bottom importing nothing internal.
+
+```mermaid
+flowchart TD
+    C["cmd/* — CLI"] --> F["facade — public contract"]
+    C --> FMT["cmd/format — shared CLI formatters"]
+    F --> S["svc/{yahoo,scrape,twse} — fetch + decode"]
+    S --> M["model — types + normalization"]
+    F --> M
+    FMT --> M
+    S --> H["utils/httpx"]
+```
+
+The contract is `cmd → facade → svc → model`. The CLI never reaches into `svc/*`; every fetch goes through `facade.Client`, which is the same handle external consumers use. That means anything the CLI can do, your code can do — there is no privileged internal path.
+
+Downstream packages should import `facade/` (convenience, `float64` prices) or `model/` (raw types, `ScaledDecimal` precision). Never `svc/*`.
 
 ---
 
@@ -219,7 +242,9 @@ func main() {
 - `*facade.FundamentalsSnapshot` — quarterly fundamentals (paid subscription required).
 - `[]facade.NewsItem` — `{Title, URL, Source, Summary, PublishedAt, Symbols}`.
 
-The raw `FromBarBatch` / `FromQuote` / `FromCompanyInfo` converters are also exported for callers that already hold an internal `*norm.Normalized*` value, but new code should prefer the `facade.Client` methods which return the plain structs directly.
+The raw `FromBarBatch` / `FromQuote` / `FromCompanyInfo` converters are also exported for callers that already hold a `*model.Normalized*` value, but new code should prefer the `facade.Client` methods, which return the plain structs directly.
+
+Need `ScaledDecimal` precision instead of `float64`? Use the `Norm` variants — `FetchDailyBarsNorm` / `FetchQuoteNorm` / `FetchFundamentalsNorm` / `FetchMarketDataNorm` — which stop at the normalization step and hand back the `*model.Normalized*` types.
 
 ---
 
@@ -276,8 +301,8 @@ yfin scrape --ticker AAPL --endpoint key-statistics --preview
 # Multiple endpoints with JSON output
 yfin scrape --ticker AAPL --endpoints key-statistics,financials,news --preview-json
 
-# Soak testing for production validation
-yfin soak --universe-file universe.txt --duration 2h --qps 5 --preview
+# Soak testing is a separate binary, not a yfin subcommand
+go run ./cmd/soak --universe-file universe.txt --duration 2h --qps 5
 ```
 
 📖 **[Complete Scrape Documentation →](docs/scrape/overview.md)**
@@ -451,12 +476,12 @@ func main() {
 
 ```bash
 # 預設:抓 skills/references/ticker_list.csv 中所有 ticker × 30 指令
-go run ./cmd/yfin batch
+./yfin batch
 
 # 單股 / 強制重抓 / 調整並行
-go run ./cmd/yfin batch --ticker 2330.TW
-go run ./cmd/yfin batch --ticker 2330.TW --force
-go run ./cmd/yfin batch --max-workers 5
+./yfin batch --ticker 2330.TW
+./yfin batch --ticker 2330.TW --force
+./yfin batch --max-workers 5
 ```
 
 對應 Python 端:在 `skills/SKILL.md` 末尾的 `## Go client 對等能力 (Go parity)` 段。
@@ -464,13 +489,13 @@ go run ./cmd/yfin batch --max-workers 5
 ### Cross-Verify Parity Matrix(30 指令)
 
 `★ Insight ─────────────────────────────────────`
-經過逐一對照 yfinance source 與 `cmd/yfin/dispatch.go` 的 `commandRegistry`,目前 30 個指令**全部達到 Python 語意對等**(`earnings-dates` 走 HTML scrape、`metadata` 1d range 對齊 `get_history_metadata` 的不重抓語意,均已對應)。
+經過逐一對照 yfinance source 與 `cmd/dispatch/dispatch.go` 的 `commandRegistry`,目前 30 個指令**全部達到 Python 語意對等**(`earnings-dates` 走 HTML scrape、`metadata` 1d range 對齊 `get_history_metadata` 的不重抓語意,均已對應)。
 `─────────────────────────────────────────────────`
 
 | 指令                                                                                                     | 來源 (Python)                                     | Go 端實作                                | 對齊 |
 | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------- | ---- |
 | info                                                                                                     | 5 quoteSummary 模組                               | `(*yahoo.Client).FetchInfo`              | ✅   |
-| history                                                                                                  | chart 30d/daily                                   | `(*yfinance.Client).FetchDailyBars` 30d  | ✅   |
+| history                                                                                                  | chart 30d/daily                                   | `(*facade.Client).FetchDailyBars` 30d    | ✅   |
 | actions                                                                                                  | chart events                                      | `(*yahoo.Client).FetchActions`           | ✅   |
 | income / balance / cashflow                                                                              | scrape HTML                                       | `ScrapeFinancials/BalanceSheet/CashFlow` | ✅   |
 | major-holders / institutional-holders / mutualfund-holders                                               | quoteSummary 7 模組(單次 HTTP)                    | `FetchHolders`(同 4 模組)                | ✅   |
@@ -562,11 +587,11 @@ The `yfin` CLI tool provides command-line access to all functionality:
 ### Installation
 
 ```bash
-# Build from source
-go build -o yfin ./cmd/yfin
+# Build from source (package main is at the repo root)
+go build -o yfin .
 
 # Or install globally
-go install github.com/bizshuk/yfin/cmd/yfin@latest
+go install github.com/bizshuk/yfin@latest
 ```
 
 ### Basic Commands
@@ -603,12 +628,14 @@ yfin scrape --ticker AAPL --endpoint key-statistics --check --config config/effe
 
 ### Soak Testing Commands
 
+`soak` is a **standalone binary**, not a `yfin` subcommand — run it with `go run ./cmd/soak`.
+
 ```bash
 # Quick smoke test (10 minutes)
-yfin soak --universe-file tests/testdata/universe/soak.txt --endpoints key-statistics,news --duration 10m --concurrency 8 --qps 5 --preview --config config/effective.yaml
+go run ./cmd/soak --universe-file tests/testdata/universe/soak.txt --endpoints key-statistics,news --duration 10m --concurrency 8 --qps 5 --config config/effective.yaml
 
 # Full production soak test (2 hours)
-yfin soak --universe-file tests/testdata/universe/soak.txt --endpoints key-statistics,financials,analysis,profile,news --duration 2h --concurrency 12 --qps 5 --preview --config config/effective.yaml
+go run ./cmd/soak --universe-file tests/testdata/universe/soak.txt --endpoints key-statistics,financials,analysis,profile,news --duration 2h --concurrency 12 --qps 5 --config config/effective.yaml
 ```
 
 ### CLI Options
@@ -624,19 +651,21 @@ yfin soak --universe-file tests/testdata/universe/soak.txt --endpoints key-stati
 - `--qps` - Requests per second limit
 - `--retry-max`, `--timeout` - HTTP retry attempts and timeout tuning
 
-#### Scraping Options
+#### Scraping Options (`yfin scrape`)
 
-- `--endpoint` - Single endpoint to scrape
-- `--endpoints` - Comma-separated list of endpoints
-- `--fallback` - Fallback strategy (auto, api-only, scrape-only)
-- `--preview-json` - JSON preview of multiple endpoints
+- `--endpoint` - Single endpoint to scrape (`profile`, `key-statistics`, `financials`, `balance-sheet`, `cash-flow`, `analysis`, `analyst-insights`, `news`)
+- `--endpoints` - Comma-separated list of endpoints, for `--preview-json`
+- `--check` - Check connectivity only (no parsing)
+- `--preview` - Show preview without parsing
+- `--preview-json` - JSON preview across endpoints
 - `--preview-news` - Preview news articles
-- `--check` - Validate endpoint accessibility
-- `--force` - Override robots.txt (testing only)
+- `--force` - Scrape even when the API is available
 
-#### Soak Testing Options
+#### Soak Testing Options (`go run ./cmd/soak`)
 
 - `--duration` - Test duration (e.g., 2h, 30m)
+- `--endpoints` - Endpoints to exercise
+- `--fallback` - Fallback strategy
 - `--memory-check` - Enable memory leak detection
 - `--probe-interval` - Correctness probe interval
 - `--failure-rate` - Simulated failure rate for testing
@@ -648,7 +677,7 @@ yfin soak --universe-file tests/testdata/universe/soak.txt --endpoints key-stati
 ## 🎯 Mission & Success Criteria
 
 **Mission**  
-Provide a **reliable, consistent, and fast** Yahoo Finance client in Go that speaks **Ampy's canonical contracts** (`ampy-proto`) and optionally **emits** to `ampy-bus`, so ingestion pipelines and research tools work identically across providers.
+Provide a **reliable, consistent, and fast** Yahoo Finance client in Go with one canonical shape per concept (`model.*`), so ingestion pipelines and research tools see identical data whether it came from the API or from a scraped page.
 
 **Success looks like**
 
@@ -669,21 +698,27 @@ Provide a **reliable, consistent, and fast** Yahoo Finance client in Go that spe
 - **Market Data** - 52-week ranges, market state, trading hours
 - **Multi-Currency Support** - Automatic currency conversion with FX providers
 
-### ❌ API Limitations (Available via Scraping)
+### ⚠️ Paid on the API — Available via Scraping
 
-These data types require paid Yahoo Finance subscriptions through the API, but are **available through the scrape fallback system**:
+These require a paid Yahoo Finance subscription through the API, but the scrape fallback serves them for free via `client.Scrape*`:
 
-- **Financial Statements** - Income statement, balance sheet, cash flow ✅ _Available via scraping_
-- **Analyst Recommendations** - Price targets, ratings ✅ _Available via scraping_
-- **Key Statistics** - P/E ratios, market cap, financial metrics ✅ _Available via scraping_
-- **Company Profiles** - Business summary, executives, sector info ✅ _Available via scraping_
-- **News Articles** - Recent news and press releases ✅ _Available via scraping_
+- **Financial Statements** - Income statement, balance sheet, cash flow
+- **Analyst Recommendations** - Price targets, ratings
+- **Key Statistics** - P/E ratios, market cap, financial metrics
+- **Company Profiles** - Business summary, executives, sector info
+- **News Articles** - Recent news and press releases
+
+### ⚠️ Available via `batch` / `YahooDispatch` only
+
+Reachable through the free cookie+crumb `quoteSummary` path — see the [parity matrix](#cross-verify-parity-matrix30-指令) — but not exposed as first-class `facade.Client.Fetch*` methods. Use `yfin batch --ticker X` or call `facade.YahooDispatch`:
+
+- **Options Data** - Options chains and pricing
+- **Insider Trading** - Transactions, roster, purchase summary
+- **Institutional Holdings** - Major / institutional / mutual-fund holders
+- **Corporate Events** - Calendar, SEC filings, sustainability (ESG), upgrades, ISIN
 
 ### ❌ Not Supported
 
-- **Options Data** - Options chains and pricing
-- **Insider Trading** - Insider transactions
-- **Institutional Holdings** - Major shareholders
 - **Level 2 Market Data** - Order book, bid/ask depth
 
 ### 🌍 Supported Markets
@@ -744,24 +779,26 @@ These data types require paid Yahoo Finance subscriptions through the API, but a
 
 ### 💰 Price Formatting
 
-All prices are stored as `ScaledDecimal` with explicit scale for financial precision:
+There are two price representations, and which one you get depends on which method you called.
+
+The plain `Fetch*` / `Scrape*` methods return `model.Bar` / `model.Quote` etc., whose price fields are already **`float64`**. No conversion needed — this is what most callers want:
 
 ```go
-// ✅ CORRECT: Use the scale field to convert back to decimal
-price := float64(bar.Close.Scaled) / float64(bar.Close.Scale)
-fmt.Printf("Price: %.4f %s\n", price, bar.CurrencyCode)
-
-// ❌ WRONG: Don't hardcode division by 10000
-// price := bar.Close.Scaled / 10000  // This is incorrect!
+batch, _ := client.FetchDailyBars(ctx, "AAPL", start, end, true, runID)
+fmt.Printf("Price: %.4f %s\n", batch.Bars[0].Close, batch.Bars[0].CurrencyCode)
 ```
 
-**Example:**
+The `Fetch*Norm` methods return `model.Normalized*`, which keep prices as **`ScaledDecimal`** (an integer plus an explicit scale) so no precision is lost. Convert with `model.FromScaledDecimal` — never hardcode the divisor:
 
-- Raw Yahoo price: $221.74
-- Stored as: `Scaled: 22174, Scale: 2`
-- Converted back: `22174 / 100 = 221.74` ✅
+```go
+// ✅ CORRECT — read the scale off the value itself
+price := model.FromScaledDecimal(bar.Close)
 
----
+// ❌ WRONG — the scale is not always 4
+// price := float64(bar.Close.Scaled) / 10000
+```
+
+**Example:** Yahoo reports `$221.74` → stored as `{Scaled: 22174, Scale: 2}` → `22174 / 10^2 = 221.74`.
 
 ---
 
@@ -870,7 +907,7 @@ go mod download
 go test ./...
 
 # Build CLI
-go build -o yfin ./cmd/yfin
+go build -o yfin .
 
 # Run integration tests
 go test -tags=integration ./...
@@ -894,7 +931,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 - **Yahoo Finance** for providing publicly accessible financial data
-- **AmpyFin** for the ampy-proto schemas and infrastructure
 - **Go Community** for excellent libraries and tools
 - **Contributors** who help improve this project
 

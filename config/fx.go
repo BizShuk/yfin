@@ -2,7 +2,7 @@
 // prices to a target currency at emission time. `YahooWebConfig` is the
 // embedded sub-config for the Yahoo-Web provider. Capacity: 2 structs
 // (`FXConfig`, `YahooWebConfig`).
-package types
+package config
 
 // FXConfig represents FX configuration
 type FXConfig struct {

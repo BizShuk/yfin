@@ -99,10 +99,10 @@ func IsValidRobotsPolicy(policy string) bool {
 // re-exported from model/scrape.go below for callers that still import them
 // from svc/scrape directly.
 type (
-	RobotsRule           = model.RobotsRule
-	RobotsCache          = model.RobotsCache
-	BackoffPolicyConfig  = model.BackoffPolicyConfig
-	RateLimitConfig      = model.RateLimitConfig
+	RobotsRule          = model.RobotsRule
+	RobotsCache         = model.RobotsCache
+	BackoffPolicyConfig = model.BackoffPolicyConfig
+	RateLimitConfig     = model.RateLimitConfig
 )
 
 // (time import retained for DefaultConfig potential future timestamp fields.)

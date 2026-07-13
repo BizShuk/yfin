@@ -1,7 +1,7 @@
 // markets.go — exchange metadata: allowed intervals (yfinance-go is
 // daily-only), allowed MICs (XNAS/XNYS/...), and the default
 // adjustment policy. Capacity: 1 struct (`MarketsConfig`).
-package types
+package config
 
 // MarketsConfig represents market configuration
 type MarketsConfig struct {

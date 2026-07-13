@@ -7,7 +7,7 @@
 // patterns. Capacity: 1 `Loader` + `NewLoader` + `Load` + `GetEffectiveConfig` +
 // 5 private helpers (`interpolateEnvVars`, `interpolateString`,
 // `mapToConfig`, `validate`, `redactSecrets`, `redactSecretPatterns`).
-package types
+package config
 
 import (
 	"fmt"

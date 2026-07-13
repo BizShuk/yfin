@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/bizshuk/yfin/config/types"
+	"github.com/bizshuk/yfin/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -13,12 +13,12 @@ import (
 func TestConfigDefaults(t *testing.T) {
 	// Create a test config file
 	testConfigPath := "test_config.yaml"
-	err := types.CreateEffectiveConfig(testConfigPath)
+	err := config.CreateEffectiveConfig(testConfigPath)
 	require.NoError(t, err)
 	defer os.Remove(testConfigPath)
 
 	// Load the config
-	loader := types.NewLoader(testConfigPath)
+	loader := config.NewLoader(testConfigPath)
 	cfg, err := loader.Load()
 	require.NoError(t, err)
 
@@ -34,12 +34,12 @@ func TestConfigDefaults(t *testing.T) {
 func TestConfigValidation(t *testing.T) {
 	// Create a test config file
 	testConfigPath := "test_config.yaml"
-	err := types.CreateEffectiveConfig(testConfigPath)
+	err := config.CreateEffectiveConfig(testConfigPath)
 	require.NoError(t, err)
 	defer os.Remove(testConfigPath)
 
 	// Load the config
-	loader := types.NewLoader(testConfigPath)
+	loader := config.NewLoader(testConfigPath)
 	cfg, err := loader.Load()
 	require.NoError(t, err)
 
@@ -50,82 +50,82 @@ func TestConfigValidation(t *testing.T) {
 	// Test invalid configurations
 	tests := []struct {
 		name      string
-		modify    func(*types.Config)
+		modify    func(*config.Config)
 		expectErr bool
 	}{
 		{
 			name: "invalid QPS - negative",
-			modify: func(cfg *types.Config) {
+			modify: func(cfg *config.Config) {
 				cfg.RateLimit.PerHostQPS = -1.0
 			},
 			expectErr: true,
 		},
 		{
 			name: "invalid QPS - zero",
-			modify: func(cfg *types.Config) {
+			modify: func(cfg *config.Config) {
 				cfg.RateLimit.PerHostQPS = 0.0
 			},
 			expectErr: true,
 		},
 		{
 			name: "invalid burst - negative",
-			modify: func(cfg *types.Config) {
+			modify: func(cfg *config.Config) {
 				cfg.RateLimit.PerHostBurst = -1
 			},
 			expectErr: true,
 		},
 		{
 			name: "invalid burst - zero",
-			modify: func(cfg *types.Config) {
+			modify: func(cfg *config.Config) {
 				cfg.RateLimit.PerHostBurst = 0
 			},
 			expectErr: true,
 		},
 		{
 			name: "invalid max attempts - negative",
-			modify: func(cfg *types.Config) {
+			modify: func(cfg *config.Config) {
 				cfg.Retry.Attempts = -1
 			},
 			expectErr: true,
 		},
 		{
 			name: "invalid max attempts - zero",
-			modify: func(cfg *types.Config) {
+			modify: func(cfg *config.Config) {
 				cfg.Retry.Attempts = 0
 			},
 			expectErr: true,
 		},
 		{
 			name: "invalid timeout - negative",
-			modify: func(cfg *types.Config) {
+			modify: func(cfg *config.Config) {
 				cfg.Yahoo.TimeoutMs = -1
 			},
 			expectErr: true,
 		},
 		{
 			name: "invalid timeout - zero",
-			modify: func(cfg *types.Config) {
+			modify: func(cfg *config.Config) {
 				cfg.Yahoo.TimeoutMs = 0
 			},
 			expectErr: true,
 		},
 		{
 			name: "invalid base URL - empty",
-			modify: func(cfg *types.Config) {
+			modify: func(cfg *config.Config) {
 				cfg.Yahoo.BaseURL = ""
 			},
 			expectErr: true,
 		},
 		{
 			name: "invalid allowed intervals",
-			modify: func(cfg *types.Config) {
+			modify: func(cfg *config.Config) {
 				cfg.Markets.AllowedIntervals = []string{"1h", "1d"}
 			},
 			expectErr: true,
 		},
 		{
 			name: "invalid adjustment policy",
-			modify: func(cfg *types.Config) {
+			modify: func(cfg *config.Config) {
 				cfg.Markets.DefaultAdjustmentPolicy = "invalid"
 			},
 			expectErr: true,
@@ -155,12 +155,12 @@ func TestConfigValidation(t *testing.T) {
 func TestConfigPrecedence(t *testing.T) {
 	// Test that config values override defaults in correct order
 	testConfigPath := "test_config.yaml"
-	err := types.CreateEffectiveConfig(testConfigPath)
+	err := config.CreateEffectiveConfig(testConfigPath)
 	require.NoError(t, err)
 	defer os.Remove(testConfigPath)
 
 	// Load the config
-	loader := types.NewLoader(testConfigPath)
+	loader := config.NewLoader(testConfigPath)
 	cfg, err := loader.Load()
 	require.NoError(t, err)
 
@@ -175,12 +175,12 @@ func TestConfigPrecedence(t *testing.T) {
 func TestConfigRedaction(t *testing.T) {
 	// Test that sensitive fields are properly redacted in logs
 	testConfigPath := "test_config.yaml"
-	err := types.CreateEffectiveConfig(testConfigPath)
+	err := config.CreateEffectiveConfig(testConfigPath)
 	require.NoError(t, err)
 	defer os.Remove(testConfigPath)
 
 	// Load the config
-	loader := types.NewLoader(testConfigPath)
+	loader := config.NewLoader(testConfigPath)
 	cfg, err := loader.Load()
 	require.NoError(t, err)
 
@@ -269,7 +269,7 @@ secrets: []
 	defer os.Remove(testConfigPath)
 
 	// Load the config
-	loader := types.NewLoader(testConfigPath)
+	loader := config.NewLoader(testConfigPath)
 	cfg, err := loader.Load()
 	require.NoError(t, err)
 
@@ -280,12 +280,12 @@ secrets: []
 func TestConfigValidationMethods(t *testing.T) {
 	// Test config validation methods
 	testConfigPath := "test_config.yaml"
-	err := types.CreateEffectiveConfig(testConfigPath)
+	err := config.CreateEffectiveConfig(testConfigPath)
 	require.NoError(t, err)
 	defer os.Remove(testConfigPath)
 
 	// Load the config
-	loader := types.NewLoader(testConfigPath)
+	loader := config.NewLoader(testConfigPath)
 	cfg, err := loader.Load()
 	require.NoError(t, err)
 
@@ -310,12 +310,12 @@ func TestConfigValidationMethods(t *testing.T) {
 func TestConfigConversion(t *testing.T) {
 	// Test config conversion methods
 	testConfigPath := "test_config.yaml"
-	err := types.CreateEffectiveConfig(testConfigPath)
+	err := config.CreateEffectiveConfig(testConfigPath)
 	require.NoError(t, err)
 	defer os.Remove(testConfigPath)
 
 	// Load the config
-	loader := types.NewLoader(testConfigPath)
+	loader := config.NewLoader(testConfigPath)
 	cfg, err := loader.Load()
 	require.NoError(t, err)
 

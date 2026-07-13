@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/bizshuk/yfin/cmd"
-	"github.com/bizshuk/yfin/config/types"
+	"github.com/bizshuk/yfin/config"
 	"github.com/spf13/cobra"
 )
 
@@ -64,7 +64,7 @@ func runConfig(cfg *configConfig) error {
 	}
 
 	// Load configuration using ampy-config
-	loader := types.NewLoader(effectivePath)
+	loader := config.NewLoader(effectivePath)
 	_, err := loader.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to load configuration: %v\n", err)

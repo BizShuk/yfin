@@ -1,9 +1,8 @@
-// stats_format.go — `printComprehensiveStatisticsSummary` formatter for the
-// comprehensive-stats subcommand. This is the canonical formatter used by
-// the stats subcommand; the scrape sub-package has its own copy because the
-// scrape preview-json case "key-statistics" needs it without depending on
-// fundamentals (no cross-package dep).
-package fundamentals
+// statistics.go — ComprehensiveKeyStatisticsDTO → stdout summary. Shared by
+// `yfin comprehensive-stats` (cmd/fundamentals) and `yfin scrape
+// --preview-json --endpoint key-statistics` (cmd/scrape), which previously
+// each carried a byte-identical private copy.
+package format
 
 import (
 	"fmt"
@@ -11,10 +10,11 @@ import (
 	"github.com/bizshuk/yfin/model"
 )
 
-// printComprehensiveStatisticsSummary prints a summary of comprehensive statistics
-func printComprehensiveStatisticsSummary(dto *model.ComprehensiveKeyStatisticsDTO) {
+// ComprehensiveStatistics prints a summary of comprehensive statistics
+func ComprehensiveStatistics(dto *model.ComprehensiveKeyStatisticsDTO) {
 	fmt.Printf("COMPREHENSIVE STATISTICS: symbol=%s currency=%s\n", dto.Symbol, dto.Currency)
 
+	// Current values
 	fmt.Printf("CURRENT VALUES:\n")
 	if dto.Current.MarketCap != nil {
 		multiplier := float64(1)
@@ -89,6 +89,7 @@ func printComprehensiveStatisticsSummary(dto *model.ComprehensiveKeyStatisticsDT
 		fmt.Printf("  Enterprise Value/EBITDA: %.2f\n", actualValue)
 	}
 
+	// Additional statistics
 	fmt.Printf("ADDITIONAL STATISTICS:\n")
 	if dto.Additional.Beta != nil {
 		multiplier := float64(1)
@@ -134,6 +135,7 @@ func printComprehensiveStatisticsSummary(dto *model.ComprehensiveKeyStatisticsDT
 		fmt.Printf("  Return on Equity: %.2f%%\n", actualValue)
 	}
 
+	// Historical values
 	if len(dto.Historical) > 0 {
 		fmt.Printf("HISTORICAL VALUES:\n")
 		for _, quarter := range dto.Historical {
@@ -165,3 +167,5 @@ func printComprehensiveStatisticsSummary(dto *model.ComprehensiveKeyStatisticsDT
 		}
 	}
 }
+
+// ComprehensiveProfile prints a summary of comprehensive profile

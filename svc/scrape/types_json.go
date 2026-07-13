@@ -20,7 +20,7 @@ import (
 
 // Value type aliases — defined in model/scrape.go.
 type (
-	Scaled      = model.Scaled        // alias to model.ScaledDecimal
+	Scaled      = model.Scaled // alias to model.ScaledDecimal
 	Currency    = model.Currency
 	YahooNum    = model.YahooNum
 	YahooInt    = model.YahooInt

@@ -2,7 +2,7 @@
 // connection pool, user agent). See concurrency.go / rate_limit.go /
 // sessions.go / retry.go for the rate-limit + retry tuning that drives
 // the same client. Capacity: 1 struct (`YahooConfig`).
-package types
+package config
 
 // YahooConfig represents Yahoo Finance API configuration
 type YahooConfig struct {

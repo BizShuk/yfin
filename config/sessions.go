@@ -2,7 +2,7 @@
 // current builds (session rotation was removed; see CLAUDE.md), kept
 // here for YAML backwards-compatibility only. Capacity: 1 struct
 // (`SessionsConfig`).
-package types
+package config
 
 // SessionsConfig represents session rotation configuration
 type SessionsConfig struct {

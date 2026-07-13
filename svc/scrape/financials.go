@@ -1,4 +1,4 @@
-//  — Parses Yahoo financials/balance-sheet/cash-flow HTML tables into ComprehensiveFinancialsDTO via YAML-driven regex. Capacity: 30+ current-period fields + 5 historical quarters (Q2_2025 to Q2_2024) x ~25 metrics.
+// — Parses Yahoo financials/balance-sheet/cash-flow HTML tables into ComprehensiveFinancialsDTO via YAML-driven regex. Capacity: 30+ current-period fields + 5 historical quarters (Q2_2025 to Q2_2024) x ~25 metrics.
 package scrape
 
 import (
@@ -17,9 +17,9 @@ import (
 
 // DTO aliases — types now live in model/scrape_dtos.go.
 type (
-	YahooFinanceData            = model.YahooFinanceData
-	FinancialDataPoint          = model.FinancialDataPoint
-	ComprehensiveFinancialsDTO  = model.ComprehensiveFinancialsDTO
+	YahooFinanceData           = model.YahooFinanceData
+	FinancialDataPoint         = model.FinancialDataPoint
+	ComprehensiveFinancialsDTO = model.ComprehensiveFinancialsDTO
 )
 
 // FinancialsRegexConfig holds the regex patterns for financials extraction

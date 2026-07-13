@@ -1,4 +1,4 @@
-//  — Tests ParseNews fixtures, relative-time conversion, URL normalization, ticker validation, deduplication, and error cases.
+// — Tests ParseNews fixtures, relative-time conversion, URL normalization, ticker validation, deduplication, and error cases.
 package scrape
 
 import (

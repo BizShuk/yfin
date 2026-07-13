@@ -4,7 +4,7 @@
 // to hit (key_statistics / financials / analysis / profile / news).
 // Capacity: 3 structs (`ScrapeConfig`, `ScrapeRetryConfig`,
 // `ScrapeEndpointConfig`).
-package types
+package config
 
 // ScrapeConfig represents scraping configuration
 type ScrapeConfig struct {

@@ -3,7 +3,7 @@
 // circuit_breaker / markets / fx / scrape / observability /
 // secrets) into one tree that maps 1:1 onto the on-disk YAML. Adapter
 // methods live in adapters.go. Capacity: 1 struct (`Config`).
-package types
+package config
 
 // Config represents the complete configuration for yfinance-go
 type Config struct {

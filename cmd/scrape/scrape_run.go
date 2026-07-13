@@ -12,7 +12,8 @@ import (
 	"time"
 
 	"github.com/bizshuk/yfin/cmd"
-	"github.com/bizshuk/yfin/config/types"
+	"github.com/bizshuk/yfin/cmd/format"
+	"github.com/bizshuk/yfin/config"
 	"github.com/bizshuk/yfin/facade"
 	"github.com/bizshuk/yfin/utils/obsv"
 	"github.com/spf13/cobra"
@@ -71,7 +72,7 @@ func runScrape(cobraCmd *cobra.Command, cfg *scrapeConfig) error {
 		runID = fmt.Sprintf("yfin_scrape_%d", time.Now().Unix())
 	}
 
-	loader := types.NewLoader(cmd.Global.ConfigFile)
+	loader := config.NewLoader(cmd.Global.ConfigFile)
 	ycfg, err := loader.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to load configuration: %v\n", err)
@@ -323,19 +324,19 @@ func runScrapePreviewJSON(ctx context.Context, client *facade.Client, ticker, en
 			if dto, err := facade.ParseComprehensiveKeyStatistics(body, ticker, "NMS"); err != nil {
 				fmt.Printf("PARSE ERROR: %v\n", err)
 			} else {
-				printComprehensiveStatisticsSummary(dto)
+				format.ComprehensiveStatistics(dto)
 			}
 		case "profile":
 			if dto, err := facade.ParseComprehensiveProfile(body, ticker, "NMS"); err != nil {
 				fmt.Printf("PARSE ERROR: %v\n", err)
 			} else {
-				printComprehensiveProfileSummary(dto)
+				format.ComprehensiveProfile(dto)
 			}
 		case "financials":
 			if dto, err := facade.ParseComprehensiveFinancials(body, ticker, "NMS"); err != nil {
 				fmt.Printf("PARSE ERROR: %v\n", err)
 			} else {
-				printComprehensiveFinancialsSummary(dto)
+				format.ComprehensiveFinancials(dto)
 			}
 		case "balance-sheet", "cash-flow":
 			// For balance sheet and cash flow, we need to fetch financials page to get currency
@@ -345,7 +346,7 @@ func runScrapePreviewJSON(ctx context.Context, client *facade.Client, ticker, en
 				if dto, err := facade.ParseComprehensiveFinancials(body, ticker, "NMS"); err != nil {
 					fmt.Printf("PARSE ERROR: %v\n", err)
 				} else {
-					printComprehensiveFinancialsSummary(dto)
+					format.ComprehensiveFinancials(dto)
 				}
 			} else {
 				fmt.Printf("CURRENCY FETCHED: host=%s status=%d bytes=%d gzip=%t\n",
@@ -353,7 +354,7 @@ func runScrapePreviewJSON(ctx context.Context, client *facade.Client, ticker, en
 				if dto, err := facade.ParseComprehensiveFinancialsWithCurrency(body, financialsBody, ticker, "NMS"); err != nil {
 					fmt.Printf("PARSE ERROR: %v\n", err)
 				} else {
-					printComprehensiveFinancialsSummary(dto)
+					format.ComprehensiveFinancials(dto)
 				}
 			}
 		case "analysis":

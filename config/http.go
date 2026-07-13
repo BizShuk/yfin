@@ -4,7 +4,7 @@
 // retry + circuit-breaker stack that `cmd/client.go` consumes. No
 // factory here; see adapters.go for `(*Config).GetHTTPConfig`.
 // Capacity: 1 struct (`HTTPConfig`).
-package types
+package config
 
 import "time"
 

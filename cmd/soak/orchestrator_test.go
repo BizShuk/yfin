@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bizshuk/yfin/config/types"
+	"github.com/bizshuk/yfin/config"
 	"github.com/prometheus/client_golang/prometheus"
 )
 
@@ -27,7 +27,7 @@ GOOGL`
 	}
 
 	// Create test configuration
-	cfg := &types.Config{
+	cfg := &config.Config{
 		// Add minimal required config fields
 	}
 
@@ -157,7 +157,7 @@ func TestOrchestratorShortRun(t *testing.T) {
 	}
 
 	// Create test configuration
-	cfg := &types.Config{
+	cfg := &config.Config{
 		// Add minimal required config fields
 	}
 
@@ -167,7 +167,7 @@ func TestOrchestratorShortRun(t *testing.T) {
 		Fallback:      "scrape-only",
 		Duration:      5 * time.Second, // Very short test
 		Concurrency:   1,
-		QPS:           0.5, // Very low QPS
+		QPS:           0.5,           // Very low QPS
 		ProbeInterval: 1 * time.Hour, // No probes during short test
 		FailureRate:   0.0,           // No failure injection
 		MemoryCheck:   true,

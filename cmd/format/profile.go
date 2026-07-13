@@ -1,7 +1,7 @@
-// profile_format.go — `printComprehensiveProfileSummary` formatter for the
-// comprehensive-profile subcommand. See stats_format.go for the rationale on
-// duplicating vs the scrape sub-package's copy.
-package fundamentals
+// profile.go — ComprehensiveProfileDTO → stdout summary. Shared by
+// `yfin comprehensive-profile` (cmd/fundamentals) and `yfin scrape
+// --preview-json --endpoint profile` (cmd/scrape).
+package format
 
 import (
 	"fmt"
@@ -9,10 +9,10 @@ import (
 	"github.com/bizshuk/yfin/model"
 )
 
-// printComprehensiveProfileSummary prints a summary of comprehensive profile
-func printComprehensiveProfileSummary(dto *model.ComprehensiveProfileDTO) {
+func ComprehensiveProfile(dto *model.ComprehensiveProfileDTO) {
 	fmt.Printf("COMPREHENSIVE PROFILE: symbol=%s\n", dto.Symbol)
 
+	// Company Information
 	fmt.Printf("COMPANY INFORMATION:\n")
 	if dto.CompanyName != "" {
 		fmt.Printf("  Company Name: %s\n", dto.CompanyName)
@@ -55,6 +55,7 @@ func printComprehensiveProfileSummary(dto *model.ComprehensiveProfileDTO) {
 		fmt.Printf("  Business Summary: %s\n", summary)
 	}
 
+	// Key Executives
 	if len(dto.Executives) > 0 {
 		fmt.Printf("KEY EXECUTIVES:\n")
 		for i, exec := range dto.Executives {
@@ -75,6 +76,7 @@ func printComprehensiveProfileSummary(dto *model.ComprehensiveProfileDTO) {
 		}
 	}
 
+	// Additional Information
 	fmt.Printf("ADDITIONAL INFORMATION:\n")
 	if dto.MaxAge != nil {
 		fmt.Printf("  Max Age: %d\n", *dto.MaxAge)
@@ -95,3 +97,5 @@ func printComprehensiveProfileSummary(dto *model.ComprehensiveProfileDTO) {
 		fmt.Printf("  Overall Risk: %d\n", *dto.OverallRisk)
 	}
 }
+
+// ComprehensiveFinancials prints a summary of comprehensive financials

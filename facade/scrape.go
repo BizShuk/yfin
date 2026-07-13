@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bizshuk/yfin/config/types"
+	"github.com/bizshuk/yfin/config"
 	"github.com/bizshuk/yfin/svc/scrape"
 )
 
@@ -62,7 +62,7 @@ func (c *Client) scrapeClientForCmd() (scrape.Client, error) {
 // NewScrapeClientFromConfig builds a svc/scrape.Client from ampy-config's
 // flat ScrapeConfig struct. Wraps the same field-by-field mapping that
 // cmd/scrape/ previously did inline.
-func NewScrapeClientFromConfig(cfg *types.ScrapeConfig) (scrape.Client, error) {
+func NewScrapeClientFromConfig(cfg *config.ScrapeConfig) (scrape.Client, error) {
 	return scrape.NewClient(&scrape.Config{
 		Enabled:   cfg.Enabled,
 		UserAgent: cfg.UserAgent,

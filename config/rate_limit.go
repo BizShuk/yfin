@@ -1,6 +1,6 @@
 // rate_limit.go — QPS + burst limits at the per-host and per-session
 // layer (Yahoo Finance). Capacity: 1 struct (`RateLimitConfig`).
-package types
+package config
 
 // RateLimitConfig represents rate limiting configuration
 type RateLimitConfig struct {

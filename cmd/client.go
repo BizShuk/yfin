@@ -10,7 +10,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/bizshuk/yfin/config/types"
+	"github.com/bizshuk/yfin/config"
 	"github.com/bizshuk/yfin/facade"
 	"github.com/bizshuk/yfin/utils/httpx"
 )
@@ -27,13 +27,13 @@ func CreateClient() (*facade.Client, error) {
 	}
 
 	// Load configuration using ampy-config
-	loader := types.NewLoader(effectivePath)
+	loader := config.NewLoader(effectivePath)
 	cfg, err := loader.Load()
 	if err != nil {
 		return nil, fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	// Convert types.HTTPConfig → httpx.Config and apply CLI flag overrides.
+	// Convert config.HTTPConfig → httpx.Config and apply CLI flag overrides.
 	httpxConfig := httpConfigToHttpx(cfg.GetHTTPConfig())
 
 	if Global.QPS > 0 {
@@ -49,11 +49,11 @@ func CreateClient() (*facade.Client, error) {
 	return facade.NewClientWithConfig(httpxConfig), nil
 }
 
-// httpConfigToHttpx converts the flat types.HTTPConfig (loaded from YAML)
+// httpConfigToHttpx converts the flat config.HTTPConfig (loaded from YAML)
 // into the *httpx.Config facade.NewClientWithConfig expects. Field-by-field
 // mapping is mechanical; FailureThreshold gets converted from a 0–1 fraction
 // to a 0–100 percentage (httpx's expected unit).
-func httpConfigToHttpx(cfg *types.HTTPConfig) *httpx.Config {
+func httpConfigToHttpx(cfg *config.HTTPConfig) *httpx.Config {
 	return &httpx.Config{
 		BaseURL:          cfg.BaseURL,
 		Timeout:          cfg.Timeout,

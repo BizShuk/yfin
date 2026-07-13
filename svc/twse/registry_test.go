@@ -1,11 +1,52 @@
-// registry_test.go — `Registry` completeness check (23 entries across 5 boards) + per-endpoint metadata spot-checks (board/path/needs*). Capacity: 23-entry coverage + 6-case metadata table.
+// registry_test.go — `Registry` completeness check (23 entries across 5 boards) + per-endpoint metadata spot-checks (board/path/needs*) + `Dispatcher.Call` transport check. Capacity: 23-entry coverage + 6-case metadata table + 1 dispatcher test.
 package twse
 
 import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"testing"
+	"time"
 
+	"github.com/bizshuk/yfin/utils/httpx"
 	"github.com/stretchr/testify/require"
 )
+
+// TestDispatcher_Call_DispatchesViaClient exercises Dispatcher.Call over a
+// real (latency-free) httpx transport pointed at a local httptest server.
+// It lives here rather than in cmd/twse so that the CLI package needs no
+// svc/twse import.
+func TestDispatcher_Call_DispatchesViaClient(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"stat":  "OK",
+			"title": "twse:MI_INDEX",
+			"data":  [][]string{{"1", "2"}},
+			"date":  "20260620",
+		})
+	}))
+	defer srv.Close()
+
+	hc := httpx.NewClient(&httpx.Config{
+		Timeout:          5 * time.Second,
+		MaxAttempts:      1,
+		BackoffBaseMs:    1,
+		MaxDelayMs:       10,
+		QPS:              1000,
+		Burst:            1000,
+		CircuitWindow:    time.Second,
+		FailureThreshold: 1000,
+		ResetTimeout:     time.Second,
+	})
+	d := NewDispatcher(NewClientWithURL(hc, srv.URL))
+
+	raw, err := d.Call(context.Background(), "MI_INDEX", "20260620", url.Values{})
+	require.NoError(t, err)
+	require.NotNil(t, raw)
+}
 
 func TestRegistry_CoversAllEndpoints(t *testing.T) {
 	want := []string{

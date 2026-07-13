@@ -9,7 +9,8 @@ import (
 	"time"
 
 	"github.com/bizshuk/yfin/cmd"
-	"github.com/bizshuk/yfin/config/types"
+	"github.com/bizshuk/yfin/cmd/format"
+	"github.com/bizshuk/yfin/config"
 	"github.com/bizshuk/yfin/facade"
 	"github.com/bizshuk/yfin/utils/obsv"
 	"github.com/spf13/cobra"
@@ -52,7 +53,7 @@ func runComprehensiveStats(cobraCmd *cobra.Command, cfg *comprehensiveStatsConfi
 		runID = fmt.Sprintf("yfin_comprehensive_stats_%d", time.Now().Unix())
 	}
 
-	loader := types.NewLoader(cmd.Global.ConfigFile)
+	loader := config.NewLoader(cmd.Global.ConfigFile)
 	ycfg, err := loader.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to load configuration: %v\n", err)
@@ -114,6 +115,6 @@ func runComprehensiveStatsExtraction(ctx context.Context, client *facade.Client,
 	if err != nil {
 		return fmt.Errorf("failed to parse comprehensive statistics: %w", err)
 	}
-	printComprehensiveStatisticsSummary(dto)
+	format.ComprehensiveStatistics(dto)
 	return nil
 }

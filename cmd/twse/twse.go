@@ -1,7 +1,8 @@
 // twse.go — `twse` cobra subcommand. All TWSE dispatch logic
 // (23 fetcher map / endpoint registry / URL builder / no-data
-// detection / process-wide client construction) lives in
-// `facade/twse.go` so this file is purely a thin cobra wrapper.
+// detection / process-wide client construction) lives behind
+// `facade.TwseClient` so this file is purely a thin cobra wrapper and
+// this package imports nothing below `facade`.
 //
 // Capacity: 1 `Register` + 1 `twseConfig` + 1 `twseCmd` var (kept for
 // test introspection) + `runTwseEndpoint` RunE.
@@ -16,7 +17,6 @@ import (
 	"time"
 
 	"github.com/bizshuk/yfin/facade"
-	svcTWSE "github.com/bizshuk/yfin/svc/twse"
 	"github.com/spf13/cobra"
 )
 
@@ -36,10 +36,10 @@ var twseCfg twseConfig
 // invoke `runTwseEndpoint(cmd, ...)` directly.
 var twseCmd = &cobra.Command{
 	Use:   "twse",
-	Short: "查詢任一 21 個 TWSE endpoints（臺灣證券交易所）(Query any of the 21 TWSE endpoints — Taiwan Stock Exchange)",
-	Long: `走 svc/twse 查詢臺灣證券交易所（Taiwan Stock Exchange）統計/報價 endpoint，輸出原始 JSON envelope 到 stdout。
-(Query a Taiwan Stock Exchange (TWSE) statistical/quote endpoint via the
-svc/twse package and print the raw JSON envelope to stdout.)
+	Short: "查詢任一 23 個 TWSE endpoints（臺灣證券交易所）(Query any of the 23 TWSE endpoints — Taiwan Stock Exchange)",
+	Long: `查詢臺灣證券交易所（Taiwan Stock Exchange）統計/報價 endpoint，輸出原始 JSON envelope 到 stdout。
+(Query a Taiwan Stock Exchange (TWSE) statistical/quote endpoint and print
+the raw JSON envelope to stdout.)
 
 範例 (Examples):
   yfin twse --endpoint MI_INDEX --date 20221230
@@ -65,11 +65,11 @@ func Register(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(twseCmd)
 }
 
-// twseClientProvider returns the *svcTWSE.Client used by every twse
+// twseClientProvider returns the *facade.TwseClient used by every twse
 // command invocation. Production wiring points at facade.NewTwseClient;
 // tests reassign this variable via `setTwseClientForTest` in
 // cmd/twse/twse_test.go.
-var twseClientProvider = func() *svcTWSE.Client {
+var twseClientProvider = func() *facade.TwseClient {
 	return facade.NewTwseClient()
 }
 
@@ -92,7 +92,7 @@ func runTwseEndpoint(cmd *cobra.Command, args []string) error {
 	defer cancel()
 
 	client := twseClientProvider()
-	raw, err := facade.TwseDispatch(ctx, client, twseCfg.endpoint, twseCfg.date, opts)
+	raw, err := client.Dispatch(ctx, twseCfg.endpoint, twseCfg.date, opts)
 	if err != nil {
 		if facade.TwseIsNoData(err) {
 			fmt.Fprintf(os.Stderr, "INFO: TWSE returned no data for %s on %s\n", twseCfg.endpoint, twseCfg.date)

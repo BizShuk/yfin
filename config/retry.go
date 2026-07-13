@@ -2,7 +2,7 @@
 // Yahoo HTTP client (driven from `Config.GetHTTPConfig`) and the bus
 // publisher (driven from `Config.GetBusConfig`). Capacity: 2 structs
 // (`RetryConfig`, `CircuitBreakerConfig`).
-package types
+package config
 
 // RetryConfig represents retry configuration
 type RetryConfig struct {

@@ -15,7 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/bizshuk/yfin/config/types"
+	"github.com/bizshuk/yfin/config"
 	"github.com/bizshuk/yfin/facade"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
@@ -36,7 +36,7 @@ type SoakConfig struct {
 
 // Orchestrator manages the soak test execution
 type Orchestrator struct {
-	config        *types.Config
+	config        *config.Config
 	soakConfig    *SoakConfig
 	client        *facade.Client
 	logger        *zap.Logger
@@ -97,7 +97,7 @@ type EndpointStats struct {
 }
 
 // NewOrchestrator creates a new soak test orchestrator
-func NewOrchestrator(cfg *types.Config, soakCfg *SoakConfig) (*Orchestrator, error) {
+func NewOrchestrator(cfg *config.Config, soakCfg *SoakConfig) (*Orchestrator, error) {
 	// Initialize logger
 	logger, err := zap.NewProduction()
 	if err != nil {

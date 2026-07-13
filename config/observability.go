@@ -4,7 +4,7 @@
 // forces every reader to chase 5 files. Capacity: 6 structs
 // (`ObservabilityConfig`, `LogsConfig`, `MetricsConfig`,
 // `PrometheusConfig`, `TracingConfig`, `OTLPConfig`).
-package types
+package config
 
 // ObservabilityConfig represents observability configuration
 type ObservabilityConfig struct {

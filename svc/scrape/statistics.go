@@ -1,4 +1,4 @@
-//  — Parses Yahoo key-statistics HTML into ComprehensiveKeyStatisticsDTO covering current, additional, and dynamic historical quarters. Capacity: 9 current + 6 additional metrics + up to 5 historical quarters x 9 metrics.
+// — Parses Yahoo key-statistics HTML into ComprehensiveKeyStatisticsDTO covering current, additional, and dynamic historical quarters. Capacity: 9 current + 6 additional metrics + up to 5 historical quarters x 9 metrics.
 package scrape
 
 import (

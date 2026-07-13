@@ -10,7 +10,7 @@
 //   - ValidateAdjustmentPolicy — markets.default_adjustment_policy enum.
 //
 // Capacity: 4 accessor functions + 2 validators.
-package types
+package config
 
 import (
 	"fmt"

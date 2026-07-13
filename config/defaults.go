@@ -6,7 +6,7 @@
 // struct field-by-field) so the YAML output exactly mirrors what the
 // loader expects to find. Capacity: 1 public function
 // (`CreateEffectiveConfig`).
-package types
+package config
 
 import (
 	"os"

@@ -1,6 +1,6 @@
 // concurrency.go — global + per-host worker counts that govern Yahoo
 // Finance fetch parallelism. Capacity: 1 struct (`ConcurrencyConfig`).
-package types
+package config
 
 // ConcurrencyConfig represents concurrency configuration
 type ConcurrencyConfig struct {

@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/bizshuk/yfin/cmd"
-	"github.com/bizshuk/yfin/config/types"
+	"github.com/bizshuk/yfin/config"
 	"github.com/bizshuk/yfin/facade"
 	"github.com/bizshuk/yfin/model"
 	"github.com/bizshuk/yfin/utils/obsv"
@@ -90,7 +90,7 @@ func runPull(cobraCmd *cobra.Command, cfg *pullConfig) error {
 	}
 
 	// Validate interval (daily-only enforcement)
-	loader := types.NewLoader(cmd.Global.ConfigFile)
+	loader := config.NewLoader(cmd.Global.ConfigFile)
 	ycfg, err := loader.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to load configuration: %v\n", err)
