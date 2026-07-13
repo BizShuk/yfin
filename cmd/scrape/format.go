@@ -1,26 +1,17 @@
 // format.go — pure DTO → stdout formatters for the scrape subcommand's
-// preview modes (analysis / analyst-insights / news / profile-result /
-// fundamentals-snapshot). The `comprehensive-*` DTO formatters (stats /
-// profile / financials) live in `format_comprehensive.go` to keep this
-// file under the 700-line ceiling. Nothing here mutates state or talks to
-// the network; it only renders a parsed DTO to human-readable lines so
-// callers can sanity-check what scrape would emit.
+// preview modes (analysis / analyst-insights). The `comprehensive-*` DTO
+// formatters (stats / profile / financials) live in `format_comprehensive.go`
+// to keep this file under the 700-line ceiling. Nothing here mutates state or
+// talks to the network; it only renders a parsed DTO to human-readable lines.
 //
 // Capacity: printAnalysisSummary + printAnalysisRow + printAnalysisCell,
-// printAnalystInsightsSummary, printFundamentalsSnapshot, printProfileResult,
-// printNewsArticles, getCurrencyFromLines, getTimeBounds.
+// printAnalystInsightsSummary.
 package scrape
 
 import (
-	"encoding/json"
 	"fmt"
-	"strings"
-	"time"
 
-	fundamentalsv1 "github.com/AmpyFin/ampy-proto/v2/gen/go/ampy/fundamentals/v1"
-	newsv1 "github.com/AmpyFin/ampy-proto/v2/gen/go/ampy/news/v1"
 	"github.com/bizshuk/yfin/model"
-	"github.com/bizshuk/yfin/svc/emit"
 )
 
 // printAnalysisSummary prints a comprehensive summary of analysis data
@@ -233,119 +224,4 @@ func printAnalystInsightsSummary(dto *model.AnalystInsightsDTO) {
 			fmt.Printf("  Downside Risk: %.1f%%\n", upside)
 		}
 	}
-}
-
-// printFundamentalsSnapshot prints a summary of fundamentals snapshot
-func printFundamentalsSnapshot(snapshot *fundamentalsv1.FundamentalsSnapshot) {
-	fmt.Printf("%s fundamentals: lines=%d currency=%s source=%s ok\n",
-		snapshot.Security.Symbol,
-		len(snapshot.Lines),
-		getCurrencyFromLines(snapshot.Lines),
-		snapshot.Source)
-
-	if len(snapshot.Lines) > 0 {
-		earliest, latest := getTimeBounds(snapshot.Lines)
-		fmt.Printf("Period range: %s to %s\n",
-			earliest.Format("2006-01-02"),
-			latest.Format("2006-01-02"))
-	}
-
-	fmt.Printf("Schema version: %s\n", snapshot.Meta.SchemaVersion)
-	fmt.Printf("Run ID: %s\n", snapshot.Meta.RunId)
-}
-
-// printProfileResult prints a summary of profile mapping result
-func printProfileResult(result *emit.ProfileMappingResult) {
-	fmt.Printf("%s profile: content_type=%s bytes=%d schema=%s\n",
-		result.Security.Symbol,
-		result.ContentType,
-		len(result.JSONBytes),
-		result.SchemaFQDN)
-
-	fmt.Printf("Schema version: %s\n", result.Meta.SchemaVersion)
-	fmt.Printf("Run ID: %s\n", result.Meta.RunId)
-}
-
-// printNewsArticles prints a summary of news articles
-func printNewsArticles(articles []*newsv1.NewsItem, stats *model.NewsStats) {
-	if len(articles) == 0 {
-		fmt.Printf("No news articles found\n")
-		return
-	}
-
-	summary := emit.CreateNewsSummary(articles)
-
-	fmt.Printf("News articles: total=%d unique_sources=%d has_images=%d\n",
-		summary.TotalArticles,
-		summary.UniqueSources,
-		summary.HasImages)
-
-	if summary.EarliestTime != nil && summary.LatestTime != nil {
-		fmt.Printf("Time range: %s to %s\n",
-			summary.EarliestTime.Format("2006-01-02T15:04:05Z"),
-			summary.LatestTime.Format("2006-01-02T15:04:05Z"))
-	}
-
-	if len(summary.TopSources) > 0 {
-		fmt.Printf("Top sources: %s\n", strings.Join(summary.TopSources, ", "))
-	}
-
-	if len(summary.RelatedTickers) > 0 {
-		fmt.Printf("Related tickers: %s\n", strings.Join(summary.RelatedTickers, ", "))
-	}
-
-	if len(articles) > 0 {
-		fmt.Printf("Schema version: %s\n", articles[0].Meta.SchemaVersion)
-		fmt.Printf("Run ID: %s\n", articles[0].Meta.RunId)
-
-		// Print actual ampy-proto messages
-		fmt.Printf("\n--- AMPY-PROTO NEWS MESSAGES ---\n")
-		for i, article := range articles {
-			if i >= 3 { // Limit to first 3 articles for readability
-				fmt.Printf("... and %d more articles\n", len(articles)-3)
-				break
-			}
-
-			// Convert to JSON for display
-			jsonData, err := json.MarshalIndent(article, "", "  ")
-			if err != nil {
-				fmt.Printf("Error marshaling article %d: %v\n", i+1, err)
-				continue
-			}
-
-			fmt.Printf("\nArticle %d:\n%s\n", i+1, string(jsonData))
-		}
-	}
-}
-
-// getCurrencyFromLines extracts currency from the first line that has one
-func getCurrencyFromLines(lines []*fundamentalsv1.LineItem) string {
-	for _, line := range lines {
-		if line.CurrencyCode != "" {
-			return line.CurrencyCode
-		}
-	}
-	return "unknown"
-}
-
-// getTimeBounds returns the earliest and latest period bounds
-func getTimeBounds(lines []*fundamentalsv1.LineItem) (time.Time, time.Time) {
-	if len(lines) == 0 {
-		now := time.Now()
-		return now, now
-	}
-
-	earliest := lines[0].PeriodStart.AsTime()
-	latest := lines[0].PeriodEnd.AsTime()
-
-	for _, line := range lines {
-		if line.PeriodStart.AsTime().Before(earliest) {
-			earliest = line.PeriodStart.AsTime()
-		}
-		if line.PeriodEnd.AsTime().After(latest) {
-			latest = line.PeriodEnd.AsTime()
-		}
-	}
-
-	return earliest, latest
 }

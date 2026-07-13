@@ -28,7 +28,7 @@ yfin
 
 | 旗標 | 型別 | 預設值 | 用途 |
 | --- | --- | --- | --- |
-| `--config` | string | `""` | ampy-config 檔路徑 |
+| `--config` | string | `""` | YAML 設定檔路徑 |
 | `--log-level` | string | `"info"` | Log level (`info` / `debug` / `warn` / `error`) |
 | `--run-id` | string | `""` | Run ID（空白則自動產生） |
 | `--concurrency` | int | `0` | Worker pool 大小（覆寫 YAML 預設；`0` 採用 YAML 值） |
@@ -130,10 +130,6 @@ yfin comprehensive-profile --ticker MSFT --preview
 | `--adjusted` | string | `"split_dividend"` | 調整策略（`raw` / `split_dividend`）；可由 YAML `markets.default_adjustment_policy` 覆寫 |
 | `--market` | string | `""` | Market MIC（MIC inference 提示，可選） |
 | `--fx-target` | string | `""` | FX 轉換目標幣別（如 `EUR`、`JPY`） |
-| `--preview` | bool | `false` | 顯示 preview，不實際送 bus 或寫檔 |
-| `--publish` | bool | `false` | 啟用 bus publishing |
-| `--env` | string | `"dev"` | 環境（`dev` / `staging` / `prod`） |
-| `--topic-prefix` | string | `"ampy"` | bus topic prefix |
 | `--out` | string | `""` | 輸出格式（`json` / `parquet`，parquet 尚未實作） |
 | `--out-dir` | string | `""` | 輸出目錄 |
 
@@ -149,10 +145,6 @@ yfin pull --universe-file nasdaq100.txt --start 2024-01-01 --end 2024-12-31 --ou
 | 旗標 | 型別 | 預設值 | 說明 |
 | --- | --- | --- | --- |
 | `--tickers` | string | `""` | 必填。CSV ticker 列表（如 `AAPL,MSFT,TSLA`） |
-| `--preview` | bool | `false` | 顯示 preview，不實際送 bus 或寫檔 |
-| `--publish` | bool | `false` | 啟用 bus publishing |
-| `--env` | string | `"dev"` | 環境 |
-| `--topic-prefix` | string | `"ampy"` | bus topic prefix |
 | `--out` | string | `""` | 輸出格式（僅支援 `json`） |
 | `--out-dir` | string | `""` | 輸出目錄 |
 

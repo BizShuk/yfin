@@ -1,6 +1,6 @@
 // config.go — root `Config` struct aggregating every sub-domain config
 // (app / yahoo / concurrency / rate_limit / sessions / retry /
-// circuit_breaker / markets / fx / bus / scrape / observability /
+// circuit_breaker / markets / fx / scrape / observability /
 // secrets) into one tree that maps 1:1 onto the on-disk YAML. Adapter
 // methods live in adapters.go. Capacity: 1 struct (`Config`).
 package types
@@ -16,7 +16,6 @@ type Config struct {
 	CircuitBreaker CircuitBreakerConfig `yaml:"circuit_breaker"`
 	Markets        MarketsConfig        `yaml:"markets"`
 	FX             FXConfig             `yaml:"fx"`
-	Bus            BusConfig            `yaml:"bus"`
 	Scrape         ScrapeConfig         `yaml:"scrape"`
 	Observability  ObservabilityConfig  `yaml:"observability"`
 	Secrets        []SecretConfig       `yaml:"secrets"`

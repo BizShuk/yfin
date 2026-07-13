@@ -1,8 +1,7 @@
-// scrape_run.go — `scrape` cobra subcommand 的 4 種 mode runners + 通用 helper
+// scrape_run.go — `scrape` cobra subcommand 的 3 種 mode runners + 通用 helper
 // (時間/字串 helper)。scrape.go 只負責 Register，scrape_format.go 負責 DTO →
 // stdout formatter，本檔負責實際的 orchestration。所有 svc 呼叫都透過
-// facade（ScrapeFetch / ParseComprehensiveXxx / BuildScrapeURL /
-// ScrapeMapperConfig 等）。
+// facade（ScrapeFetch / ParseComprehensiveXxx / BuildScrapeURL 等）。
 package scrape
 
 import (
@@ -15,22 +14,20 @@ import (
 	"github.com/bizshuk/yfin/cmd"
 	"github.com/bizshuk/yfin/config/types"
 	"github.com/bizshuk/yfin/facade"
-	"github.com/bizshuk/yfin/svc/emit"
 	"github.com/bizshuk/yfin/utils/obsv"
 	"github.com/spf13/cobra"
 )
 
 // scrapeConfig holds configuration for the scrape command
 type scrapeConfig struct {
-	Check        bool
-	Ticker       string
-	Endpoint     string
-	Endpoints    string // Comma-separated list of endpoints for preview-json
-	Preview      bool
-	PreviewJSON  bool
-	PreviewNews  bool // Preview news articles without emitting proto
-	PreviewProto bool // Preview proto summaries without full output
-	Force        bool
+	Check       bool
+	Ticker      string
+	Endpoint    string
+	Endpoints   string // Comma-separated list of endpoints for preview-json
+	Preview     bool
+	PreviewJSON bool
+	PreviewNews bool // Preview news articles
+	Force       bool
 }
 
 // newScrapeCmd returns the `scrape` cobra command.
@@ -40,7 +37,7 @@ func newScrapeCmd() *cobra.Command {
 		Use:   "scrape",
 		Short: "Yahoo Finance 網頁爬蟲 (Web scraping operations)",
 		Long: `當 API endpoints 無法使用時，改走 Yahoo Finance 網頁爬蟲取得資料。
-提供四種模式：--check（連線測試）/ --preview-json（extractor 乾跑）/ --preview-news（news parser 乾跑）/ --preview-proto（proto 完整輸出乾跑）。
+提供三種模式：--check（連線測試）/ --preview-json（extractor 乾跑）/ --preview-news（news parser 乾跑）。
 (Web scraping operations for Yahoo Finance data.
 This command provides access to scraping functionality when API endpoints are unavailable.)
 
@@ -48,8 +45,7 @@ This command provides access to scraping functionality when API endpoints are un
   yfin scrape --check --ticker AAPL --endpoint profile --preview
   yfin scrape --check --ticker MSFT --endpoint key-statistics --preview
   yfin scrape --preview-json --ticker AAPL --endpoints key-statistics,financials,analysis,profile
-  yfin scrape --preview-news --ticker AAPL
-  yfin scrape --preview-proto --ticker AAPL --endpoints financials,analysis,profile,news`,
+  yfin scrape --preview-news --ticker AAPL`,
 		RunE: func(c *cobra.Command, args []string) error { return runScrape(c, cfg) },
 	}
 	c.Flags().BoolVar(&cfg.Check, "check", false, "Check scraping connectivity (no parsing)")
@@ -57,9 +53,8 @@ This command provides access to scraping functionality when API endpoints are un
 	c.Flags().StringVar(&cfg.Endpoint, "endpoint", "", "Endpoint to scrape (profile, key-statistics, financials, balance-sheet, cash-flow, analysis, analyst-insights, news)")
 	c.Flags().StringVar(&cfg.Endpoints, "endpoints", "", "Comma-separated list of endpoints for preview-json (e.g., key-statistics,financials,analysis,profile)")
 	c.Flags().BoolVar(&cfg.Preview, "preview", false, "Show preview without parsing")
-	c.Flags().BoolVar(&cfg.PreviewJSON, "preview-json", false, "Preview JSON extraction without emitting proto")
-	c.Flags().BoolVar(&cfg.PreviewNews, "preview-news", false, "Preview news articles without emitting proto")
-	c.Flags().BoolVar(&cfg.PreviewProto, "preview-proto", false, "Preview proto summaries with counts, periods, and metadata")
+	c.Flags().BoolVar(&cfg.PreviewJSON, "preview-json", false, "Preview JSON extraction")
+	c.Flags().BoolVar(&cfg.PreviewNews, "preview-news", false, "Preview news articles")
 	c.Flags().BoolVar(&cfg.Force, "force", false, "Force scraping even if API is available")
 	return c
 }
@@ -132,19 +127,16 @@ func runScrape(cobraCmd *cobra.Command, cfg *scrapeConfig) error {
 	if cfg.PreviewNews {
 		return runScrapePreviewNews(ctx, client, cfg.Ticker, runID)
 	}
-	if cfg.PreviewProto {
-		return runScrapePreviewProto(ctx, client, cfg.Ticker, cfg.Endpoints, runID)
-	}
 
-	fmt.Fprintf(os.Stderr, "ERROR: Either --check, --preview-json, --preview-news, or --preview-proto mode is required\n")
+	fmt.Fprintf(os.Stderr, "ERROR: Either --check, --preview-json, or --preview-news mode is required\n")
 	os.Exit(cmd.ExitGeneral)
 	return nil
 }
 
 // validateScrapeFlags validates scrape command flags
 func validateScrapeFlags(cfg *scrapeConfig) error {
-	if !cfg.Check && !cfg.PreviewJSON && !cfg.PreviewNews && !cfg.PreviewProto {
-		return fmt.Errorf("either --check, --preview-json, --preview-news, or --preview-proto flag is required")
+	if !cfg.Check && !cfg.PreviewJSON && !cfg.PreviewNews {
+		return fmt.Errorf("either --check, --preview-json, or --preview-news flag is required")
 	}
 	if cfg.Ticker == "" {
 		return fmt.Errorf("--ticker is required")
@@ -171,29 +163,6 @@ func validateScrapeFlags(cfg *scrapeConfig) error {
 	if cfg.PreviewJSON {
 		if cfg.Endpoints == "" {
 			return fmt.Errorf("--endpoints is required for --preview-json mode")
-		}
-		endpointList := strings.Split(cfg.Endpoints, ",")
-		for _, ep := range endpointList {
-			ep = strings.TrimSpace(ep)
-			if ep == "" {
-				continue
-			}
-			valid := false
-			for _, validEp := range validEndpoints {
-				if ep == validEp {
-					valid = true
-					break
-				}
-			}
-			if !valid {
-				return fmt.Errorf("invalid endpoint '%s' in --endpoints", ep)
-			}
-		}
-	}
-
-	if cfg.PreviewProto {
-		if cfg.Endpoints == "" {
-			return fmt.Errorf("--endpoints is required for --preview-proto mode")
 		}
 		endpointList := strings.Split(cfg.Endpoints, ",")
 		for _, ep := range endpointList {
@@ -401,125 +370,6 @@ func runScrapePreviewJSON(ctx context.Context, client *facade.Client, ticker, en
 			}
 		default:
 			fmt.Printf("UNSUPPORTED ENDPOINT: %s (only key-statistics, profile, financials, balance-sheet, cash-flow, analysis, and analyst-insights are supported)\n", endpoint)
-		}
-	}
-	return nil
-}
-
-// runScrapePreviewProto executes the preview-proto mode for testing proto emission
-func runScrapePreviewProto(ctx context.Context, client *facade.Client, ticker, endpoints, runID string) error {
-	if ticker == "" {
-		return fmt.Errorf("ticker is required for preview-proto mode")
-	}
-	if endpoints == "" {
-		return fmt.Errorf("endpoints is required for preview-proto mode")
-	}
-
-	endpointList := strings.Split(endpoints, ",")
-	for i, ep := range endpointList {
-		endpointList[i] = strings.TrimSpace(ep)
-	}
-
-	fmt.Printf("PREVIEW PROTO EMISSION ticker=%s endpoints=%s\n", ticker, endpoints)
-
-	mapperConfig := emit.ScrapeMapperConfig{
-		RunID:    runID,
-		Producer: fmt.Sprintf("yfin-%s", cmd.Version),
-		Source:   "yfinance-go/scrape",
-		TraceID:  "",
-	}
-
-	for _, endpoint := range endpointList {
-		if endpoint == "" {
-			continue
-		}
-		fmt.Printf("\n--- %s ---\n", strings.ToUpper(endpoint))
-
-		endpointCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
-		body, meta, err := client.ScrapeFetch(endpointCtx, ticker, endpoint)
-		cancel()
-
-		if err != nil {
-			fmt.Printf("ERROR: Failed to fetch: %v\n", err)
-			continue
-		}
-		fmt.Printf("FETCH META: host=%s status=%d bytes=%d gzip=%t redirects=%d latency=%dms\n",
-			meta.Host, meta.Status, meta.Bytes, meta.Gzip, meta.Redirects, meta.Duration.Milliseconds())
-
-		switch endpoint {
-		case "financials":
-			if dto, err := facade.ParseComprehensiveFinancials(body, ticker, "XNAS"); err != nil {
-				fmt.Printf("PARSE ERROR: %v\n", err)
-			} else if snapshots, err := emit.MapComprehensiveFinancialsDTO(dto, runID, mapperConfig.Producer); err != nil {
-				fmt.Printf("MAPPING ERROR: %v\n", err)
-			} else {
-				for _, snapshot := range snapshots {
-					printFundamentalsSnapshot(snapshot)
-				}
-			}
-		case "profile":
-			if dto, err := facade.ParseComprehensiveProfile(body, ticker, "XNAS"); err != nil {
-				fmt.Printf("PARSE ERROR: %v\n", err)
-			} else if result, err := emit.MapProfileDTO(dto, runID, mapperConfig.Producer); err != nil {
-				fmt.Printf("MAPPING ERROR: %v\n", err)
-			} else {
-				printProfileResult(result)
-			}
-		case "news":
-			if articles, stats, err := facade.ParseNews(body, "https://finance.yahoo.com", time.Now()); err != nil {
-				fmt.Printf("PARSE ERROR: %v\n", err)
-			} else if protoArticles, err := emit.MapNewsItems(articles, ticker, runID, mapperConfig.Producer); err != nil {
-				fmt.Printf("MAPPING ERROR: %v\n", err)
-			} else {
-				printNewsArticles(protoArticles, stats)
-			}
-		case "balance-sheet":
-			if dto, err := facade.ParseComprehensiveFinancials(body, ticker, "XNAS"); err != nil {
-				fmt.Printf("PARSE ERROR: %v\n", err)
-			} else if snapshots, err := emit.MapComprehensiveFinancialsDTO(dto, runID, mapperConfig.Producer); err != nil {
-				fmt.Printf("MAPPING ERROR: %v\n", err)
-			} else {
-				for _, snapshot := range snapshots {
-					printFundamentalsSnapshot(snapshot)
-				}
-			}
-		case "cash-flow":
-			if dto, err := facade.ParseComprehensiveFinancials(body, ticker, "XNAS"); err != nil {
-				fmt.Printf("PARSE ERROR: %v\n", err)
-			} else if snapshots, err := emit.MapComprehensiveFinancialsDTO(dto, runID, mapperConfig.Producer); err != nil {
-				fmt.Printf("MAPPING ERROR: %v\n", err)
-			} else {
-				for _, snapshot := range snapshots {
-					printFundamentalsSnapshot(snapshot)
-				}
-			}
-		case "key-statistics":
-			if dto, err := facade.ParseComprehensiveKeyStatistics(body, ticker, "XNAS"); err != nil {
-				fmt.Printf("PARSE ERROR: %v\n", err)
-			} else if snapshot, err := emit.MapKeyStatisticsDTO(dto, runID, mapperConfig.Producer); err != nil {
-				fmt.Printf("MAPPING ERROR: %v\n", err)
-			} else {
-				printFundamentalsSnapshot(snapshot)
-			}
-		case "analysis":
-			if dto, err := facade.ParseAnalysis(body, ticker, "XNAS"); err != nil {
-				fmt.Printf("PARSE ERROR: %v\n", err)
-			} else if snapshot, err := emit.MapAnalysisDTO(dto, runID, mapperConfig.Producer); err != nil {
-				fmt.Printf("MAPPING ERROR: %v\n", err)
-			} else {
-				printFundamentalsSnapshot(snapshot)
-			}
-		case "analyst-insights":
-			if dto, err := facade.ParseAnalystInsights(body, ticker, "XNAS"); err != nil {
-				fmt.Printf("PARSE ERROR: %v\n", err)
-			} else if snapshot, err := emit.MapAnalystInsightsDTO(dto, runID, mapperConfig.Producer); err != nil {
-				fmt.Printf("MAPPING ERROR: %v\n", err)
-			} else {
-				printFundamentalsSnapshot(snapshot)
-			}
-		default:
-			fmt.Printf("PROTO MAPPING: endpoint '%s' not yet supported for proto emission\n", endpoint)
-			fmt.Printf("Supported endpoints: financials, balance-sheet, cash-flow, key-statistics, analysis, analyst-insights, profile, news\n")
 		}
 	}
 	return nil

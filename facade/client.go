@@ -1,12 +1,11 @@
-// client.go — high-level Yahoo Finance SDK entry tying `svc/yahoo` chart API,
-// `svc/scrape` HTML pages, and `svc/emit`/`svc/norm` into plain reflection-free
-// structs. Capacity: 1 Client struct (MIC inference cache + `sync.RWMutex`) +
-// 2 constructors (`NewClient`, `NewClientWithConfig`) + 16 fetch/scrape methods
-// (8 `Fetch*` chart-API — Daily/Intraday/Weekly/Monthly bars, Quote,
-// FundamentalsQuarterly, CompanyInfo, MarketData — and 8 `Scrape*` HTML —
-// Financials, BalanceSheet, CashFlow, KeyStatistics, Analysis,
-// AnalystInsights, News, AllFundamentals) + 2 internal helpers
-// (`inferMICForSymbol`, `isAuthenticationError`).
+// client.go — high-level Yahoo Finance SDK entry tying `svc/yahoo` chart API
+// and `svc/scrape` HTML pages into plain reflection-free structs. Capacity: 1
+// Client struct (MIC inference cache + `sync.RWMutex`) + 2 constructors
+// (`NewClient`, `NewClientWithConfig`) + 16 fetch/scrape methods (8 `Fetch*`
+// chart-API — Daily/Intraday/Weekly/Monthly bars, Quote, FundamentalsQuarterly,
+// CompanyInfo, MarketData — and 8 `Scrape*` HTML — Financials, BalanceSheet,
+// CashFlow, KeyStatistics, Analysis, AnalystInsights, News, AllFundamentals)
+// + 2 internal helpers (`inferMICForSymbol`, `isAuthenticationError`).
 package facade
 
 import (
@@ -17,7 +16,6 @@ import (
 	"time"
 
 	"github.com/bizshuk/yfin/model"
-	"github.com/bizshuk/yfin/svc/emit"
 	"github.com/bizshuk/yfin/svc/scrape"
 	"github.com/bizshuk/yfin/svc/yahoo"
 	"github.com/bizshuk/yfin/utils/httpx"
@@ -381,8 +379,8 @@ func (c *Client) inferMICForSymbol(ctx context.Context, symbol string) string {
 }
 
 // ScrapeFinancials fetches financials data and returns the plain SDK
-// FundamentalsSnapshot. The internal scrape → emit → proto pipeline still
-// runs; only the last hop (proto → SDK struct) is new.
+// FundamentalsSnapshot. After the ampy-proto removal, the scrape DTO is
+// converted directly to a model FundamentalsSnapshot (no proto hop).
 func (c *Client) ScrapeFinancials(ctx context.Context, symbol string, runID string) (*FundamentalsSnapshot, error) {
 	url := fmt.Sprintf("https://finance.yahoo.com/quote/%s/financials", symbol)
 	body, _, err := c.scrapeClient.Fetch(ctx, url)
@@ -397,16 +395,7 @@ func (c *Client) ScrapeFinancials(ctx context.Context, symbol string, runID stri
 		return nil, fmt.Errorf("failed to parse financials: %w", err)
 	}
 
-	snapshots, err := emit.MapComprehensiveFinancialsDTO(dto, runID, "yfinance-go")
-	if err != nil {
-		return nil, fmt.Errorf("failed to map financials: %w", err)
-	}
-
-	if len(snapshots) == 0 {
-		return nil, fmt.Errorf("no financials data found")
-	}
-
-	return fromProtoFundamentals(snapshots[0]), nil
+	return model.ScrapeFinancialsToSnapshot(dto, mic), nil
 }
 
 // ScrapeBalanceSheet fetches balance sheet data and returns the plain SDK
@@ -425,14 +414,11 @@ func (c *Client) ScrapeBalanceSheet(ctx context.Context, symbol string, runID st
 		return nil, fmt.Errorf("failed to parse balance sheet: %w", err)
 	}
 
-	snap, err := emit.MapBalanceSheetDTO(dto, runID, "yfinance-go")
-	if err != nil {
-		return nil, fmt.Errorf("failed to map balance sheet: %w", err)
-	}
-	return fromProtoFundamentals(snap), nil
+	return model.ScrapeBalanceSheetToSnapshot(dto, mic), nil
 }
 
-// ScrapeCashFlow fetches cash flow data and returns the plain SDK FundamentalsSnapshot.
+// ScrapeCashFlow fetches cash flow data and returns the plain SDK
+// FundamentalsSnapshot.
 func (c *Client) ScrapeCashFlow(ctx context.Context, symbol string, runID string) (*FundamentalsSnapshot, error) {
 	url := fmt.Sprintf("https://finance.yahoo.com/quote/%s/cash-flow", symbol)
 	body, _, err := c.scrapeClient.Fetch(ctx, url)
@@ -447,11 +433,7 @@ func (c *Client) ScrapeCashFlow(ctx context.Context, symbol string, runID string
 		return nil, fmt.Errorf("failed to parse cash flow: %w", err)
 	}
 
-	snap, err := emit.MapCashFlowDTO(dto, runID, "yfinance-go")
-	if err != nil {
-		return nil, fmt.Errorf("failed to map cash flow: %w", err)
-	}
-	return fromProtoFundamentals(snap), nil
+	return model.ScrapeCashFlowToSnapshot(dto, mic), nil
 }
 
 // ScrapeKeyStatistics fetches key statistics data and returns the plain SDK
@@ -470,14 +452,11 @@ func (c *Client) ScrapeKeyStatistics(ctx context.Context, symbol string, runID s
 		return nil, fmt.Errorf("failed to parse key statistics: %w", err)
 	}
 
-	snap, err := emit.MapKeyStatisticsDTO(dto, runID, "yfinance-go")
-	if err != nil {
-		return nil, fmt.Errorf("failed to map key statistics: %w", err)
-	}
-	return fromProtoFundamentals(snap), nil
+	return model.ScrapeKeyStatisticsToSnapshot(dto, mic), nil
 }
 
-// ScrapeAnalysis fetches analysis data and returns the plain SDK FundamentalsSnapshot.
+// ScrapeAnalysis fetches analysis data and returns the plain SDK
+// FundamentalsSnapshot.
 func (c *Client) ScrapeAnalysis(ctx context.Context, symbol string, runID string) (*FundamentalsSnapshot, error) {
 	url := fmt.Sprintf("https://finance.yahoo.com/quote/%s/analysis", symbol)
 	body, _, err := c.scrapeClient.Fetch(ctx, url)
@@ -492,11 +471,7 @@ func (c *Client) ScrapeAnalysis(ctx context.Context, symbol string, runID string
 		return nil, fmt.Errorf("failed to parse analysis: %w", err)
 	}
 
-	snap, err := emit.MapAnalysisDTO(dto, runID, "yfinance-go")
-	if err != nil {
-		return nil, fmt.Errorf("failed to map analysis: %w", err)
-	}
-	return fromProtoFundamentals(snap), nil
+	return model.ScrapeAnalysisToSnapshot(dto, mic), nil
 }
 
 // ScrapeAnalystInsights fetches analyst insights data and returns the plain
@@ -515,11 +490,7 @@ func (c *Client) ScrapeAnalystInsights(ctx context.Context, symbol string, runID
 		return nil, fmt.Errorf("failed to parse analyst insights: %w", err)
 	}
 
-	snap, err := emit.MapAnalystInsightsDTO(dto, runID, "yfinance-go")
-	if err != nil {
-		return nil, fmt.Errorf("failed to map analyst insights: %w", err)
-	}
-	return fromProtoFundamentals(snap), nil
+	return model.ScrapeAnalystInsightsToSnapshot(dto, mic), nil
 }
 
 // ScrapeNews fetches news data and returns the plain SDK []NewsItem slice.
@@ -535,17 +506,12 @@ func (c *Client) ScrapeNews(ctx context.Context, symbol string, runID string) ([
 		return nil, fmt.Errorf("failed to parse news: %w", err)
 	}
 
-	protoArticles, err := emit.MapNewsItems(articles, symbol, runID, "yfinance-go")
-	if err != nil {
-		return nil, fmt.Errorf("failed to map news: %w", err)
-	}
-
-	return fromProtoNews(protoArticles), nil
+	return model.ScrapeNewsToItems(articles), nil
 }
 
 // ScrapeAllFundamentals fetches all fundamentals data and returns the plain
-// SDK FundamentalsSnapshot slice. The internals fan out to each per-endpoint
-// scrape helper which itself returns plain types — no proto leaks.
+// SDK FundamentalsSnapshot slice. Fans out to each per-endpoint scrape helper
+// which itself returns plain types.
 func (c *Client) ScrapeAllFundamentals(ctx context.Context, symbol string, runID string) ([]*FundamentalsSnapshot, error) {
 	var snapshots []*FundamentalsSnapshot
 

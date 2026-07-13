@@ -11,15 +11,15 @@
 │ • CLI Command   │───▶│ • Rate Limiting │───▶│ • Normalization │
 │ • Library Call  │    │ • Retry/Backoff │    │ • Validation    │
 │ • Batch Job     │    │ • Circuit Break │    │ • Mapping       │
-└─────────────────┘    └─────────────────┘    │ • Publishing    │
-                                │              └─────────────────┘
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+                                │
                                 ▼
                        ┌─────────────────┐    ┌─────────────────┐
                        │   Data Sources  │    │     Output      │
                        │                 │    │                 │
-                       │ • Yahoo API     │    │ • ampy-proto    │
+                       │ • Yahoo API     │    │ • model.*       │
                        │ • Web Scraping  │    │ • JSON Export   │
-                       │ • FX Providers  │    │ • Bus Messages  │
+                       │ • FX Providers  │    │                 │
                        └─────────────────┘    └─────────────────┘
 ```
 
@@ -80,7 +80,7 @@ func (o *Orchestrator) ProcessRequest(ctx context.Context, symbol string, endpoi
 ### 2. 資料正規化管線 (Data Normalization Pipeline)
 
 ```
-Raw Data → Parser → Validator → Mapper → ampy-proto Message
+Raw Data → Parser → Validator → Converter → model.* struct
     │         │         │         │            │
     ▼         ▼         ▼         ▼            ▼
   HTML/JSON  Regex   Schema    ScaledDec    UTC times
@@ -90,8 +90,7 @@ Raw Data → Parser → Validator → Mapper → ampy-proto Message
 對應實作位置：
 
 - `svc/scrape/` — HTML 解析、regex extractor、parser
-- `svc/norm/` — 型別轉換、ScaledDecimal 包裝
-- `svc/emit/` — DTO → ampy-proto mapper
+- `model/scrape_convert.go` — scrape DTO → model.* 直轉換器（`Scrape*ToSnapshot` / `ScrapeNewsToItems`）
 - `utils/httpx` — 共用 HTTP client（限速/重試/熔斷）
 - `utils/obsv` — observability bootstrap（metrics/tracing/logs）
 
@@ -176,7 +175,7 @@ import "github.com/bizshuk/yfin/svc/scrape"
 
 client := scrape.NewClient(&scrape.Config{
     Enabled:   true,
-    UserAgent: "AmpyFin-yfin/1.x",
+    UserAgent: "yfin/1.x",
     TimeoutMs: 10000,
     QPS:       0.7,
     Burst:     1,
@@ -196,9 +195,6 @@ yfin scrape --ticker AAPL --endpoint key-statistics --check
 
 # extractor 乾跑
 yfin scrape --ticker AAPL --endpoints key-statistics,financials,analysis,profile --preview-json
-
-# proto 完整輸出乾跑
-yfin scrape --ticker AAPL --endpoints financials,analysis,profile,news --preview-proto
 ```
 
 ## 監控與可觀測性 (Monitoring & Observability)

@@ -1,7 +1,7 @@
-// loader.go — `Loader` reads the effective YAML via ampy-config,
-// interpolates ${VAR} / ${VAR:-default} references, maps the result
-// into the `Config` struct tree, and validates business invariants
-// (daily-only intervals, QPS / retry bounds, bus payload size, ...).
+// loader.go — `Loader` reads the effective YAML via a local os.ReadFile +
+// yaml.Unmarshal reader, interpolates ${VAR} / ${VAR:-default} references,
+// maps the result into the `Config` struct tree, and validates business
+// invariants (daily-only intervals, QPS / retry bounds, ...).
 // `GetEffectiveConfig` re-loads for `--print-effective` output and
 // redacts `secrets[].ref` plus any keys matching common secret
 // patterns. Capacity: 1 `Loader` + `NewLoader` + `Load` + `GetEffectiveConfig` +
@@ -14,17 +14,34 @@ import (
 	"os"
 	"strings"
 
-	"github.com/AmpyFin/ampy-config/go/ampyconfig"
 	"gopkg.in/yaml.v3"
 )
 
-// Loader handles configuration loading using ampy-config
+// loadYAMLFile reads the YAML file at path into a generic map, replacing the
+// former ampy-config Loader which only provided os.ReadFile+yaml.Unmarshal
+// under the hood (no secret injection / multi-file merge / hot-reload).
+func loadYAMLFile(path string) (map[string]interface{}, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var out map[string]interface{}
+	if err := yaml.Unmarshal(data, &out); err != nil {
+		return nil, err
+	}
+	if out == nil {
+		out = map[string]interface{}{}
+	}
+	return out, nil
+}
+
+// Loader handles configuration loading from the effective YAML file
 type Loader struct {
 	effectivePath string
 	config        *Config
 }
 
-// NewLoader creates a new configuration loader using ampy-config
+// NewLoader creates a new configuration loader
 func NewLoader(effectivePath string) *Loader {
 	return &Loader{
 		effectivePath: effectivePath,
@@ -33,9 +50,9 @@ func NewLoader(effectivePath string) *Loader {
 
 // Load loads and validates configuration from the effective YAML file
 func (l *Loader) Load() (*Config, error) {
-	// Use ampy-config Loader to read the effective YAML
-	ampyLoader := ampyconfig.NewLoader(l.effectivePath)
-	configMap, err := ampyLoader.Load()
+	// Read the effective YAML into a generic map (env-var interpolation +
+	// struct mapping happen locally below).
+	configMap, err := loadYAMLFile(l.effectivePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load effective config: %w", err)
 	}
@@ -172,11 +189,6 @@ func (l *Loader) validate(config *Config) error {
 		return fmt.Errorf("markets.default_adjustment_policy must be 'raw' or 'split_dividend'")
 	}
 
-	// Validate bus.max_payload_bytes
-	if config.Bus.MaxPayloadBytes < 262144 || config.Bus.MaxPayloadBytes > 10485760 {
-		return fmt.Errorf("bus.max_payload_bytes must be between 262144 and 10485760")
-	}
-
 	// Validate retry.attempts
 	if config.Retry.Attempts < 1 {
 		return fmt.Errorf("retry.attempts must be >= 1")
@@ -185,13 +197,6 @@ func (l *Loader) validate(config *Config) error {
 	// Validate circuit breaker thresholds
 	if config.CircuitBreaker.FailureThreshold <= 0 || config.CircuitBreaker.FailureThreshold > 1 {
 		return fmt.Errorf("circuit_breaker.failure_threshold must be between 0 and 1")
-	}
-
-	// Validate bus configuration if enabled
-	if config.Bus.Enabled {
-		if config.Bus.Publisher.Backend == "nats" && config.Bus.Publisher.NATS.URL == "" {
-			return fmt.Errorf("bus.publisher.nats.url is required when bus.enabled=true and backend=nats")
-		}
 	}
 
 	// Validate observability configuration
@@ -212,9 +217,8 @@ func (l *Loader) GetEffectiveConfig() (map[string]interface{}, error) {
 		return nil, fmt.Errorf("configuration not loaded")
 	}
 
-	// Use ampy-config Loader to get the raw effective config
-	ampyLoader := ampyconfig.NewLoader(l.effectivePath)
-	configMap, err := ampyLoader.Load()
+	// Re-read the raw effective config map for printing
+	configMap, err := loadYAMLFile(l.effectivePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load effective config: %w", err)
 	}

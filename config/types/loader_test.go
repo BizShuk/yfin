@@ -1,7 +1,7 @@
 // loader_test.go — tests for config/types.Loader: NewLoader path
 // capture, full file load + env-var interpolation, missing-file
 // error, daily-only interval validation, GetEffectiveConfig redaction
-// path, not-loaded guard, and the GetHTTPConfig / GetBusConfig /
+// path, not-loaded guard, and the GetHTTPConfig /
 // GetFXConfig / ValidateInterval / ValidateAdjustmentPolicy adapter
 // sanity. Capacity: 11 test functions + 1 createTestConfigFile helper.
 package types
@@ -83,9 +83,6 @@ func TestInterpolateEnvVars(t *testing.T) {
 			"allowed_intervals":         []string{"1d"},
 			"default_adjustment_policy": "split_dividend",
 		},
-		"bus": map[string]interface{}{
-			"max_payload_bytes": 1048576,
-		},
 		"retry": map[string]interface{}{
 			"attempts": 5,
 		},
@@ -131,9 +128,6 @@ func TestValidateDailyOnlyIntervals(t *testing.T) {
 		"markets": map[string]interface{}{
 			"allowed_intervals":         []string{"1h", "1d"}, // Invalid - should be only ["1d"]
 			"default_adjustment_policy": "split_dividend",
-		},
-		"bus": map[string]interface{}{
-			"max_payload_bytes": 1048576,
 		},
 		"retry": map[string]interface{}{
 			"attempts": 5,
@@ -230,34 +224,6 @@ func TestGetHTTPConfig(t *testing.T) {
 
 	if httpConfig.QPS != 5.0 {
 		t.Errorf("Expected QPS to be 5.0, got %f", httpConfig.QPS)
-	}
-}
-
-func TestGetBusConfig(t *testing.T) {
-	tempFile := "test-bus-config.yaml"
-	err := CreateEffectiveConfig(tempFile)
-	if err != nil {
-		t.Fatalf("Failed to create test config: %v", err)
-	}
-	defer os.Remove(tempFile)
-
-	loader := NewLoader(tempFile)
-	config, err := loader.Load()
-	if err != nil {
-		t.Fatalf("Failed to load config: %v", err)
-	}
-
-	busConfig := config.GetBusConfig()
-	if busConfig == nil {
-		t.Fatal("Bus config is nil")
-	}
-
-	if busConfig.Enabled != false {
-		t.Errorf("Expected bus.enabled to be false, got %v", busConfig.Enabled)
-	}
-
-	if busConfig.MaxPayloadBytes != 1048576 {
-		t.Errorf("Expected MaxPayloadBytes to be 1048576, got %d", busConfig.MaxPayloadBytes)
 	}
 }
 

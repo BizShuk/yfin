@@ -576,10 +576,10 @@ go install github.com/bizshuk/yfin/cmd/yfin@latest
 yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --adjusted split_dividend --preview --config config/effective.yaml
 
 # Fetch data for multiple symbols from a file
-yfin pull --universe-file symbols.txt --start 2024-01-01 --end 2024-12-31 --publish --env prod --config config/effective.yaml
+yfin pull --universe-file symbols.txt --start 2024-01-01 --end 2024-12-31 --out json --out-dir ./out --config config/effective.yaml
 
 # Get current quote
-yfin quote --tickers AAPL --preview --config config/effective.yaml
+yfin quote --tickers AAPL --config config/effective.yaml
 
 # Get fundamentals (requires paid subscription)
 yfin fundamentals --ticker AAPL --preview --config config/effective.yaml
@@ -619,12 +619,10 @@ yfin soak --universe-file tests/testdata/universe/soak.txt --endpoints key-stati
 - `--universe-file` - File containing list of symbols
 - `--start`, `--end` - Date range (UTC)
 - `--adjusted` - Adjustment policy (`raw` | `split_only` | `split_dividend`); defaults to `markets.default_adjustment_policy` from the YAML config (CLI flag overrides the YAML default)
-- `--publish` - Publish to ampy-bus
-- `--env` - Environment (dev, staging, prod)
-- `--preview` - Show data preview without publishing
+- `--out`, `--out-dir` - Local export format (`json`) and output directory
 - `--concurrency` - Number of concurrent requests
 - `--qps` - Requests per second limit
-- `--sessions` - Vestigial: retained for backward compatibility. Session rotation has been removed; the HTTP client uses a single shared `http.Client` with rate-limit + retries + circuit breaker. Prefer `--qps` / `--concurrency` / `--retry-max` for tuning.
+- `--retry-max`, `--timeout` - HTTP retry attempts and timeout tuning
 
 #### Scraping Options
 
@@ -633,7 +631,6 @@ yfin soak --universe-file tests/testdata/universe/soak.txt --endpoints key-stati
 - `--fallback` - Fallback strategy (auto, api-only, scrape-only)
 - `--preview-json` - JSON preview of multiple endpoints
 - `--preview-news` - Preview news articles
-- `--preview-proto` - Preview proto summaries
 - `--check` - Validate endpoint accessibility
 - `--force` - Override robots.txt (testing only)
 
@@ -655,10 +652,9 @@ Provide a **reliable, consistent, and fast** Yahoo Finance client in Go that spe
 
 **Success looks like**
 
-- Library returns **validated `ampy-proto` messages** with correct UTC times, currency semantics, and adjustment flags.
-- CLI supports on-demand pulls and batch backfills; ops can **dry‑run**, **preview**, and **publish** with a single command.
+- Library returns **validated `model.*` structs** with correct UTC times, currency semantics, and adjustment flags.
+- CLI supports on-demand pulls and batch backfills; ops can **dry‑run** and **preview** with a single command, then export locally as JSON.
 - Concurrency and backoff keep **error rates** and **429/503** responses within policy; throughput is tunable and predictable.
-- Golden samples round‑trip across **Go → Python/C++** consumers without shape drift.
 - Observability shows latency/throughput, decode failures, and backoff behavior; alerts catch regressions.
 
 ---

@@ -60,31 +60,6 @@ fx:
     backoff_max_delay_ms: 4000
     circuit_reset_ms: 30000
 
-bus:
-  enabled: false
-  env: "dev"                          # topic env segment
-  topic_prefix: "ampy"
-  max_payload_bytes: 1048576
-  publisher:
-    backend: "nats"                   # nats | kafka (as supported by ampy-bus)
-    nats:
-      url: "${NATS_URL:-nats://localhost:4222}"
-      subject_style: "topic"
-      ack_wait_ms: 5000
-    kafka:
-      brokers: []
-      acks: "all"
-      compression: "snappy"
-  retry:
-    attempts: 5
-    base_ms: 250
-    max_delay_ms: 8000
-  circuit_breaker:
-    window: 50
-    failure_threshold: 0.30
-    reset_timeout_ms: 30000
-    half_open_probes: 3
-
 scrape:
   enabled: true
   user_agent: "Mozilla/5.0 (Ampy yfinance-go scraper)"
@@ -120,9 +95,6 @@ observability:
 secrets:
   # Reference secrets by URI; resolution handled by ampy-config (e.g., env:, file:, gcp-sm:, aws-sm:)
   # Examples:
-  - name: "nats_password"
-    ref: "env:NATS_PASSWORD"
-    required: false
-  - name: "kafka_sasl_password"
-    ref: "file:/etc/ampy/secret/kafka.pass"
-    required: false
+  # - name: "api_token"
+  #   ref: "env:API_TOKEN"
+  #   required: false

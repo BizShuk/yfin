@@ -1,12 +1,10 @@
-// client.go — shared builders used by every sub-package:
-// `CreateClient` (facade.NewClientWithConfig with cmd.Global flag overrides)
-// + `CreateBusConfig` (NATS/Kafka bus config with safe fallback).
+// client.go — shared builder used by every sub-package:
+// `CreateClient` (facade.NewClientWithConfig with cmd.Global flag overrides).
 //
 // facade is the single handler bridging cmd/ → svc/; CreateClient returns
-// *facade.Client. bus publishing stays in cmd (transport, not data
-// fetching), so CreateBusConfig remains a cmd-local helper.
+// *facade.Client.
 //
-// Capacity: 2 builder functions.
+// Capacity: 1 builder function.
 package cmd
 
 import (
@@ -14,7 +12,6 @@ import (
 
 	"github.com/bizshuk/yfin/config/types"
 	"github.com/bizshuk/yfin/facade"
-	"github.com/bizshuk/yfin/utils/bus"
 	"github.com/bizshuk/yfin/utils/httpx"
 )
 
@@ -77,87 +74,3 @@ func httpConfigToHttpx(cfg *types.HTTPConfig) *httpx.Config {
 		MaxBodyBytes: 0,
 	}
 }
-
-// CreateBusConfig creates bus configuration
-func CreateBusConfig(env, topicPrefix string) *bus.Config {
-	// Determine effective config path
-	effectivePath := Global.ConfigFile
-	if effectivePath == "" {
-		// Default to a standard effective config path
-		effectivePath = "config/effective.yaml"
-	}
-
-	// Load configuration using ampy-config
-	loader := types.NewLoader(effectivePath)
-	cfg, err := loader.Load()
-	if err != nil {
-		// Fallback to default config if loading fails
-		return &bus.Config{
-			Enabled:         true,
-			Env:             env,
-			TopicPrefix:     topicPrefix,
-			MaxPayloadBytes: 1024 * 1024, // 1 MiB
-			Publisher: bus.PublisherConfig{
-				Backend: "nats",
-				NATS: bus.NATSConfig{
-					URL:          "nats://localhost:4222",
-					SubjectStyle: "topic",
-					AckWaitMs:    5000,
-				},
-			},
-			Retry: bus.RetryConfig{
-				Attempts:   5,
-				BaseMs:     250,
-				MaxDelayMs: 8000,
-			},
-			CircuitBreaker: bus.CircuitBreakerConfig{
-				Window:           50,
-				FailureThreshold: 0.30,
-				ResetTimeoutMs:   30000,
-				HalfOpenProbes:   3,
-			},
-		}
-	}
-
-	// Get bus config from loaded configuration
-	busConfig := cfg.GetBusConfig()
-
-	// Override with CLI parameters
-	busConfig.Enabled = true
-	busConfig.Env = env
-	busConfig.TopicPrefix = topicPrefix
-
-	// Convert to bus.Config
-	return &bus.Config{
-		Enabled:         busConfig.Enabled,
-		Env:             busConfig.Env,
-		TopicPrefix:     busConfig.TopicPrefix,
-		MaxPayloadBytes: busConfig.MaxPayloadBytes,
-		Publisher: bus.PublisherConfig{
-			Backend: busConfig.Publisher.Backend,
-			NATS: bus.NATSConfig{
-				URL:          busConfig.Publisher.NATS.URL,
-				SubjectStyle: busConfig.Publisher.NATS.SubjectStyle,
-				AckWaitMs:    busConfig.Publisher.NATS.AckWaitMs,
-			},
-			Kafka: bus.KafkaConfig{
-				Brokers:     busConfig.Publisher.Kafka.Brokers,
-				Acks:        busConfig.Publisher.Kafka.Acks,
-				Compression: busConfig.Publisher.Kafka.Compression,
-			},
-		},
-		Retry: bus.RetryConfig{
-			Attempts:   busConfig.Retry.Attempts,
-			BaseMs:     busConfig.Retry.BaseMs,
-			MaxDelayMs: busConfig.Retry.MaxDelayMs,
-		},
-		CircuitBreaker: bus.CircuitBreakerConfig{
-			Window:           busConfig.CircuitBreaker.Window,
-			FailureThreshold: busConfig.CircuitBreaker.FailureThreshold,
-			ResetTimeoutMs:   busConfig.CircuitBreaker.ResetTimeoutMs,
-			HalfOpenProbes:   busConfig.CircuitBreaker.HalfOpenProbes,
-		},
-	}
-}
-
-// _ keeps httpx package referenced; helps future fields find the import.

@@ -38,8 +38,6 @@ GOOGL`
 		Duration:      10 * time.Second,
 		Concurrency:   2,
 		QPS:           1.0,
-		Preview:       true,
-		Publish:       false,
 		ProbeInterval: 1 * time.Hour,
 		FailureRate:   0.0, // Disable failure injection for test
 		MemoryCheck:   true,
@@ -170,8 +168,6 @@ func TestOrchestratorShortRun(t *testing.T) {
 		Duration:      5 * time.Second, // Very short test
 		Concurrency:   1,
 		QPS:           0.5, // Very low QPS
-		Preview:       true,
-		Publish:       false,
 		ProbeInterval: 1 * time.Hour, // No probes during short test
 		FailureRate:   0.0,           // No failure injection
 		MemoryCheck:   true,

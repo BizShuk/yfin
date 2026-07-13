@@ -130,7 +130,7 @@ docker run --rm yfin yfin version
 
 ### Default Configuration
 
-`yfin` 透過 `gosdk/config` 載入 ampy-config；慣例 (convention) 路徑為：
+`yfin` 透過 `gosdk/config` 載入 YAML 設定；慣例 (convention) 路徑為：
 
 - 應用設定根目錄：`~/.config/yfin/`
 - 設定檔：`config/effective.yaml`（相對於執行目錄）
@@ -181,7 +181,7 @@ commit: abc123
 build date: 2024-01-15
 
 $ yfin pull --ticker AAPL --start 2024-01-01 --end 2024-01-02 --preview
-RUN yfin_1704067200  (env=dev, topic_prefix=ampy)
+RUN yfin_1704067200 
 SYMBOL AAPL (MIC=XNAS, CCY=USD)  range=2024-01-01..2024-01-02  bars=1  adjusted=split_dividend
 first=2024-01-01T00:00:00Z  last=2024-01-02T00:00:00Z  last_close=192.5300 USD
 ```

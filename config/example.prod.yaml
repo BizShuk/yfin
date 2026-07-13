@@ -60,31 +60,6 @@ fx:
     backoff_max_delay_ms: 8000       # Longer max delay
     circuit_reset_ms: 60000          # Longer reset
 
-bus:
-  enabled: true                      # Enable bus for production
-  env: "prod"                        # topic env segment
-  topic_prefix: "ampy"
-  max_payload_bytes: 2097152         # 2 MiB for production
-  publisher:
-    backend: "nats"                  # nats | kafka (as supported by ampy-bus)
-    nats:
-      url: "${NATS_URL:-nats://prod-nats:4222}"
-      subject_style: "topic"
-      ack_wait_ms: 10000             # Longer ack wait for production
-    kafka:
-      brokers: ["${KAFKA_BROKERS:-kafka1:9092,kafka2:9092}"]
-      acks: "all"
-      compression: "snappy"
-  retry:
-    attempts: 7                      # More retries for production
-    base_ms: 500                     # Longer base delay
-    max_delay_ms: 15000              # Longer max delay
-  circuit_breaker:
-    window: 100                      # Larger window
-    failure_threshold: 0.20          # More sensitive
-    reset_timeout_ms: 60000          # Longer reset
-    half_open_probes: 5              # More probes
-
 observability:
   logs:
     level: "warn"                    # Less verbose for production
@@ -100,12 +75,6 @@ observability:
 
 secrets:
   # Production secrets - use proper secret backends
-  - name: "nats_password"
-    ref: "aws-sm://prod/nats/password?versionStage=AWSCURRENT"
-    required: true
-  - name: "kafka_sasl_password"
-    ref: "gcp-sm://projects/ampy-prod/secrets/kafka-sasl-password/versions/latest"
-    required: true
   - name: "otel_auth_token"
     ref: "secret://vault/otel#auth_token"
     required: true

@@ -4,13 +4,12 @@
 //   - GetHTTPConfig      — flatten Yahoo + RateLimit + Retry +
 //     CircuitBreaker into the httpx-shaped `HTTPConfig` consumed by
 //     `cmd/client.go`.
-//   - GetBusConfig       — `&c.Bus` (bus sub-tree as-is).
 //   - GetFXConfig        — `&c.FX` (fx sub-tree as-is).
 //   - GetScrapeConfig    — `&c.Scrape` (scrape sub-tree as-is).
 //   - ValidateInterval   — markets.allowed_intervals membership.
 //   - ValidateAdjustmentPolicy — markets.default_adjustment_policy enum.
 //
-// Capacity: 5 accessor functions + 2 validators.
+// Capacity: 4 accessor functions + 2 validators.
 package types
 
 import (
@@ -36,11 +35,6 @@ func (c *Config) GetHTTPConfig() *HTTPConfig {
 		FailureThreshold: c.CircuitBreaker.FailureThreshold,
 		ResetTimeout:     time.Duration(c.CircuitBreaker.ResetTimeoutMs) * time.Millisecond,
 	}
-}
-
-// GetBusConfig returns the bus sub-config tree (verbatim pointer).
-func (c *Config) GetBusConfig() *BusConfig {
-	return &c.Bus
 }
 
 // GetFXConfig returns the FX sub-config tree (verbatim pointer).

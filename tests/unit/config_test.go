@@ -325,10 +325,6 @@ func TestConfigConversion(t *testing.T) {
 	assert.Equal(t, cfg.Yahoo.BaseURL, httpConfig.BaseURL)
 	assert.Equal(t, cfg.RateLimit.PerHostQPS, httpConfig.QPS)
 
-	// Test bus config conversion
-	busConfig := cfg.GetBusConfig()
-	assert.NotNil(t, busConfig)
-
 	// Test FX config conversion
 	fxConfig := cfg.GetFXConfig()
 	assert.NotNil(t, fxConfig)

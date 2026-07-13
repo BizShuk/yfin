@@ -1,6 +1,6 @@
-// pull.go — `pull` cobra subcommand：擷取每日 bars。透過 internal/norm 拿
-// ScaledDecimal 精度的 *model.NormalizedBarBatch，再送給 bus publishing 或
-// 本地 JSON 匯出。同 package 的 client_json.go 提供 writeJSONFile 共用。
+// pull.go — `pull` cobra subcommand：擷取每日 bars。透過 facade 取得
+// ScaledDecimal 精度的 *model.NormalizedBarBatch，再本地 JSON 匯出。
+// 同 package 的 client_json.go 提供 writeJSONFile 共用。
 package market
 
 import (
@@ -15,28 +15,21 @@ import (
 	"github.com/bizshuk/yfin/config/types"
 	"github.com/bizshuk/yfin/facade"
 	"github.com/bizshuk/yfin/model"
-	"github.com/bizshuk/yfin/svc/emit"
-	"github.com/bizshuk/yfin/utils/bus"
 	"github.com/bizshuk/yfin/utils/obsv"
 	"github.com/spf13/cobra"
 )
 
 // pullConfig holds configuration for the pull command
 type pullConfig struct {
-	Ticker        string
-	UniverseFile  string
-	Start         string
-	End           string
-	Adjusted      string
-	Market        string
-	FXTarget      string
-	Preview       bool
-	Publish       bool
-	Env           string
-	TopicPrefix   string
-	Out           string
-	OutDir        string
-	DryRunPublish bool
+	Ticker       string
+	UniverseFile string
+	Start        string
+	End          string
+	Adjusted     string
+	Market       string
+	FXTarget     string
+	Out          string
+	OutDir       string
 }
 
 // newPullCmd returns the `pull` cobra command.
@@ -50,9 +43,9 @@ func newPullCmd() *cobra.Command {
 Only daily bars are supported by design.)
 
 範例 (Examples):
-  yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --adjusted split_dividend --preview
-  yfin pull --universe-file ./nasdaq100.txt --start 2024-01-01 --end 2024-12-31 --preview --concurrency 32
-  yfin pull --ticker SAP --start 2024-01-01 --end 2024-12-31 --out json --out-dir ./out --preview`,
+  yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --adjusted split_dividend
+  yfin pull --universe-file ./nasdaq100.txt --start 2024-01-01 --end 2024-12-31 --concurrency 32
+  yfin pull --ticker SAP --start 2024-01-01 --end 2024-12-31 --out json --out-dir ./out`,
 		RunE: func(c *cobra.Command, args []string) error { return runPull(c, cfg) },
 	}
 	// Pull command flags
@@ -63,13 +56,8 @@ Only daily bars are supported by design.)
 	c.Flags().StringVar(&cfg.Adjusted, "adjusted", "split_dividend", "Adjustment policy (raw|split_dividend)")
 	c.Flags().StringVar(&cfg.Market, "market", "", "Market MIC (optional hint for MIC inference)")
 	c.Flags().StringVar(&cfg.FXTarget, "fx-target", "", "Target currency for FX conversion preview (e.g., USD)")
-	c.Flags().BoolVar(&cfg.Preview, "preview", false, "Show preview without publishing")
-	c.Flags().BoolVar(&cfg.Publish, "publish", false, "Enable bus publishing")
-	c.Flags().StringVar(&cfg.Env, "env", "dev", "Environment (dev, staging, prod)")
-	c.Flags().StringVar(&cfg.TopicPrefix, "topic-prefix", "ampy", "Topic prefix for bus publishing")
 	c.Flags().StringVar(&cfg.Out, "out", "", "Output format (json|parquet)")
 	c.Flags().StringVar(&cfg.OutDir, "out-dir", "", "Output directory")
-	c.Flags().BoolVar(&cfg.DryRunPublish, "dry-run-publish", false, "Alias for --preview; no network send but compute payload sizes")
 	return c
 }
 
@@ -154,26 +142,13 @@ func runPull(cobraCmd *cobra.Command, cfg *pullConfig) error {
 		os.Exit(cmd.ExitGeneral)
 	}
 
-	// Create bus if publishing or previewing
-	var busInstance *bus.Bus
-	var busConfig *bus.Config
-	if cfg.Publish || cfg.Preview || cfg.DryRunPublish {
-		busConfig = cmd.CreateBusConfig(cfg.Env, cfg.TopicPrefix)
-		busInstance, err = bus.NewBus(busConfig)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR: Failed to create bus: %v\n", err)
-			os.Exit(cmd.ExitGeneral)
-		}
-		defer busInstance.Close(context.Background())
-	}
-
 	// Process symbols
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	successCount := 0
 	for _, symbol := range symbols {
-		if err := processSymbol(ctx, client, symbol, startTime, endTime, adjusted, runID, busInstance, busConfig, cfg); err != nil {
+		if err := processSymbol(ctx, client, symbol, startTime, endTime, adjusted, runID, cfg); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: Failed to process %s: %v\n", symbol, err)
 			continue
 		}
@@ -263,9 +238,9 @@ func getSymbols(ticker, universeFile string) ([]string, error) {
 }
 
 // processSymbol processes a single symbol for bars
-func processSymbol(ctx context.Context, client *facade.Client, symbol string, start, end time.Time, adjusted bool, runID string, busInstance *bus.Bus, busConfig *bus.Config, cfg *pullConfig) error {
+func processSymbol(ctx context.Context, client *facade.Client, symbol string, start, end time.Time, adjusted bool, runID string, cfg *pullConfig) error {
 	// Fetch bars via facade. The Norm-returning variant preserves
-	// ScaledDecimal precision that the emit→proto pipeline needs.
+	// ScaledDecimal precision for the local JSON export.
 	bars, err := client.FetchDailyBarsNorm(ctx, symbol, start, end, adjusted, runID)
 	if err != nil {
 		return err
@@ -277,20 +252,12 @@ func processSymbol(ctx context.Context, client *facade.Client, symbol string, st
 	}
 
 	// Print preview
-	printBarsPreview(bars, runID, cfg.Env, cfg.TopicPrefix)
+	printBarsPreview(bars, runID)
 
 	// Handle FX preview if requested
 	if cfg.FXTarget != "" {
 		if err := handleFXPreview(ctx, bars, cfg.FXTarget); err != nil {
 			fmt.Printf("FX preview failed: %v\n", err)
-		}
-	}
-
-	// Handle bus publishing
-	if busInstance != nil {
-		preview := cfg.Preview || cfg.DryRunPublish
-		if err := handleBusPublishing(ctx, bars, busInstance, busConfig, runID, preview); err != nil {
-			return fmt.Errorf("bus publishing failed: %v", err)
 		}
 	}
 
@@ -305,11 +272,11 @@ func processSymbol(ctx context.Context, client *facade.Client, symbol string, st
 }
 
 // printBarsPreview prints the bars preview according to specification
-func printBarsPreview(bars *model.NormalizedBarBatch, runID, env, topicPrefix string) {
+func printBarsPreview(bars *model.NormalizedBarBatch, runID string) {
 	firstBar := bars.Bars[0]
 	lastBar := bars.Bars[len(bars.Bars)-1]
 
-	fmt.Printf("RUN %s  (env=%s, topic_prefix=%s)\n", runID, env, topicPrefix)
+	fmt.Printf("RUN %s\n", runID)
 	fmt.Printf("SYMBOL %s (MIC=%s, CCY=%s)  range=%s..%s  bars=%d  adjusted=%s\n",
 		bars.Security.Symbol,
 		bars.Security.MIC,
@@ -340,44 +307,6 @@ func handleFXPreview(ctx context.Context, bars *model.NormalizedBarBatch, target
 	// In a full implementation, this would use the FX manager
 	fmt.Printf("fx_preview target=%s as_of=%s rate_scale=8 rounding=half_up  (provider=yahoo-web, cache_hit=true)\n",
 		targetCurrency, time.Now().Format("2006-01-02T15:04:05Z"))
-
-	return nil
-}
-
-// handleBusPublishing handles bus publishing for bars
-func handleBusPublishing(ctx context.Context, bars *model.NormalizedBarBatch, busInstance *bus.Bus, busConfig *bus.Config, runID string, preview bool) error {
-	// Emit to ampy-proto format
-	ampyBatch, err := emit.EmitBarBatch(bars)
-	if err != nil {
-		return fmt.Errorf("failed to emit bar batch: %v", err)
-	}
-
-	// Create bus message
-	busMessage := &bus.BarBatchMessage{
-		Batch: ampyBatch,
-		Key: &bus.Key{
-			Symbol: bars.Security.Symbol,
-			MIC:    bars.Security.MIC,
-		},
-		RunID: runID,
-		Env:   busConfig.Env,
-	}
-
-	if preview {
-		// Estimate payload size
-		payloadSize := estimateBarBatchSize(ampyBatch)
-		previewSummary, err := busInstance.PreviewBars(busMessage, payloadSize)
-		if err != nil {
-			return fmt.Errorf("failed to generate preview: %v", err)
-		}
-		bus.PrintPreview(previewSummary)
-	} else {
-		// Actually publish
-		if err := busInstance.PublishBars(ctx, busMessage); err != nil {
-			return fmt.Errorf("failed to publish bars: %v", err)
-		}
-		fmt.Printf("Published %d bars to bus\n", len(bars.Bars))
-	}
 
 	return nil
 }
@@ -417,11 +346,4 @@ func handleLocalExport(bars *model.NormalizedBarBatch, symbol string, start, end
 	default:
 		return fmt.Errorf("unsupported output format: %s", outFormat)
 	}
-}
-
-// estimateBarBatchSize estimates the size of a bar batch payload
-func estimateBarBatchSize(batch interface{}) int {
-	// This is a rough estimate - in a real implementation you would marshal to get exact size
-	// For now, estimate based on typical bar size
-	return 200 * 10 // Assume 200 bytes per bar, 10 bars average
 }

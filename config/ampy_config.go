@@ -2,7 +2,7 @@
 // writing `config.Config`. New code should import
 // github.com/bizshuk/yfin/config/types directly — every sub-config
 // struct, the Loader, the default-writer, and the adapter methods
-// (GetHTTPConfig / GetBusConfig / GetFXConfig / GetScrapeConfig /
+// (GetHTTPConfig / GetFXConfig / GetScrapeConfig /
 // ValidateInterval / ValidateAdjustmentPolicy) live there.
 //
 // Capacity: 1 type alias (`Config`).

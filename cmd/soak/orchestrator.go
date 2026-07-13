@@ -17,7 +17,6 @@ import (
 
 	"github.com/bizshuk/yfin/config/types"
 	"github.com/bizshuk/yfin/facade"
-	"github.com/bizshuk/yfin/utils/bus"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 )
@@ -30,10 +29,6 @@ type SoakConfig struct {
 	Duration      time.Duration
 	Concurrency   int
 	QPS           float64
-	Preview       bool
-	Publish       bool
-	Env           string
-	TopicPrefix   string
 	ProbeInterval time.Duration
 	FailureRate   float64
 	MemoryCheck   bool
@@ -44,7 +39,6 @@ type Orchestrator struct {
 	config        *types.Config
 	soakConfig    *SoakConfig
 	client        *facade.Client
-	bus           *bus.Bus
 	logger        *zap.Logger
 	metrics       *Metrics
 	probes        *CorrectnessProbes
@@ -122,20 +116,6 @@ func NewOrchestrator(cfg *types.Config, soakCfg *SoakConfig) (*Orchestrator, err
 	// Create client with session rotation for better resilience
 	client := facade.NewClient()
 
-	// Create bus if publishing is enabled
-	var busInstance *bus.Bus
-	if soakCfg.Publish {
-		busConfig := &bus.Config{
-			Enabled:     true,
-			Env:         soakCfg.Env,
-			TopicPrefix: soakCfg.TopicPrefix,
-		}
-		busInstance, err = bus.NewBus(busConfig)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create bus: %w", err)
-		}
-	}
-
 	// Initialize metrics
 	metrics := NewMetrics()
 
@@ -166,7 +146,6 @@ func NewOrchestrator(cfg *types.Config, soakCfg *SoakConfig) (*Orchestrator, err
 		config:        cfg,
 		soakConfig:    soakCfg,
 		client:        client,
-		bus:           busInstance,
 		logger:        logger,
 		metrics:       metrics,
 		probes:        probes,
@@ -190,7 +169,6 @@ func (o *Orchestrator) Run(ctx context.Context) error {
 		zap.Duration("duration", o.soakConfig.Duration),
 		zap.Int("concurrency", o.soakConfig.Concurrency),
 		zap.Float64("qps", o.soakConfig.QPS),
-		zap.Bool("publish", o.soakConfig.Publish),
 	)
 
 	// Record initial memory and goroutines
@@ -247,7 +225,7 @@ func (o *Orchestrator) startWorkers(ctx context.Context) {
 	o.workers = make([]*Worker, o.soakConfig.Concurrency)
 
 	for i := 0; i < o.soakConfig.Concurrency; i++ {
-		worker := NewWorker(i, o.client, o.bus, o.rateLimiter, o.logger, o.stats)
+		worker := NewWorker(i, o.client, o.rateLimiter, o.logger, o.stats)
 		o.workers[i] = worker
 
 		o.wg.Add(1)
@@ -424,9 +402,6 @@ func (o *Orchestrator) printResults() {
 
 // Close cleans up resources
 func (o *Orchestrator) Close() {
-	if o.bus != nil {
-		o.bus.Close(context.Background())
-	}
 	if o.logger != nil {
 		_ = o.logger.Sync()
 	}

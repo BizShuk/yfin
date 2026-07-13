@@ -35,12 +35,12 @@ yfin
 
 | Command | 用途 (Purpose) | 主要旗標 (Key Flags) |
 | --- | --- | --- |
-| `pull` | 擷取每日 bars（單 symbol 或 universe） | `--ticker` / `--universe-file` / `--start` / `--end` / `--adjusted` / `--preview` / `--publish` / `--out` / `--out-dir` |
-| `quote` | 擷取即時 quote 快照 | `--tickers` (CSV) / `--preview` / `--publish` / `--out` / `--out-dir` |
+| `pull` | 擷取每日 bars（單 symbol 或 universe） | `--ticker` / `--universe-file` / `--start` / `--end` / `--adjusted` / `--out` / `--out-dir` |
+| `quote` | 擷取即時 quote 快照 | `--tickers` (CSV) / `--out` / `--out-dir` |
 | `fundamentals` | 擷取 fundamentals 季報（需付費） | `--ticker` / `--preview` |
 | `comprehensive-stats` | 擷取完整 key statistics + 5 年歷史 | `--ticker` / `--preview` |
 | `comprehensive-profile` | 擷取公司基本資料 + key executives | `--ticker` / `--preview` |
-| `scrape` | Yahoo Finance 網頁爬蟲（4 種 mode） | `--check` / `--preview-json` / `--preview-news` / `--preview-proto` / `--ticker` / `--endpoint` / `--endpoints` / `--force` |
+| `scrape` | Yahoo Finance 網頁爬蟲（3 種 mode） | `--check` / `--preview-json` / `--preview-news` / `--ticker` / `--endpoint` / `--endpoints` / `--force` |
 | `twse` | 查詢任一 23 個 TWSE endpoint | `--endpoint` (必填) / `--date` / `--stock` / `--month` / `--timeout` / `--pretty` |
 | `batch` | 批次擷取 universe 全部 commands | `--ticker` / `--max-workers` / `--force` |
 | `config` | 印出 effective config | `--print-effective` / `--json` |
@@ -126,14 +126,14 @@ yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --out json --out-dir
 yfin pull --universe-file nasdaq100.txt --start 2024-01-01 --end 2024-12-31 --out json --out-dir ./data --preview
 ```
 
-### Bus Publishing
+### Local Export (Bars)
 
 ```bash
-# 預覽 bus 發布 (preview bus publishing)
-yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --publish --env dev --topic-prefix ampy --preview
+# 匯出 bars 至本地 JSON (export bars to local JSON)
+yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --out json --out-dir ./out
 
-# 實際發布至 bus (actually publish to bus)
-yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --publish --env prod --topic-prefix ampy
+# 批次匯出多 symbol (export multiple symbols)
+yfin pull --universe-file nasdaq100.txt --start 2024-01-01 --end 2024-12-31 --out json --out-dir ./out
 ```
 
 ### Performance Tuning
@@ -171,14 +171,11 @@ yfin quote --tickers AAPL,MSFT,GOOGL,TSLA --preview
 yfin quote --tickers AAPL,MSFT,GOOGL --out json --out-dir ./quotes --preview
 ```
 
-### Publish Quotes
+### Local Export (Quotes)
 
 ```bash
-# 預覽 quote 發布
-yfin quote --tickers AAPL,MSFT --publish --env dev --topic-prefix ampy --preview
-
-# 實際發布 quote
-yfin quote --tickers AAPL,MSFT --publish --env prod --topic-prefix ampy
+# 匯出 quote 至本地 JSON (export quotes to local JSON)
+yfin quote --tickers AAPL,MSFT --out json --out-dir ./out
 ```
 
 ## Fundamentals (`fundamentals` command)
@@ -211,7 +208,7 @@ echo $?  # 401 / 未授權時為 2 (PaidFeatureRequired)
 
 ## Web Scraping (`scrape` command)
 
-`scrape` 提供 4 種互斥 mode，必填其一：
+`scrape` 提供 3 種互斥 mode，必填其一：
 
 ```bash
 # 連線測試 (connectivity check)
@@ -222,15 +219,12 @@ yfin scrape --preview-json --ticker AAPL --endpoints key-statistics,financials,a
 
 # news parser 乾跑 (dry-run news parser)
 yfin scrape --preview-news --ticker AAPL
-
-# proto 完整輸出乾跑 (proto emission dry-run)
-yfin scrape --preview-proto --ticker AAPL --endpoints financials,analysis,profile,news
 ```
 
 支援的 endpoint：`profile` / `key-statistics` / `financials` / `balance-sheet` / `cash-flow` / `analysis` / `analyst-insights` / `news`。
 
 - `--check` mode：搭配 `--endpoint`（單一 endpoint）
-- `--preview-json` / `--preview-proto` mode：搭配 `--endpoints`（CSV，多 endpoint）
+- `--preview-json` mode：搭配 `--endpoints`（CSV，多 endpoint）
 - `--force`：忽略 API 可用性檢查，強制走爬蟲
 
 ## TWSE (`twse` command)
@@ -298,13 +292,12 @@ yfin --config ./my-config.yaml pull --ticker AAPL --start 2024-01-01 --end 2024-
 
 | 旗標 | 用途 |
 | --- | --- |
-| `--config` | ampy-config 檔路徑 |
+| `--config` | YAML 設定檔路徑 |
 | `--log-level` | Log level（`info` / `debug` / `warn` / `error`） |
 | `--run-id` | Run ID（追蹤用；空白則自動產生） |
 | `--concurrency` | Worker pool 大小（覆寫 YAML 預設） |
 | `--qps` | Per-host QPS（覆寫 YAML 預設） |
 | `--retry-max` | HTTP retry 嘗試次數 |
-| `--sessions` | **Vestigial**：session rotation 已移除，保留為向後相容，無實際效果 |
 | `--timeout` | HTTP timeout（如 `6s`） |
 | `--observability-disable-tracing` | 關閉 OpenTelemetry tracing |
 | `--observability-disable-metrics` | 關閉 Prometheus metrics |
@@ -366,7 +359,7 @@ first=<ts>  last=<ts>  last_close=<price> <ccy>
 實例 (Example)：
 
 ```
-RUN yfin_1704067200  (env=dev, topic_prefix=ampy)
+RUN yfin_1704067200
 SYMBOL AAPL (MIC=XNAS, CCY=USD)  range=2024-01-01..2024-12-31  bars=252  adjusted=split_dividend
 first=2024-01-01T00:00:00Z  last=2024-12-31T00:00:00Z  last_close=192.5300 USD
 ```
@@ -405,17 +398,6 @@ CONTENT PREVIEW: <html ...>
 
 ### Bus Preview Output
 
-`--preview` 模式下，bus publishing 顯示預估 payload 大小與重試設定：
-
-```
-BUS PREVIEW (env=dev, topic_prefix=ampy)
-  topic: ampy.dev.bars.v1.AAPL.XNAS
-  payload_size: 2048 bytes
-  estimated_messages: 1
-  retry_config: attempts=5, base_ms=250, max_delay_ms=8000
-  circuit_breaker: window=50, threshold=0.30, reset_timeout_ms=30000
-```
-
 ## Error Handling
 
 ### Exit Codes
@@ -428,7 +410,6 @@ BUS PREVIEW (env=dev, topic_prefix=ampy)
 | `1` | `ExitGeneral` | 一般錯誤（網路、執行失敗等） |
 | `2` | `ExitPaidFeature` | 付費功能未授權（fundamentals） |
 | `3` | `ExitConfigError` | 組態錯誤（CLI flag 驗證失敗、YAML 載入失敗） |
-| `4` | `ExitPublishError` | Bus publishing 失敗 |
 
 ### Common Error Scenarios
 
@@ -451,7 +432,7 @@ yfin fundamentals --ticker AAPL --preview
 
 # scrape mode 必填其一
 yfin scrape --ticker AAPL
-# ERROR: either --check, --preview-json, --preview-news, or --preview-proto flag is required
+# ERROR: either --check, --preview-json, or --preview-news flag is required
 ```
 
 ## Best Practices

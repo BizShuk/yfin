@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/bizshuk/yfin/facade"
-	"github.com/bizshuk/yfin/utils/bus"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 )
@@ -21,7 +20,6 @@ import (
 type Worker struct {
 	id          int
 	client      *facade.Client
-	bus         *bus.Bus
 	rateLimiter *rate.Limiter
 	logger      *zap.Logger
 	stats       *Stats
@@ -36,11 +34,10 @@ type WorkRequest struct {
 }
 
 // NewWorker creates a new soak test worker
-func NewWorker(id int, client *facade.Client, bus *bus.Bus, rateLimiter *rate.Limiter, logger *zap.Logger, stats *Stats) *Worker {
+func NewWorker(id int, client *facade.Client, rateLimiter *rate.Limiter, logger *zap.Logger, stats *Stats) *Worker {
 	return &Worker{
 		id:          id,
 		client:      client,
-		bus:         bus,
 		rateLimiter: rateLimiter,
 		logger:      logger,
 		stats:       stats,

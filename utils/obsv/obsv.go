@@ -1,14 +1,24 @@
-// obsv.go — Observability bootstrap (`Init` / `Shutdown`), structured `Logger` / `Tracer` accessors, named-span factories for `run` / `fetch` / `decode` / `normalize` / `emit` / `publish` / `fx`, plus trace-aware log-attr helpers. Capacity: 1 config, 7 span helpers, 1 logger, 1 tracer.
+// obsv.go — Observability bootstrap (`Init` / `Shutdown`), structured `Logger` /
+// `Tracer` accessors, named-span factories for `run` / `fetch` / `decode` /
+// `normalize` / `emit` / `publish` / `fx`, plus trace-aware log-attr helpers.
+// Capacity: 1 config, 7 span helpers, 1 logger, 1 tracer.
+//
+// This package previously wrapped `ampy-observability`; it now stands alone on
+// stdlib `slog` (text handler to stderr) for logging and OTel's noop tracer
+// provider for spans. `Tracer()` has always been a no-op (the prior ampy-obs
+// wrapper never exposed a real tracer), so behavior is unchanged. Prometheus
+// metrics live in metrics.go and are unaffected.
 package obsv
 
 import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"sync"
 	"time"
 
-	"github.com/AmpyFin/ampy-observability/go/ampyobs"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
@@ -38,7 +48,7 @@ type PrometheusConfig struct {
 // Observability represents the main observability interface
 type Observability struct {
 	config      *Config
-	ampyConfig  ampyobs.Config
+	logger      *slog.Logger
 	initialized bool
 }
 
@@ -48,7 +58,9 @@ var (
 	globalMux  sync.RWMutex
 )
 
-// Init initializes the observability system using ampy-observability
+// Init initializes the observability system using slog + OTel noop tracer.
+// Tracing stays a no-op (the prior ampy-obs wrapper never exposed a real
+// tracer); only the slog logger and Prometheus metrics server are wired here.
 func Init(ctx context.Context, config *Config) error {
 	globalMux.Lock()
 	defer globalMux.Unlock()
@@ -57,19 +69,17 @@ func Init(ctx context.Context, config *Config) error {
 		return fmt.Errorf("observability already initialized")
 	}
 
-	// Create ampy-observability config
-	ampyConfig := ampyobs.Config{
-		ServiceName:       config.ServiceName,
-		ServiceVersion:    config.ServiceVersion,
-		Environment:       config.Environment,
-		CollectorEndpoint: config.CollectorEndpoint,
-		TraceProtocol:     config.TraceProtocol,
-	}
+	// Build a slog logger with the configured level. Falls back to Info on
+	// parse failure so a bad level string never blocks startup.
+	var lvl slog.Level
+	_ = lvl.UnmarshalText([]byte(config.LogLevel))
+	handler := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: lvl})
+	logger := slog.New(handler).With("service", config.ServiceName, "env", config.Environment)
 
-	// Initialize ampy-observability
-	if err := ampyobs.Init(ampyConfig); err != nil {
-		return fmt.Errorf("failed to initialize ampy-observability: %w", err)
-	}
+	// Tracer provider is a no-op; otel.SetTracerProvider keeps any code that
+	// reads the global provider consistent. (Real OTLP export was never wired
+	// through the prior ampy-obs wrapper, so this is behavior-preserving.)
+	otel.SetTracerProvider(noop.NewTracerProvider())
 
 	// Initialize metrics
 	if config.MetricsEnabled {
@@ -77,14 +87,14 @@ func Init(ctx context.Context, config *Config) error {
 			Enabled: config.MetricsEnabled,
 			Addr:    config.MetricsAddr,
 		}); err != nil {
-			Logger().Error("Failed to initialize Prometheus metrics", "error", err)
+			logger.Error("Failed to initialize Prometheus metrics", "error", err)
 			return fmt.Errorf("failed to init metrics: %w", err)
 		}
 	}
 
 	globalObsv = &Observability{
 		config:      config,
-		ampyConfig:  ampyConfig,
+		logger:      logger,
 		initialized: true,
 	}
 
@@ -102,12 +112,11 @@ func Shutdown(ctx context.Context) error {
 
 	// Shutdown metrics server
 	if err := shutdownMetrics(ctx); err != nil {
-		Logger().Error("Failed to shutdown metrics server", "error", err)
+		globalObsv.logger.Error("Failed to shutdown metrics server", "error", err)
 	}
 
-	err := ampyobs.Shutdown(ctx)
 	globalObsv = nil
-	return err
+	return nil
 }
 
 // Reset resets the global observability state (for testing)
@@ -117,7 +126,8 @@ func Reset() {
 	globalObsv = nil
 }
 
-// Logger returns the ampy-observability logger
+// Logger returns the structured logger. Before Init it falls back to the slog
+// default; after Init it returns the configured handler-backed logger.
 func Logger() *slog.Logger {
 	globalMux.RLock()
 	defer globalMux.RUnlock()
@@ -125,28 +135,23 @@ func Logger() *slog.Logger {
 	if globalObsv == nil || !globalObsv.initialized {
 		return slog.Default()
 	}
-	return ampyobs.L()
+	return globalObsv.logger
 }
 
-// Tracer returns the ampy-observability tracer
+// Tracer returns a no-op tracer (behavior-preserving: the prior ampy-obs
+// wrapper never exposed a real tracer).
 func Tracer() trace.Tracer {
 	globalMux.RLock()
 	defer globalMux.RUnlock()
 
-	if globalObsv == nil || !globalObsv.initialized {
-		return noop.NewTracerProvider().Tracer("yfinance-go")
-	}
-	// ampy-observability doesn't expose tracer directly, use context logger
 	return noop.NewTracerProvider().Tracer("yfinance-go")
 }
 
-// StartSpan creates a new span using ampy-observability
+// StartSpan creates a new span. With the no-op tracer this returns a span that
+// records nothing, matching prior behavior.
 func StartSpan(ctx context.Context, name string, opts ...trace.SpanStartOption) (context.Context, trace.Span) {
-	// Use ampy-observability StartSpan with proper signature
-	return ampyobs.StartSpan(ctx, name, trace.SpanKindInternal)
+	return Tracer().Start(ctx, name, opts...)
 }
-
-// Metrics helpers are now implemented in metrics.go
 
 // Span names for different operations
 const (

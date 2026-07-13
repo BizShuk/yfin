@@ -1,6 +1,6 @@
 # 組態參考 (Configuration Reference)
 
-`yfin` 的所有可調行為 — HTTP 連線、速率限制、重試、熔斷、scrape 引擎、FX 換算、bus 發布、觀測、密鑰 — 都透過 ampy-config 統一管理。單一 YAML 檔即承載全部設定。
+`yfin` 的所有可調行為 — HTTP 連線、速率限制、重試、熔斷、scrape 引擎、FX 換算、觀測、密鑰 — 都透過 YAML 統一管理。單一 YAML 檔即承載全部設定。
 
 ## 1. 總覽 (Overview)
 
@@ -14,8 +14,8 @@ CLI Flags > Environment Variables > Config File > Built-in Defaults
 
 - CLI flag：root 級 persistent flags，例如 `--log-level` / `--qps` / `--timeout` / `--concurrency` / `--retry-max`，在任何子命令之前解析。
 - 環境變數 (Environment Variables)：僅供 log / observability 設定使用（走 `gosdk` 的 `APP_*` 慣例）；YAML 內 `${VAR}` / `${VAR:-default}` 插值則於 `Loader.Load()` 階段展開。
-- 設定檔 (Config File)：單一 YAML（`config/effective.yaml` 或 `--config` 指定路徑），由 `ampy-config` 載入。
-- 預設值 (Defaults)：YAML 缺欄位時由 `config/ampy_config.go` 內建。
+- 設定檔 (Config File)：單一 YAML（`config/effective.yaml` 或 `--config` 指定路徑），由本地 YAML 載入器讀取。
+- 預設值 (Defaults)：YAML 缺欄位時由 `config/types/loader.go` 內建。
 
 ### 設定檔位置 (File Locations)
 
@@ -35,7 +35,7 @@ CLI Flags > Environment Variables > Config File > Built-in Defaults
 
 | 旗標 | 型別 | 預設 | 用途 |
 | --- | --- | --- | --- |
-| `--config` | string | `""` | ampy-config 檔路徑 |
+| `--config` | string | `""` | YAML 設定檔路徑 |
 | `--log-level` | string | `"info"` | Log level：`info` / `debug` / `warn` / `error` |
 | `--run-id` | string | `""` | Run ID（追蹤用；空白則自動產生） |
 | `--concurrency` | int | `0` | Worker pool 大小（覆寫 YAML；`0` 表示沿用設定） |
@@ -61,7 +61,6 @@ CLI Flags > Environment Variables > Config File > Built-in Defaults
 | `circuit_breaker` | 失敗熔斷閾值與 reset timeout |
 | `markets` | Allowed intervals（`["1d"]` daily-only）、MIC allowlist、adjustment policy |
 | `fx` | FX 換算（provider、target、cache、Yahoo web fallback） |
-| `bus` | NATS / Kafka 發布設定、payload 大小、retry / circuit breaker |
 | `scrape` | 網頁爬蟲 fallback（Yahoo web 端點、robots policy） |
 | `observability` | log level、Prometheus、OTLP tracing |
 | `secrets` | URI 參照清單（`env:` / `file:` / `gcp-sm:` / `aws-sm:` / `secret:`） |
@@ -77,7 +76,7 @@ yahoo:
   base_url: "https://query2.finance.yahoo.com"
   timeout_ms: 6000
   max_conns_per_host: 64
-  user_agent: "AmpyFin-yfin/1.x"
+  user_agent: "yfin/1.x"
 ```
 
 完整 default 值見 `config/effective.yaml`；四種環境差異範本見 `config/example.{dev,staging,prod}.yaml`。
@@ -119,7 +118,7 @@ scrape.robots_policy=enforce
 ```yaml
 scrape:
   enabled: true
-  user_agent: "Mozilla/5.0 (Ampy yfin scraper)"
+  user_agent: "Mozilla/5.0 (yfin scraper)"
   timeout_ms: 15000
   qps: 3.0
   burst: 5
@@ -167,22 +166,7 @@ scrape:
 
 > CLI 額外可指定 `balance-sheet` / `cash-flow` / `analyst-insights`，共用 financials / key-statistics 的 extractor；這幾項未於 YAML 中獨立列出。
 
-## 6. Bus / FX / Observability
-
-### Bus（`bus` 區段）
-
-`BusConfig` 控制 bar / quote / fundamentals 發布至 NATS 或 Kafka：
-
-- `bus.enabled`：是否啟用 bus publishing。
-- `bus.env`：topic env segment（與 `app.env` 區分）。
-- `bus.topic_prefix`：topic 前綴（如 `ampy` → `ampy.dev.bars.v1.AAPL.XNAS`）。
-- `bus.max_payload_bytes`：訊息大小，範圍 `[262144, 10485760]`。
-- `bus.publisher.backend`：`nats` / `kafka`。
-- `bus.publisher.nats.url`：`backend == "nats"` 且 `bus.enabled` 時必填。
-- `bus.publisher.kafka.brokers`：broker 清單。
-- 各自帶有 `bus.retry` 與 `bus.circuit_breaker` 區段。
-
-> 完整 bus 行為與 topic naming convention 見 docs/integrations/ampy-proto.md（規劃中）。
+## 6. FX / Observability
 
 ### FX（`fx` 區段）
 
@@ -213,8 +197,6 @@ CLI 端可用 `--observability-disable-tracing` / `--observability-disable-metri
 | `concurrency.per_host_workers >= sessions.n` | 必成立 | `must be >= sessions.n` |
 | `markets.allowed_intervals == ["1d"]` | 嚴格等於 | `must be exactly ["1d"] for yfin (daily-only scope)` |
 | `markets.default_adjustment_policy ∈ {raw, split_dividend}` | 列舉 | `must be 'raw' or 'split_dividend'` |
-| `bus.max_payload_bytes ∈ [262144, 10485760]` | 範圍 | `must be between 262144 and 10485760` |
-| `bus.publisher.nats.url`（`bus.enabled && backend == "nats"`） | 必填 | `is required when bus.enabled=true and backend=nats` |
 | `retry.attempts >= 1` | 範圍 | `must be >= 1` |
 | `circuit_breaker.failure_threshold ∈ (0, 1]` | 範圍 | `must be between 0 and 1` |
 | `observability.metrics.prometheus.addr`（啟用時） | 必填 | `is required when prometheus is enabled` |

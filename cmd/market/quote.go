@@ -14,20 +14,14 @@ import (
 	"github.com/bizshuk/yfin/cmd"
 	"github.com/bizshuk/yfin/facade"
 	"github.com/bizshuk/yfin/model"
-	"github.com/bizshuk/yfin/svc/emit"
-	"github.com/bizshuk/yfin/utils/bus"
 	"github.com/spf13/cobra"
 )
 
 // quoteConfig holds configuration for the quote command
 type quoteConfig struct {
-	Tickers     string
-	Preview     bool
-	Publish     bool
-	Env         string
-	TopicPrefix string
-	Out         string
-	OutDir      string
+	Tickers string
+	Out     string
+	OutDir  string
 }
 
 // newQuoteCmd returns the `quote` cobra command.
@@ -40,16 +34,12 @@ func newQuoteCmd() *cobra.Command {
 (Fetch snapshot quotes for one or more symbols.)
 
 範例 (Examples):
-  yfin quote --tickers AAPL,MSFT,TSLA --preview
-  yfin quote --tickers AAPL --publish --env prod --topic-prefix ampy`,
+  yfin quote --tickers AAPL,MSFT,TSLA
+  yfin quote --tickers AAPL --out json --out-dir ./out`,
 		RunE: func(c *cobra.Command, args []string) error { return runQuote(cfg) },
 	}
 	// Quote command flags
 	c.Flags().StringVar(&cfg.Tickers, "tickers", "", "Comma-separated list of symbols (e.g., AAPL,MSFT,TSLA)")
-	c.Flags().BoolVar(&cfg.Preview, "preview", false, "Show preview without publishing")
-	c.Flags().BoolVar(&cfg.Publish, "publish", false, "Enable bus publishing")
-	c.Flags().StringVar(&cfg.Env, "env", "dev", "Environment (dev, staging, prod)")
-	c.Flags().StringVar(&cfg.TopicPrefix, "topic-prefix", "ampy", "Topic prefix for bus publishing")
 	c.Flags().StringVar(&cfg.Out, "out", "", "Output format (json)")
 	c.Flags().StringVar(&cfg.OutDir, "out-dir", "", "Output directory")
 	return c
@@ -82,26 +72,13 @@ func runQuote(cfg *quoteConfig) error {
 		os.Exit(cmd.ExitGeneral)
 	}
 
-	// Create bus if publishing
-	var busInstance *bus.Bus
-	var busConfig *bus.Config
-	if cfg.Publish || cfg.Preview {
-		busConfig = cmd.CreateBusConfig(cfg.Env, cfg.TopicPrefix)
-		busInstance, err = bus.NewBus(busConfig)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "ERROR: Failed to create bus: %v\n", err)
-			os.Exit(cmd.ExitGeneral)
-		}
-		defer busInstance.Close(context.Background())
-	}
-
 	// Process quotes
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	successCount := 0
 	for _, ticker := range tickers {
-		if err := processQuote(ctx, client, ticker, runID, busInstance, busConfig, cfg); err != nil {
+		if err := processQuote(ctx, client, ticker, runID, cfg); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: Failed to process quote for %s: %v\n", ticker, err)
 			continue
 		}
@@ -129,8 +106,8 @@ func validateQuoteFlags(cfg *quoteConfig) error {
 }
 
 // processQuote processes a single quote
-func processQuote(ctx context.Context, client *facade.Client, ticker string, runID string, busInstance *bus.Bus, busConfig *bus.Config, cfg *quoteConfig) error {
-	// Fetch quote via facade (Norm-returning variant for emit→proto precision).
+func processQuote(ctx context.Context, client *facade.Client, ticker string, runID string, cfg *quoteConfig) error {
+	// Fetch quote via facade (Norm-returning variant for local JSON export).
 	quote, err := client.FetchQuoteNorm(ctx, ticker, runID)
 	if err != nil {
 		return err
@@ -138,13 +115,6 @@ func processQuote(ctx context.Context, client *facade.Client, ticker string, run
 
 	// Print preview
 	printQuotePreview(quote)
-
-	// Handle bus publishing
-	if busInstance != nil {
-		if err := handleQuoteBusPublishing(ctx, quote, busInstance, busConfig, runID, cfg.Preview); err != nil {
-			return fmt.Errorf("bus publishing failed: %v", err)
-		}
-	}
 
 	// Handle local export
 	if cfg.Out != "" && cfg.OutDir != "" {
@@ -177,44 +147,6 @@ func printQuotePreview(quote *model.NormalizedQuote) {
 		quote.Security.Symbol, price, quote.CurrencyCode, high, low, quote.Venue)
 }
 
-// handleQuoteBusPublishing handles bus publishing for quotes
-func handleQuoteBusPublishing(ctx context.Context, quote *model.NormalizedQuote, busInstance *bus.Bus, busConfig *bus.Config, runID string, preview bool) error {
-	// Emit to ampy-proto format
-	ampyQuote, err := emit.EmitQuote(quote)
-	if err != nil {
-		return fmt.Errorf("failed to emit quote: %v", err)
-	}
-
-	// Create bus message
-	busMessage := &bus.QuoteMessage{
-		Quote: ampyQuote,
-		Key: &bus.Key{
-			Symbol: quote.Security.Symbol,
-			MIC:    quote.Security.MIC,
-		},
-		RunID: runID,
-		Env:   busConfig.Env,
-	}
-
-	if preview {
-		// Estimate payload size
-		payloadSize := estimateQuoteSize(ampyQuote)
-		previewSummary, err := busInstance.PreviewQuote(busMessage, payloadSize)
-		if err != nil {
-			return fmt.Errorf("failed to generate preview: %v", err)
-		}
-		bus.PrintPreview(previewSummary)
-	} else {
-		// Actually publish
-		if err := busInstance.PublishQuote(ctx, busMessage); err != nil {
-			return fmt.Errorf("failed to publish quote: %v", err)
-		}
-		fmt.Printf("Published quote to bus\n")
-	}
-
-	return nil
-}
-
 // handleQuoteLocalExport handles local export for quotes
 func handleQuoteLocalExport(quote *model.NormalizedQuote, ticker, outFormat, outDir string) error {
 	// Create output directory
@@ -238,10 +170,4 @@ func handleQuoteLocalExport(quote *model.NormalizedQuote, ticker, outFormat, out
 	default:
 		return fmt.Errorf("unsupported output format: %s", outFormat)
 	}
-}
-
-// estimateQuoteSize estimates the size of a quote payload
-func estimateQuoteSize(quote interface{}) int {
-	// Quote messages are typically small
-	return 150
 }
