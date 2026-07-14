@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"github.com/bizshuk/yfin/model"
 )
 
 func TestFetchBFIAUUSTOCK_RequiresStockNo(t *testing.T) {
@@ -53,9 +54,9 @@ func TestFetchBFIAUUSTOCK_Decode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FetchBFIAUUSTOCK returned error: %v", err)
 	}
-	resp, ok := raw.(BlockBFIAUUResponse)
+	resp, ok := raw.(model.BlockBFIAUUResponse)
 	if !ok {
-		t.Fatalf("expected BlockBFIAUUResponse, got %T", raw)
+		t.Fatalf("expected model.BlockBFIAUUResponse, got %T", raw)
 	}
 	if resp.GetStat() != "OK" {
 		t.Fatalf("expected stat OK, got %q", resp.GetStat())

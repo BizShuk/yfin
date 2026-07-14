@@ -1,4 +1,4 @@
-// — Parses Yahoo key-statistics HTML into ComprehensiveKeyStatisticsDTO covering current, additional, and dynamic historical quarters. Capacity: 9 current + 6 additional metrics + up to 5 historical quarters x 9 metrics.
+// — Parses Yahoo key-statistics HTML into model.ComprehensiveKeyStatisticsDTO covering current, additional, and dynamic historical quarters. Capacity: 9 current + 6 additional metrics + up to 5 historical quarters x 9 metrics.
 package scrape
 
 import (
@@ -64,11 +64,6 @@ type ColumnPatterns struct {
 	EnterpriseValueEBITDA  string `yaml:"enterprise_value_ebitda"`
 }
 
-// DTO aliases — types now live in model/scrape_dtos.go.
-type (
-	ComprehensiveKeyStatisticsDTO = model.ComprehensiveKeyStatisticsDTO
-	HistoricalQuarter             = model.HistoricalQuarter
-)
 
 var regexConfig *RegexConfig
 
@@ -100,12 +95,12 @@ func LoadRegexConfig() error {
 }
 
 // ParseComprehensiveKeyStatistics extracts comprehensive key statistics data from HTML
-func ParseComprehensiveKeyStatistics(html []byte, symbol, market string) (*ComprehensiveKeyStatisticsDTO, error) {
+func ParseComprehensiveKeyStatistics(html []byte, symbol, market string) (*model.ComprehensiveKeyStatisticsDTO, error) {
 	if err := LoadRegexConfig(); err != nil {
 		return nil, fmt.Errorf("failed to load regex config: %w", err)
 	}
 
-	dto := &ComprehensiveKeyStatisticsDTO{
+	dto := &model.ComprehensiveKeyStatisticsDTO{
 		Symbol:   symbol,
 		Market:   market,
 		Currency: "USD", // Default, will be updated from actual data
@@ -127,7 +122,7 @@ func ParseComprehensiveKeyStatistics(html []byte, symbol, market string) (*Compr
 }
 
 // extractCurrentValues extracts current (most recent) statistics values
-func extractCurrentValues(html string, dto *ComprehensiveKeyStatisticsDTO) {
+func extractCurrentValues(html string, dto *model.ComprehensiveKeyStatisticsDTO) {
 	dto.Current.MarketCap = extractScaledValue(html, regexConfig.Current.MarketCap)
 	dto.Current.EnterpriseValue = extractScaledValue(html, regexConfig.Current.EnterpriseValue)
 	dto.Current.TrailingPE = extractScaledValue(html, regexConfig.Current.TrailingPE)
@@ -140,7 +135,7 @@ func extractCurrentValues(html string, dto *ComprehensiveKeyStatisticsDTO) {
 }
 
 // extractAdditionalValues extracts additional statistics from other parts of the page
-func extractAdditionalValues(html string, dto *ComprehensiveKeyStatisticsDTO) {
+func extractAdditionalValues(html string, dto *model.ComprehensiveKeyStatisticsDTO) {
 	dto.Additional.Beta = extractScaledValue(html, regexConfig.Additional.Beta)
 	dto.Additional.ProfitMargin = extractScaledValue(html, regexConfig.Additional.ProfitMargin)
 	dto.Additional.OperatingMargin = extractScaledValue(html, regexConfig.Additional.OperatingMargin)
@@ -154,7 +149,7 @@ func extractAdditionalValues(html string, dto *ComprehensiveKeyStatisticsDTO) {
 }
 
 // extractHistoricalValues extracts historical values dynamically
-func extractHistoricalValues(html string, dto *ComprehensiveKeyStatisticsDTO) {
+func extractHistoricalValues(html string, dto *model.ComprehensiveKeyStatisticsDTO) {
 	// Extract dates from table headers
 	dates := extractDates(html)
 
@@ -177,7 +172,7 @@ func extractHistoricalValues(html string, dto *ComprehensiveKeyStatisticsDTO) {
 			continue
 		}
 
-		quarter := HistoricalQuarter{
+		quarter := model.HistoricalQuarter{
 			Date:                   date,
 			MarketCap:              extractScaledValue(html, patterns.MarketCap),
 			EnterpriseValue:        extractScaledValue(html, patterns.EnterpriseValue),
@@ -219,7 +214,7 @@ func extractDates(html string) []string {
 }
 
 // extractScaledValue extracts and converts a value using the given regex pattern
-func extractScaledValue(html, pattern string) *Scaled {
+func extractScaledValue(html, pattern string) *model.Scaled {
 	if pattern == "" {
 		return nil
 	}
@@ -235,8 +230,8 @@ func extractScaledValue(html, pattern string) *Scaled {
 	return nil
 }
 
-// parseFinancialValue converts a financial string value to Scaled format
-func parseFinancialValue(value string) *Scaled {
+// parseFinancialValue converts a financial string value to model.Scaled format
+func parseFinancialValue(value string) *model.Scaled {
 	if value == "" || value == "--" || value == "N/A" {
 		return nil
 	}
@@ -251,7 +246,7 @@ func parseFinancialValue(value string) *Scaled {
 		cleanValue = strings.TrimSuffix(cleanValue, "%")
 		if val, err := strconv.ParseFloat(cleanValue, 64); err == nil {
 			// Convert percentage to basis points (multiply by 100)
-			return &Scaled{Scaled: int64(val * 100), Scale: 2}
+			return &model.Scaled{Scaled: int64(val * 100), Scale: 2}
 		}
 	}
 
@@ -275,7 +270,7 @@ func parseFinancialValue(value string) *Scaled {
 		if multiplier > 1 {
 			scale = 0 // Large numbers don't need decimal precision
 		}
-		return &Scaled{Scaled: int64(val * float64(multiplier) * 100), Scale: scale}
+		return &model.Scaled{Scaled: int64(val * float64(multiplier) * 100), Scale: scale}
 	}
 
 	return nil

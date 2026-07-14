@@ -11,10 +11,11 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"github.com/bizshuk/yfin/model"
 )
 
 // ParseNews extracts news articles from HTML with robust error handling and deduplication
-func ParseNews(html []byte, baseURL string, now time.Time) ([]NewsItem, *NewsStats, error) {
+func ParseNews(html []byte, baseURL string, now time.Time) ([]model.ScrapeNewsItem, *model.NewsStats, error) {
 	start := time.Now()
 
 	// Initialize metrics
@@ -43,7 +44,7 @@ func ParseNews(html []byte, baseURL string, now time.Time) ([]NewsItem, *NewsSta
 		nextPageHint := extractNextPageHint(htmlStr)
 
 		// Create statistics
-		stats := &NewsStats{
+		stats := &model.NewsStats{
 			TotalFound:    originalCount,
 			TotalReturned: len(articles),
 			Deduped:       deduped,
@@ -79,8 +80,8 @@ func extractArticleContainers(html string) ([]string, error) {
 }
 
 // parseArticleFromContainer extracts article data from a single container
-func parseArticleFromContainer(container, baseURL string, now time.Time) *NewsItem {
-	article := &NewsItem{}
+func parseArticleFromContainer(container, baseURL string, now time.Time) *model.ScrapeNewsItem {
+	article := &model.ScrapeNewsItem{}
 
 	// Extract title
 	title := extractStringFromContainer(container, newsRegexConfig.Title)
@@ -149,7 +150,7 @@ func extractNextPageHint(html string) string {
 }
 
 // parseNewsFromHTML falls back to HTML-based extraction for test fixtures
-func parseNewsFromHTML(htmlStr, baseURL string, now time.Time, metrics *newsMetrics) ([]NewsItem, *NewsStats, error) {
+func parseNewsFromHTML(htmlStr, baseURL string, now time.Time, metrics *newsMetrics) ([]model.ScrapeNewsItem, *model.NewsStats, error) {
 	// Load regex configuration
 	if err := LoadNewsRegexConfig(); err != nil {
 		return nil, nil, fmt.Errorf("failed to load news regex config: %w", err)
@@ -168,7 +169,7 @@ func parseNewsFromHTML(htmlStr, baseURL string, now time.Time, metrics *newsMetr
 	}
 
 	// Parse articles from containers
-	var articles []NewsItem
+	var articles []model.ScrapeNewsItem
 	for _, container := range containers {
 		article := parseArticleFromContainer(container, baseURL, now)
 		if article != nil {
@@ -199,7 +200,7 @@ func parseNewsFromHTML(htmlStr, baseURL string, now time.Time, metrics *newsMetr
 	nextPageHint := extractNextPageHint(htmlStr)
 
 	// Create statistics
-	stats := &NewsStats{
+	stats := &model.NewsStats{
 		TotalFound:    originalCount,
 		TotalReturned: len(articles),
 		Deduped:       deduped,

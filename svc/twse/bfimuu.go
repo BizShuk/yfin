@@ -7,17 +7,6 @@ import (
 	"github.com/bizshuk/yfin/model"
 )
 
-// Type aliases — structs now live in model/twse.go.
-type (
-	BFIMUResponse = model.BFIMUResponse
-	BFIMUURow = model.BFIMUURow
-)
-
-// BFIMUResponse embeds the common Response envelope and adds the
-// `date` field that TWSE returns on this endpoint.
-
-// BFIMUURow is a typed representation of one BFIMUU data row.
-// Fields: 年月份, 成交筆數, 成交股數, 成交金額.
 
 // FetchBFIMUU retrieves the monthly block-trade report for `date` (YYYYMM01).
 func FetchBFIMUU(ctx context.Context, client *Client, date string, opts url.Values) (any, error) {
@@ -31,15 +20,15 @@ func FetchBFIMUU(ctx context.Context, client *Client, date string, opts url.Valu
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[BFIMUResponse](ctx, client, "/block/BFIMUU", q)
+	return FetchJSON[model.BFIMUResponse](ctx, client, "/block/BFIMUU", q)
 }
 
 // ParseBFIMUURow converts one raw `data` row into a typed BFIMUURow.
-func ParseBFIMUURow(row []string) (BFIMUURow, error) {
+func ParseBFIMUURow(row []string) (model.BFIMUURow, error) {
 	if len(row) < 4 {
-		return BFIMUURow{}, fmt.Errorf("BFIMUU: row too short: %d cols", len(row))
+		return model.BFIMUURow{}, fmt.Errorf("BFIMUU: row too short: %d cols", len(row))
 	}
-	return BFIMUURow{
+	return model.BFIMUURow{
 		Period:       row[0],
 		Transactions: ParseInt(row[1]),
 		Volume:       ParseInt(row[2]),

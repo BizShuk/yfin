@@ -14,14 +14,6 @@ import (
 	"github.com/bizshuk/yfin/model"
 )
 
-// Back-compat type aliases.
-type (
-	QuoteResponse     = model.QuoteResponse
-	QuoteResponseData = model.QuoteResponseData
-	QuoteResult       = model.QuoteResult
-	Quote             = model.RawQuote
-)
-
 // DecodeQuoteResponse decodes a Yahoo Finance quote response with strict
 // validation (bid <= ask, non-negative volume/size, no NaN/Inf prices).
 func DecodeQuoteResponse(data []byte) (*model.QuoteResponse, error) {

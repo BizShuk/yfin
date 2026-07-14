@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"github.com/bizshuk/yfin/model"
 )
 
 func TestFetchBFIMUU_RequiresDate(t *testing.T) {
@@ -50,9 +51,9 @@ func TestFetchBFIMUU_Decode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FetchBFIMUU returned error: %v", err)
 	}
-	resp, ok := raw.(BFIMUResponse)
+	resp, ok := raw.(model.BFIMUResponse)
 	if !ok {
-		t.Fatalf("expected *BFIMUResponse, got %T", raw)
+		t.Fatalf("expected *model.BFIMUResponse, got %T", raw)
 	}
 	if resp.GetStat() != "OK" {
 		t.Fatalf("expected stat OK, got %q", resp.GetStat())

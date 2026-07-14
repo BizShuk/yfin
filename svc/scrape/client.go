@@ -12,11 +12,12 @@ import (
 	"time"
 
 	"github.com/bizshuk/yfin/utils/httpx"
+	"github.com/bizshuk/yfin/model"
 )
 
 // Client interface for web scraping operations.
 type Client interface {
-	Fetch(ctx context.Context, url string) ([]byte, *FetchMeta, error)
+	Fetch(ctx context.Context, url string) ([]byte, *model.FetchMeta, error)
 }
 
 // client implements the Client interface.
@@ -29,7 +30,7 @@ type client struct {
 // NewClientWithCaller wires a scraping client around any `httpx.Caller`
 // (typically a `*httpx.Client` configured for `finance.yahoo.com`).
 // The caller owns retry / rate-limit / tracing / metrics; this layer
-// only enforces `RobotsPolicy` and adapts `*httpx.Meta` to `*FetchMeta`.
+// only enforces `RobotsPolicy` and adapts `*httpx.Meta` to `*model.FetchMeta`.
 func NewClientWithCaller(caller httpx.Caller, config *Config) (Client, error) {
 	if caller == nil {
 		return nil, fmt.Errorf("scrape: caller must not be nil")
@@ -80,7 +81,7 @@ func NewClient(config *Config, pool *httpx.Client) (Client, error) {
 // Fetch applies the configured robots.txt policy, then delegates the
 // GET to the underlying `httpx.Caller`. The caller is invoked exactly
 // once per Fetch — retries and backoff happen inside httpx.
-func (c *client) Fetch(ctx context.Context, urlStr string) ([]byte, *FetchMeta, error) {
+func (c *client) Fetch(ctx context.Context, urlStr string) ([]byte, *model.FetchMeta, error) {
 	u, err := url.Parse(urlStr)
 	if err != nil {
 		return nil, nil, &ScrapeError{
@@ -98,7 +99,7 @@ func (c *client) Fetch(ctx context.Context, urlStr string) ([]byte, *FetchMeta, 
 	if err != nil {
 		return nil, nil, err
 	}
-	return body, &FetchMeta{
+	return body, &model.FetchMeta{
 		URL:          urlStr,
 		Host:         u.Host,
 		Status:       meta.Status,

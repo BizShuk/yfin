@@ -7,18 +7,7 @@ import (
 	"github.com/bizshuk/yfin/model"
 )
 
-// Type aliases — structs now live in model/twse.go.
-type (
-	StockDayAvgResponse = model.StockDayAvgResponse
-	StockDayAvgRow = model.StockDayAvgRow
-)
 
-// StockDayAvgResponse embeds the common Response envelope and adds the
-// `date` and `stockNo` fields that TWSE returns on this endpoint.
-
-
-// StockDayAvgRow is a typed representation of one STOCK_DAY_AVG data row.
-// Fields: 年度, 月份, 最高, 最低, 加權平均價, 成交筆數, 成交股數, 成交金額.
 
 // FetchStockDayAvg retrieves the per-stock monthly average price for `date`
 // (YYYYMM01). `stockNo` must be supplied via opts.
@@ -41,15 +30,15 @@ func FetchStockDayAvg(ctx context.Context, client *Client, date string, opts url
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[StockDayAvgResponse](ctx, client, "/exchangeReport/STOCK_DAY_AVG", q)
+	return FetchJSON[model.StockDayAvgResponse](ctx, client, "/exchangeReport/STOCK_DAY_AVG", q)
 }
 
 // ParseStockDayAvgRow converts one raw `data` row into a typed StockDayAvgRow.
-func ParseStockDayAvgRow(row []string) (StockDayAvgRow, error) {
+func ParseStockDayAvgRow(row []string) (model.StockDayAvgRow, error) {
 	if len(row) < 8 {
-		return StockDayAvgRow{}, fmt.Errorf("STOCK_DAY_AVG: row too short: %d cols", len(row))
+		return model.StockDayAvgRow{}, fmt.Errorf("STOCK_DAY_AVG: row too short: %d cols", len(row))
 	}
-	return StockDayAvgRow{
+	return model.StockDayAvgRow{
 		Year:         row[0],
 		Month:        row[1],
 		High:         ParseFloat(row[2]),

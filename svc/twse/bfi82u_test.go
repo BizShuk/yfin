@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"github.com/bizshuk/yfin/model"
 )
 
 func TestFetchBFI82U_Decode(t *testing.T) {
@@ -46,9 +47,9 @@ func TestFetchBFI82U_Decode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FetchBFI82U returned error: %v", err)
 	}
-	resp, ok := raw.(BFI82UResponse)
+	resp, ok := raw.(model.BFI82UResponse)
 	if !ok {
-		t.Fatalf("expected *BFI82UResponse, got %T", raw)
+		t.Fatalf("expected *model.BFI82UResponse, got %T", raw)
 	}
 	if resp.GetStat() != "OK" {
 		t.Fatalf("expected stat OK, got %q", resp.GetStat())

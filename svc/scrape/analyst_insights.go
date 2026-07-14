@@ -13,8 +13,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// AnalystInsightsDTO re-export — defined in model/scrape_dtos.go.
-type AnalystInsightsDTO = model.AnalystInsightsDTO
 
 // AnalystInsightsRegexConfig holds the regex patterns for analyst insights extraction
 type AnalystInsightsRegexConfig struct {
@@ -64,12 +62,12 @@ func LoadAnalystInsightsRegexConfig() error {
 }
 
 // ParseAnalystInsights parses analyst insights data from Yahoo Finance HTML
-func ParseAnalystInsights(html []byte, symbol, market string) (*AnalystInsightsDTO, error) {
+func ParseAnalystInsights(html []byte, symbol, market string) (*model.AnalystInsightsDTO, error) {
 	if err := LoadAnalystInsightsRegexConfig(); err != nil {
 		return nil, fmt.Errorf("failed to load analyst insights regex config: %w", err)
 	}
 
-	dto := &AnalystInsightsDTO{
+	dto := &model.AnalystInsightsDTO{
 		Symbol: symbol,
 		Market: market,
 		AsOf:   time.Now(),
@@ -86,7 +84,7 @@ func ParseAnalystInsights(html []byte, symbol, market string) (*AnalystInsightsD
 }
 
 // extractFinancialDataFromJSON extracts analyst insights from embedded JSON data
-func extractFinancialDataFromJSON(html string, dto *AnalystInsightsDTO) error {
+func extractFinancialDataFromJSON(html string, dto *model.AnalystInsightsDTO) error {
 	// Find the financialData section in the embedded JSON
 	// Pattern to match: "financialData":{"maxAge":86400,"currentPrice":...}
 	re := regexp.MustCompile(analystInsightsRegexConfig.FinancialData.CombinedPattern)
@@ -127,7 +125,7 @@ func extractFinancialDataFromJSON(html string, dto *AnalystInsightsDTO) error {
 }
 
 // extractFinancialDataFlexible tries to extract fields individually if the combined pattern fails
-func extractFinancialDataFlexible(html string, dto *AnalystInsightsDTO) error {
+func extractFinancialDataFlexible(html string, dto *model.AnalystInsightsDTO) error {
 	// Extract individual fields with more flexible patterns (handle escaped quotes and actual format)
 	patterns := map[string]string{
 		"currentPrice":       analystInsightsRegexConfig.IndividualFields.CurrentPrice,

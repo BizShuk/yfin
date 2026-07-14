@@ -10,13 +10,14 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"github.com/bizshuk/yfin/model"
 )
 
 // RobotsManager handles robots.txt fetching, caching, and policy enforcement
 type RobotsManager struct {
 	policy RobotsPolicy
 	ttl    time.Duration
-	cache  map[string]*RobotsCache
+	cache  map[string]*model.RobotsCache
 	mu     sync.RWMutex
 	client *http.Client
 }
@@ -30,7 +31,7 @@ func NewRobotsManager(policy string, ttl time.Duration) *RobotsManager {
 	return &RobotsManager{
 		policy: RobotsPolicy(policy),
 		ttl:    ttl,
-		cache:  make(map[string]*RobotsCache),
+		cache:  make(map[string]*model.RobotsCache),
 		client: &http.Client{
 			Timeout: 10 * time.Second,
 		},
@@ -80,7 +81,7 @@ func (rm *RobotsManager) CheckRobots(ctx context.Context, host, path string) err
 }
 
 // getRobots fetches and caches robots.txt for a host
-func (rm *RobotsManager) getRobots(ctx context.Context, host string) (*RobotsCache, error) {
+func (rm *RobotsManager) getRobots(ctx context.Context, host string) (*model.RobotsCache, error) {
 	rm.mu.RLock()
 	cached, exists := rm.cache[host]
 	rm.mu.RUnlock()
@@ -118,7 +119,7 @@ func (rm *RobotsManager) getRobots(ctx context.Context, host string) (*RobotsCac
 	}
 
 	// Cache the result
-	robots := &RobotsCache{
+	robots := &model.RobotsCache{
 		Host:      host,
 		Rules:     rules,
 		FetchedAt: time.Now(),
@@ -133,9 +134,9 @@ func (rm *RobotsManager) getRobots(ctx context.Context, host string) (*RobotsCac
 }
 
 // parseRobotsTxt parses robots.txt content
-func (rm *RobotsManager) parseRobotsTxt(body interface{ Read([]byte) (int, error) }) ([]RobotsRule, error) {
-	var rules []RobotsRule
-	var currentRule *RobotsRule
+func (rm *RobotsManager) parseRobotsTxt(body interface{ Read([]byte) (int, error) }) ([]model.RobotsRule, error) {
+	var rules []model.RobotsRule
+	var currentRule *model.RobotsRule
 
 	scanner := bufio.NewScanner(body)
 	for scanner.Scan() {
@@ -161,7 +162,7 @@ func (rm *RobotsManager) parseRobotsTxt(body interface{ Read([]byte) (int, error
 			if currentRule != nil {
 				rules = append(rules, *currentRule)
 			}
-			currentRule = &RobotsRule{
+			currentRule = &model.RobotsRule{
 				UserAgent: value,
 				Allow:     []string{},
 				Disallow:  []string{},
@@ -190,9 +191,9 @@ func (rm *RobotsManager) parseRobotsTxt(body interface{ Read([]byte) (int, error
 }
 
 // isPathAllowed checks if a path is allowed by robots.txt rules
-func (rm *RobotsManager) isPathAllowed(robots *RobotsCache, path string) bool {
+func (rm *RobotsManager) isPathAllowed(robots *model.RobotsCache, path string) bool {
 	// Find applicable rules (look for wildcard or our user agent)
-	var applicableRules []RobotsRule
+	var applicableRules []model.RobotsRule
 
 	for _, rule := range robots.Rules {
 		if rule.UserAgent == "*" || strings.Contains(strings.ToLower(rule.UserAgent), "ampy") {
@@ -260,7 +261,7 @@ func (rm *RobotsManager) pathMatches(path, pattern string) bool {
 func (rm *RobotsManager) ClearCache() {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
-	rm.cache = make(map[string]*RobotsCache)
+	rm.cache = make(map[string]*model.RobotsCache)
 }
 
 // GetCacheStats returns cache statistics

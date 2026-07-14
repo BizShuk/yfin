@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"github.com/bizshuk/yfin/model"
 )
 
 // normalizeURL converts relative URLs to absolute and cleans tracking parameters
@@ -178,9 +179,9 @@ func isValidTicker(ticker string) bool {
 }
 
 // deduplicateArticles removes duplicate articles using URL and content heuristics
-func deduplicateArticles(articles []NewsItem) []NewsItem {
+func deduplicateArticles(articles []model.ScrapeNewsItem) []model.ScrapeNewsItem {
 	seen := make(map[string]bool)
-	var result []NewsItem
+	var result []model.ScrapeNewsItem
 
 	for _, article := range articles {
 		// Primary dedup key: normalized URL

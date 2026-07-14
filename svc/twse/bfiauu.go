@@ -8,19 +8,7 @@ import (
 	"github.com/bizshuk/yfin/model"
 )
 
-// Type aliases — structs now live in model/twse.go.
-type (
-	BlockBFIAUUResponse = model.BlockBFIAUUResponse
-	BlockBFIAUURow = model.BlockBFIAUURow
-)
 
-// BlockBFIAUUResponse embeds the common Response envelope and adds
-// the `date` and optional `stockNo` fields that TWSE returns on the
-// /block/BFIAUU block-trade endpoint.
-
-
-// BlockBFIAUURow is a typed representation of one /block/BFIAUU data row.
-// Fields: 序號, 證券代號, 證券名稱, 買進證券商, 賣出證券商, 成交數量, 成交金額, 成交價格, 成交時間, 買進成交價.
 
 // FetchBlockBFIAUU retrieves block-trade (鉅額交易) data for `date`.
 // If `stockNo` is set in `opts`, the response is filtered to that symbol.
@@ -35,15 +23,15 @@ func FetchBlockBFIAUU(ctx context.Context, client *Client, date string, opts url
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[BlockBFIAUUResponse](ctx, client, "/block/BFIAUU", q)
+	return FetchJSON[model.BlockBFIAUUResponse](ctx, client, "/block/BFIAUU", q)
 }
 
 // ParseBlockBFIAUURow converts one raw `data` row into a typed BlockBFIAUURow.
-func ParseBlockBFIAUURow(row []string) (BlockBFIAUURow, error) {
+func ParseBlockBFIAUURow(row []string) (model.BlockBFIAUURow, error) {
 	if len(row) < 10 {
-		return BlockBFIAUURow{}, fmt.Errorf("BFIAUU: row too short: %d cols", len(row))
+		return model.BlockBFIAUURow{}, fmt.Errorf("BFIAUU: row too short: %d cols", len(row))
 	}
-	return BlockBFIAUURow{
+	return model.BlockBFIAUURow{
 		Seq:           strings.TrimSpace(row[0]),
 		StockCode:     strings.TrimSpace(row[1]),
 		StockName:     strings.TrimSpace(row[2]),

@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bizshuk/yfin/model"
 	"github.com/bizshuk/yfin/utils/httpx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -80,7 +81,7 @@ func TestFetchJSON_StatAtTopLevel(t *testing.T) {
 }
 
 type EmbeddedResponse struct {
-	Response
+	model.Response
 	Date string `json:"date"`
 }
 
@@ -126,7 +127,7 @@ func TestFetchJSON_UsesInjectedCaller(t *testing.T) {
 		body: []byte(`{"stat":"OK","data":[],"title":"MI_INDEX"}`),
 	}
 	client := NewClientWithURL(stub, "https://www.twse.com.tw/rwd/zh")
-	_, err := FetchJSON[MI_INDEXResponse](
+	_, err := FetchJSON[model.MI_INDEXResponse](
 		context.Background(),
 		client,
 		"/afterTrading/STOCK_DAY",

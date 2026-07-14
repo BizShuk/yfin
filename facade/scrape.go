@@ -7,7 +7,7 @@
 // parser is a thin pass-through to svc/scrape — the point isn't to add
 // logic, it's to keep cmd → svc at one remove via facade.
 //
-// The return types still reference svc/scrape DTOs (ComprehensiveFinancialsDTO,
+// The return types now use model.* DTOs (ComprehensiveFinancialsDTO,
 // etc.) because cmd/scrape/format*.go printers take them. Type imports from
 // svc/scrape are allowed (these are pure data declarations, not runtime
 // calls); cmd cannot directly call svc/scrape.Fetch / Parse* / etc.
@@ -20,13 +20,14 @@ import (
 
 	"github.com/bizshuk/yfin/config"
 	"github.com/bizshuk/yfin/svc/scrape"
+	"github.com/bizshuk/yfin/model"
 )
 
 // ScrapeFetch issues a single page fetch against the Yahoo Finance scrape
 // client. Wraps svc/scrape.Client.Fetch so cmd never touches it directly.
 // Returns the raw response body plus the fetch metadata (host, status,
 // bytes, redirects, etc.).
-func (c *Client) ScrapeFetch(ctx context.Context, ticker, endpoint string) ([]byte, *scrape.FetchMeta, error) {
+func (c *Client) ScrapeFetch(ctx context.Context, ticker, endpoint string) ([]byte, *model.FetchMeta, error) {
 	scraper, err := c.scrapeClientForCmd()
 	if err != nil {
 		return nil, nil, err
@@ -43,7 +44,7 @@ func (c *Client) ScrapeFetch(ctx context.Context, ticker, endpoint string) ([]by
 // scrape.Client (used by cmd/scrape preview modes that wire a custom client
 // via `cmd.CreateScrapeClient` today; after Phase C, callers can use either
 // the facade-bound client or a locally-built one).
-func ScrapeFetchWithClient(ctx context.Context, scraper scrape.Client, ticker, endpoint string) ([]byte, *scrape.FetchMeta, error) {
+func ScrapeFetchWithClient(ctx context.Context, scraper scrape.Client, ticker, endpoint string) ([]byte, *model.FetchMeta, error) {
 	url := BuildScrapeURL(ticker, endpoint)
 	return scraper.Fetch(ctx, url)
 }
@@ -119,37 +120,37 @@ func BuildScrapeURL(ticker, endpoint string) string {
 // runtime calls (type imports for the returned DTO are fine).
 
 // ParseComprehensiveFinancials parses the financials page body.
-func ParseComprehensiveFinancials(body []byte, symbol, mic string) (*scrape.ComprehensiveFinancialsDTO, error) {
+func ParseComprehensiveFinancials(body []byte, symbol, mic string) (*model.ComprehensiveFinancialsDTO, error) {
 	return scrape.ParseComprehensiveFinancials(body, symbol, mic)
 }
 
 // ParseComprehensiveFinancialsWithCurrency parses financials using the
 // currency code resolved from a second financials page body.
-func ParseComprehensiveFinancialsWithCurrency(body, financialsBody []byte, symbol, mic string) (*scrape.ComprehensiveFinancialsDTO, error) {
+func ParseComprehensiveFinancialsWithCurrency(body, financialsBody []byte, symbol, mic string) (*model.ComprehensiveFinancialsDTO, error) {
 	return scrape.ParseComprehensiveFinancialsWithCurrency(body, financialsBody, symbol, mic)
 }
 
 // ParseComprehensiveKeyStatistics parses the key-statistics page body.
-func ParseComprehensiveKeyStatistics(body []byte, symbol, mic string) (*scrape.ComprehensiveKeyStatisticsDTO, error) {
+func ParseComprehensiveKeyStatistics(body []byte, symbol, mic string) (*model.ComprehensiveKeyStatisticsDTO, error) {
 	return scrape.ParseComprehensiveKeyStatistics(body, symbol, mic)
 }
 
 // ParseComprehensiveProfile parses the profile page body.
-func ParseComprehensiveProfile(body []byte, symbol, mic string) (*scrape.ComprehensiveProfileDTO, error) {
+func ParseComprehensiveProfile(body []byte, symbol, mic string) (*model.ComprehensiveProfileDTO, error) {
 	return scrape.ParseComprehensiveProfile(body, symbol, mic)
 }
 
 // ParseAnalysis parses the analysis page body.
-func ParseAnalysis(body []byte, symbol, mic string) (*scrape.ComprehensiveAnalysisDTO, error) {
+func ParseAnalysis(body []byte, symbol, mic string) (*model.ComprehensiveAnalysisDTO, error) {
 	return scrape.ParseAnalysis(body, symbol, mic)
 }
 
 // ParseAnalystInsights parses the analyst-insights page body.
-func ParseAnalystInsights(body []byte, symbol, mic string) (*scrape.AnalystInsightsDTO, error) {
+func ParseAnalystInsights(body []byte, symbol, mic string) (*model.AnalystInsightsDTO, error) {
 	return scrape.ParseAnalystInsights(body, symbol, mic)
 }
 
 // ParseNews parses the news page body into a slice of articles + stats.
-func ParseNews(body []byte, baseURL string, now time.Time) ([]scrape.NewsItem, *scrape.NewsStats, error) {
+func ParseNews(body []byte, baseURL string, now time.Time) ([]model.ScrapeNewsItem, *model.NewsStats, error) {
 	return scrape.ParseNews(body, baseURL, now)
 }

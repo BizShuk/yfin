@@ -8,18 +8,7 @@ import (
 	"github.com/bizshuk/yfin/model"
 )
 
-// Type aliases — structs now live in model/twse.go.
-type (
-	BWIBBU_dResponse = model.BWIBBU_dResponse
-	BWIBBUdRow = model.BWIBBUdRow
-)
 
-// BWIBBU_dResponse embeds the common Response envelope and adds the
-// `date` field that TWSE returns on this endpoint.
-
-
-// BWIBBUdRow is a typed representation of one BWIBBU_d data row.
-// Fields: 證券代號, 證券名稱, 本益比, 殖利率(%), 股價淨值比.
 
 // FetchBWIBBU_d retrieves the per-stock P/E, dividend yield, and P/B
 // ratio snapshot for `date`. `opts` may include `selectType=ALL`
@@ -36,15 +25,15 @@ func FetchBWIBBU_d(ctx context.Context, client *Client, date string, opts url.Va
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[BWIBBU_dResponse](ctx, client, "/afterTrading/BWIBBU_d", q)
+	return FetchJSON[model.BWIBBU_dResponse](ctx, client, "/afterTrading/BWIBBU_d", q)
 }
 
 // ParseBWIBBUdRow converts one raw `data` row into a typed BWIBBUdRow.
-func ParseBWIBBUdRow(row []string) (BWIBBUdRow, error) {
+func ParseBWIBBUdRow(row []string) (model.BWIBBUdRow, error) {
 	if len(row) < 5 {
-		return BWIBBUdRow{}, fmt.Errorf("BWIBBU_d: row too short: %d cols", len(row))
+		return model.BWIBBUdRow{}, fmt.Errorf("BWIBBU_d: row too short: %d cols", len(row))
 	}
-	return BWIBBUdRow{
+	return model.BWIBBUdRow{
 		Code:     strings.TrimSpace(row[0]),
 		Name:     strings.TrimSpace(row[1]),
 		PE:       ParseFloat(row[2]),

@@ -8,18 +8,7 @@ import (
 	"github.com/bizshuk/yfin/model"
 )
 
-// Type aliases — structs now live in model/twse.go.
-type (
-	TWT38UResponse = model.TWT38UResponse
-	TWT38URow = model.TWT38URow
-)
 
-// TWT38UResponse embeds the common Response envelope and adds the
-// `date` field that TWSE returns on this endpoint.
-
-
-// TWT38URow is a typed representation of one TWT38U data row.
-// Fields: 單位名稱, 買進股數, 賣出股數, 買賣差額股數.
 
 // FetchTWT38U retrieves the daily aggregated buy/sell volume of
 // foreign investors (含陸資) for `date`.
@@ -34,15 +23,15 @@ func FetchTWT38U(ctx context.Context, client *Client, date string, opts url.Valu
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[TWT38UResponse](ctx, client, "/fund/TWT38U", q)
+	return FetchJSON[model.TWT38UResponse](ctx, client, "/fund/TWT38U", q)
 }
 
 // ParseTWT38URow converts one raw `data` row into a typed TWT38URow.
-func ParseTWT38URow(row []string) (TWT38URow, error) {
+func ParseTWT38URow(row []string) (model.TWT38URow, error) {
 	if len(row) < 4 {
-		return TWT38URow{}, fmt.Errorf("TWT38U: row too short: %d cols", len(row))
+		return model.TWT38URow{}, fmt.Errorf("TWT38U: row too short: %d cols", len(row))
 	}
-	return TWT38URow{
+	return model.TWT38URow{
 		UnitName: strings.TrimSpace(row[0]),
 		Buy:      ParseInt(row[1]),
 		Sell:     ParseInt(row[2]),

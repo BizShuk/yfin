@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"github.com/bizshuk/yfin/model"
 )
 
 // newTestClient points the package BaseURL at the httptest server so FetchJSON
@@ -57,9 +58,9 @@ func TestFetchMI_INDEX_Decode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FetchMI_INDEX returned error: %v", err)
 	}
-	resp, ok := raw.(MI_INDEXResponse)
+	resp, ok := raw.(model.MI_INDEXResponse)
 	if !ok {
-		t.Fatalf("expected MI_INDEXResponse, got %T", raw)
+		t.Fatalf("expected model.MI_INDEXResponse, got %T", raw)
 	}
 	if resp.GetStat() != "OK" {
 		t.Fatalf("expected stat OK, got %q", resp.GetStat())

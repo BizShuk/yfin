@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"github.com/bizshuk/yfin/model"
 )
 
 func TestFetchMI_INDEX_PLUS_Decode(t *testing.T) {
@@ -31,9 +32,9 @@ func TestFetchMI_INDEX_PLUS_Decode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FetchMI_INDEX_PLUS returned error: %v", err)
 	}
-	resp, ok := raw.(MI_INDEX_PLUSResponse)
+	resp, ok := raw.(model.MI_INDEX_PLUSResponse)
 	if !ok {
-		t.Fatalf("expected MI_INDEX_PLUSResponse, got %T", raw)
+		t.Fatalf("expected model.MI_INDEX_PLUSResponse, got %T", raw)
 	}
 	if resp.GetStat() != "OK" {
 		t.Fatalf("expected stat OK, got %q", resp.GetStat())

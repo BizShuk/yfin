@@ -1,8 +1,7 @@
 // bars.go — `/v8/finance/chart` HTTP fetch + JSON decode for the
 // chart/bars endpoint. Type definitions (ChartResponse, Chart, ChartResult,
 // ChartMeta, ChartIndicators, ChartBar, etc.) live in `model/yahoo_raw.go`;
-// this file only owns the HTTP/JSON-decode behavior and exposes
-// `model.*` types via type aliases for back-compat.
+// this file only owns the HTTP/JSON-decode behavior.
 package yahoo
 
 import (
@@ -13,23 +12,6 @@ import (
 	"io"
 
 	"github.com/bizshuk/yfin/model"
-)
-
-// Back-compat type aliases. New code should import `model` directly
-// (e.g. `model.ChartResponse` / `model.ChartBar`). These aliases keep
-// existing callers (`facade.Client.Fetch*`, dispatch wrappers) compiling
-// without churn.
-type (
-	BarsResponse        = model.ChartResponse
-	Chart               = model.Chart
-	ChartResult         = model.ChartResult
-	ChartMeta           = model.ChartMeta
-	CurrentTradingPeriod = model.CurrentTradingPeriod
-	TradingPeriod       = model.TradingPeriod
-	ChartIndicators     = model.ChartIndicators
-	QuoteIndicator      = model.QuoteIndicator
-	AdjCloseIndicator   = model.AdjCloseIndicator
-	Bar                 = model.ChartBar
 )
 
 // DecodeBarsResponse decodes a Yahoo Finance bars response (relaxed JSON:

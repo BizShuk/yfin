@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+
+	"github.com/bizshuk/yfin/model"
 )
 
 // FetchBFIAUUSTOCK is a thin wrapper over FetchBFIAUU that requires `stockNo`
@@ -21,6 +23,6 @@ func FetchBFIAUUSTOCK(ctx context.Context, client *Client, date string, opts url
 
 // ParseBFIAUUSTOCKRow parses a row from the BFIAUU_STOCK endpoint. The
 // data shape is identical to BFIAUU, so it delegates to ParseBlockBFIAUURow.
-func ParseBFIAUUSTOCKRow(row []string) (BlockBFIAUURow, error) {
+func ParseBFIAUUSTOCKRow(row []string) (model.BlockBFIAUURow, error) {
 	return ParseBlockBFIAUURow(row)
 }

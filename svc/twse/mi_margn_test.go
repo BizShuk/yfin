@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"github.com/bizshuk/yfin/model"
 )
 
 func TestFetchMI_MARGN_Decode(t *testing.T) {
@@ -37,9 +38,9 @@ func TestFetchMI_MARGN_Decode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FetchMI_MARGN returned error: %v", err)
 	}
-	resp, ok := raw.(MI_MARGNResponse)
+	resp, ok := raw.(model.MI_MARGNResponse)
 	if !ok {
-		t.Fatalf("expected MI_MARGNResponse, got %T", raw)
+		t.Fatalf("expected model.MI_MARGNResponse, got %T", raw)
 	}
 	if resp.GetStat() != "OK" {
 		t.Fatalf("expected stat OK, got %q", resp.GetStat())

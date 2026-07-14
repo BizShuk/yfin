@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"github.com/bizshuk/yfin/model"
 )
 
 func TestFetchBFIAMU_Decode(t *testing.T) {
@@ -41,9 +42,9 @@ func TestFetchBFIAMU_Decode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FetchBFIAMU returned error: %v", err)
 	}
-	resp, ok := raw.(BFIAMUResponse)
+	resp, ok := raw.(model.BFIAMUResponse)
 	if !ok {
-		t.Fatalf("expected BFIAMUResponse, got %T", raw)
+		t.Fatalf("expected model.BFIAMUResponse, got %T", raw)
 	}
 	if resp.GetStat() != "OK" {
 		t.Fatalf("expected stat OK, got %q", resp.GetStat())

@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"github.com/bizshuk/yfin/model"
 )
 
 func TestFetchFMTQIK_RequiresDate(t *testing.T) {
@@ -50,9 +51,9 @@ func TestFetchFMTQIK_Decode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FetchFMTQIK returned error: %v", err)
 	}
-	resp, ok := raw.(FMTQIKResponse)
+	resp, ok := raw.(model.FMTQIKResponse)
 	if !ok {
-		t.Fatalf("expected *FMTQIKResponse, got %T", raw)
+		t.Fatalf("expected *model.FMTQIKResponse, got %T", raw)
 	}
 	if resp.GetStat() != "OK" {
 		t.Fatalf("expected stat OK, got %q", resp.GetStat())

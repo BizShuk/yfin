@@ -8,17 +8,6 @@ import (
 	"github.com/bizshuk/yfin/model"
 )
 
-// Type aliases — structs now live in model/twse.go.
-type (
-	MI_WEEKResponse = model.MI_WEEKResponse
-	MIWeekRow = model.MIWeekRow
-)
-
-// MI_WEEKResponse embeds the common Response envelope and adds the `date`
-// field that TWSE returns for /statistics/MI_WEEK.
-
-// MIWeekRow is a typed representation of one MI_WEEK data row.
-// Columns: 股票代號, 股票名稱, 發行股數, 市值.
 
 // FetchMI_WEEK retrieves the weekly stock market-cap report for `date`.
 // `date` is required (YYYYMMDD).
@@ -33,15 +22,15 @@ func FetchMI_WEEK(ctx context.Context, client *Client, date string, opts url.Val
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[MI_WEEKResponse](ctx, client, "/statistics/MI_WEEK", q)
+	return FetchJSON[model.MI_WEEKResponse](ctx, client, "/statistics/MI_WEEK", q)
 }
 
 // ParseMIWeekRow converts one raw `data` row into a typed MIWeekRow.
-func ParseMIWeekRow(row []string) (MIWeekRow, error) {
+func ParseMIWeekRow(row []string) (model.MIWeekRow, error) {
 	if len(row) < 4 {
-		return MIWeekRow{}, fmt.Errorf("MI_WEEK: row too short: %d cols", len(row))
+		return model.MIWeekRow{}, fmt.Errorf("MI_WEEK: row too short: %d cols", len(row))
 	}
-	return MIWeekRow{
+	return model.MIWeekRow{
 		StockCode:    strings.TrimSpace(row[0]),
 		StockName:    strings.TrimSpace(row[1]),
 		SharesIssued: ParseInt(row[2]),

@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"github.com/bizshuk/yfin/model"
 )
 
 func TestFetchStockDayAvg_RequiresDate(t *testing.T) {
@@ -70,9 +71,9 @@ func TestFetchStockDayAvg_Decode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FetchStockDayAvg returned error: %v", err)
 	}
-	resp, ok := raw.(StockDayAvgResponse)
+	resp, ok := raw.(model.StockDayAvgResponse)
 	if !ok {
-		t.Fatalf("expected *StockDayAvgResponse, got %T", raw)
+		t.Fatalf("expected *model.StockDayAvgResponse, got %T", raw)
 	}
 	if resp.GetStat() != "OK" {
 		t.Fatalf("expected stat OK, got %q", resp.GetStat())

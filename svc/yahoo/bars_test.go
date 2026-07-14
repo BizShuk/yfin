@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/bizshuk/yfin/model"
 )
 
 func TestDecodeBarsResponse(t *testing.T) {
@@ -243,7 +245,7 @@ func TestBarsResponseValidation(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var response BarsResponse
+			var response model.ChartResponse
 			err := json.Unmarshal([]byte(tt.data), &response)
 			if err != nil {
 				t.Fatalf("Failed to unmarshal test data: %v", err)

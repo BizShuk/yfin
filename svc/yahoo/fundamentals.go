@@ -14,22 +14,6 @@ import (
 	"github.com/bizshuk/yfin/model"
 )
 
-// Back-compat type aliases.
-type (
-	FundamentalsResponse        = model.FundamentalsResponse
-	QuoteSummary                = model.QuoteSummary
-	FundamentalsResult          = model.FundamentalsResult
-	IncomeStatementHistory      = model.IncomeStatementHistory
-	BalanceSheetHistory         = model.BalanceSheetHistory
-	CashflowStatementHistory    = model.CashflowStatementHistory
-	IncomeStatement             = model.IncomeStatement
-	BalanceSheet                = model.BalanceSheet
-	CashflowStatement           = model.CashflowStatement
-	DateValue                   = model.DateValue
-	Value                       = model.Value
-	Fundamentals                = model.Fundamentals
-)
-
 // DecodeFundamentalsResponse decodes a Yahoo Finance fundamentals response
 // (unknown fields allowed because the response has many fields we don't use).
 func DecodeFundamentalsResponse(data []byte) (*model.FundamentalsResponse, error) {

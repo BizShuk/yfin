@@ -7,17 +7,7 @@ import (
 	"github.com/bizshuk/yfin/model"
 )
 
-// Type aliases — structs now live in model/twse.go.
-type (
-	TWTB4UResponse = model.TWTB4UResponse
-	TWTB4URow = model.TWTB4URow
-)
 
-// TWTB4UResponse embeds the common Response envelope and adds the
-// `date` field that TWSE returns on this endpoint.
-
-
-// TWTB4URow is a typed representation of one TWTB4U data row.
 
 // FetchTWTB4U retrieves the daily day-trade targets and statistics for `date`.
 func FetchTWTB4U(ctx context.Context, client *Client, date string, opts url.Values) (any, error) {
@@ -31,15 +21,15 @@ func FetchTWTB4U(ctx context.Context, client *Client, date string, opts url.Valu
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[TWTB4UResponse](ctx, client, "/afterTrading/TWTB4U", q)
+	return FetchJSON[model.TWTB4UResponse](ctx, client, "/afterTrading/TWTB4U", q)
 }
 
 // ParseTWTB4URow converts one raw `data` row into a typed TWTB4URow.
-func ParseTWTB4URow(row []string) (TWTB4URow, error) {
+func ParseTWTB4URow(row []string) (model.TWTB4URow, error) {
 	if len(row) < 6 {
-		return TWTB4URow{}, fmt.Errorf("TWTB4U: row too short: %d cols", len(row))
+		return model.TWTB4URow{}, fmt.Errorf("TWTB4U: row too short: %d cols", len(row))
 	}
-	return TWTB4URow{
+	return model.TWTB4URow{
 		Code:        row[0],
 		Name:        row[1],
 		TradeShares: ParseInt(row[2]),

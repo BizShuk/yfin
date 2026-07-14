@@ -1,4 +1,4 @@
-// — Parses Yahoo financials/balance-sheet/cash-flow HTML tables into ComprehensiveFinancialsDTO via YAML-driven regex. Capacity: 30+ current-period fields + 5 historical quarters (Q2_2025 to Q2_2024) x ~25 metrics.
+// — Parses Yahoo financials/balance-sheet/cash-flow HTML tables into model.ComprehensiveFinancialsDTO via YAML-driven regex. Capacity: 30+ current-period fields + 5 historical quarters (Q2_2025 to Q2_2024) x ~25 metrics.
 package scrape
 
 import (
@@ -15,12 +15,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// DTO aliases — types now live in model/scrape_dtos.go.
-type (
-	YahooFinanceData           = model.YahooFinanceData
-	FinancialDataPoint         = model.FinancialDataPoint
-	ComprehensiveFinancialsDTO = model.ComprehensiveFinancialsDTO
-)
 
 // FinancialsRegexConfig holds the regex patterns for financials extraction
 type FinancialsRegexConfig struct {
@@ -102,12 +96,12 @@ func LoadFinancialsRegexConfig() error {
 }
 
 // ParseComprehensiveFinancials extracts comprehensive financials data from HTML using JSON parsing
-func ParseComprehensiveFinancials(html []byte, symbol, market string) (*ComprehensiveFinancialsDTO, error) {
+func ParseComprehensiveFinancials(html []byte, symbol, market string) (*model.ComprehensiveFinancialsDTO, error) {
 	if err := LoadFinancialsRegexConfig(); err != nil {
 		return nil, fmt.Errorf("failed to load financials regex config: %w", err)
 	}
 
-	dto := &ComprehensiveFinancialsDTO{
+	dto := &model.ComprehensiveFinancialsDTO{
 		Symbol:   symbol,
 		Market:   market,
 		Currency: "USD", // Default, will be updated from actual data
@@ -129,12 +123,12 @@ func ParseComprehensiveFinancials(html []byte, symbol, market string) (*Comprehe
 }
 
 // ParseComprehensiveFinancialsWithCurrency parses financial data from one HTML source and currency from financials HTML
-func ParseComprehensiveFinancialsWithCurrency(html, financialsHTML []byte, symbol, market string) (*ComprehensiveFinancialsDTO, error) {
+func ParseComprehensiveFinancialsWithCurrency(html, financialsHTML []byte, symbol, market string) (*model.ComprehensiveFinancialsDTO, error) {
 	if err := LoadFinancialsRegexConfig(); err != nil {
 		return nil, fmt.Errorf("failed to load financials regex config: %w", err)
 	}
 
-	dto := &ComprehensiveFinancialsDTO{
+	dto := &model.ComprehensiveFinancialsDTO{
 		Symbol: symbol,
 		Market: market,
 		AsOf:   time.Now(),
@@ -160,7 +154,7 @@ func ParseComprehensiveFinancialsWithCurrency(html, financialsHTML []byte, symbo
 	}
 
 	// Override the currency with the one from financials page
-	financialData["Currency"] = dto.Currency
+	financialData["model.Currency"] = dto.Currency
 
 	// Populate the DTO with extracted data
 	populateDTOFromHTMLData(financialData, dto)
@@ -178,9 +172,9 @@ func extractFinancialDataFromHTML(html string) (map[string]string, error) {
 	re := regexp.MustCompile(financialsRegexConfig.Currency.Pattern)
 	matches := re.FindStringSubmatch(html)
 	if len(matches) > 1 {
-		financialData["Currency"] = matches[1]
+		financialData["model.Currency"] = matches[1]
 	} else {
-		financialData["Currency"] = "USD" // Default fallback
+		financialData["model.Currency"] = "USD" // Default fallback
 	}
 
 	// Extract Total Revenue data
@@ -441,27 +435,27 @@ func extractFinancialDataFromHTML(html string) (map[string]string, error) {
 }
 
 // populateDTOFromHTMLData populates the DTO with data extracted from HTML table
-func populateDTOFromHTMLData(financialData map[string]string, dto *ComprehensiveFinancialsDTO) {
+func populateDTOFromHTMLData(financialData map[string]string, dto *model.ComprehensiveFinancialsDTO) {
 	// Set currency from extracted data
-	if currency, exists := financialData["Currency"]; exists {
+	if currency, exists := financialData["model.Currency"]; exists {
 		dto.Currency = currency
 	}
 
-	// Helper function to convert string to Scaled (multiply by 1000 for thousands)
-	convertToScaled := func(value string) *Scaled {
+	// Helper function to convert string to model.Scaled (multiply by 1000 for thousands)
+	convertToScaled := func(value string) *model.Scaled {
 		if value == "" || value == "--" {
 			return nil
 		}
 		// Remove commas and convert to int64, then multiply by 1000 for thousands
 		cleanValue := strings.ReplaceAll(value, ",", "")
 		if val, err := strconv.ParseInt(cleanValue, 10, 64); err == nil {
-			return &Scaled{Scaled: val * 1000, Scale: 0}
+			return &model.Scaled{Scaled: val * 1000, Scale: 0}
 		}
 		return nil
 	}
 
-	// Helper function to convert EPS string to Scaled
-	convertEPSToScaled := func(value string) *Scaled {
+	// Helper function to convert EPS string to model.Scaled
+	convertEPSToScaled := func(value string) *model.Scaled {
 		if value == "" || value == "--" {
 			return nil
 		}
@@ -470,11 +464,11 @@ func populateDTOFromHTMLData(financialData map[string]string, dto *Comprehensive
 			cleanValue := strings.TrimSuffix(value, "k")
 			if val, err := strconv.ParseFloat(cleanValue, 64); err == nil {
 				// Convert to actual value (multiply by 1000, then by 100 for cents)
-				return &Scaled{Scaled: int64(val * 1000 * 100), Scale: 2}
+				return &model.Scaled{Scaled: int64(val * 1000 * 100), Scale: 2}
 			}
 		} else if val, err := strconv.ParseFloat(value, 64); err == nil {
 			// Convert to cents (multiply by 100)
-			return &Scaled{Scaled: int64(val * 100), Scale: 2}
+			return &model.Scaled{Scaled: int64(val * 100), Scale: 2}
 		}
 		return nil
 	}

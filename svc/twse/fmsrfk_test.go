@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"github.com/bizshuk/yfin/model"
 )
 
 func TestFetchFMSRFK_Decode(t *testing.T) {
@@ -45,9 +46,9 @@ func TestFetchFMSRFK_Decode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FetchFMSRFK returned error: %v", err)
 	}
-	resp, ok := raw.(FMSRFKResponse)
+	resp, ok := raw.(model.FMSRFKResponse)
 	if !ok {
-		t.Fatalf("expected FMSRFKResponse, got %T", raw)
+		t.Fatalf("expected model.FMSRFKResponse, got %T", raw)
 	}
 	if resp.GetStat() != "OK" {
 		t.Fatalf("expected stat OK, got %q", resp.GetStat())

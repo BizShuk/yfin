@@ -7,16 +7,6 @@ import (
 	"github.com/bizshuk/yfin/model"
 )
 
-// Type aliases — structs now live in model/twse.go.
-type (
-	MI_MARGNResponse = model.MI_MARGNResponse
-	MI_MARGNRow = model.MI_MARGNRow
-)
-
-// MI_MARGNResponse embeds the common Response envelope and adds the
-// `date` field that TWSE returns on this endpoint.
-
-// MI_MARGNRow is a typed representation of one MI_MARGN data row.
 
 // FetchMI_MARGN retrieves the margin trading balances for `date`.
 // selectType=ALL is always added by this fetcher.
@@ -32,15 +22,15 @@ func FetchMI_MARGN(ctx context.Context, client *Client, date string, opts url.Va
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[MI_MARGNResponse](ctx, client, "/marginTrading/MI_MARGN", q)
+	return FetchJSON[model.MI_MARGNResponse](ctx, client, "/marginTrading/MI_MARGN", q)
 }
 
 // ParseMI_MARGNRow converts one raw `data` row into a typed MI_MARGNRow.
-func ParseMI_MARGNRow(row []string) (MI_MARGNRow, error) {
+func ParseMI_MARGNRow(row []string) (model.MI_MARGNRow, error) {
 	if len(row) < 10 {
-		return MI_MARGNRow{}, fmt.Errorf("MI_MARGN: row too short: %d cols", len(row))
+		return model.MI_MARGNRow{}, fmt.Errorf("MI_MARGN: row too short: %d cols", len(row))
 	}
-	return MI_MARGNRow{
+	return model.MI_MARGNRow{
 		Code:          row[0],
 		Name:          row[1],
 		MarginBuy:     ParseInt(row[2]),

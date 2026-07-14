@@ -8,17 +8,6 @@ import (
 	"github.com/bizshuk/yfin/model"
 )
 
-// Type aliases — structs now live in model/twse.go.
-type (
-	STOCK_DAYResponse = model.STOCK_DAYResponse
-	StockDayRow = model.StockDayRow
-)
-
-// STOCK_DAYResponse embeds the common Response envelope and adds the
-// `date` and `stockNo` fields that TWSE returns on this endpoint.
-
-// StockDayRow is a typed representation of one STOCK_DAY data row.
-// Fields: 日期, 成交股數, 成交金額, 開盤, 最高, 最低, 收盤, 漲跌價差, 成交筆數.
 
 // FetchSTOCK_DAY retrieves per-stock daily trade info for `date` and
 // `stockNo` (must be supplied via opts).
@@ -41,15 +30,15 @@ func FetchSTOCK_DAY(ctx context.Context, client *Client, date string, opts url.V
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[STOCK_DAYResponse](ctx, client, "/afterTrading/STOCK_DAY", q)
+	return FetchJSON[model.STOCK_DAYResponse](ctx, client, "/afterTrading/STOCK_DAY", q)
 }
 
 // ParseStockDayRow converts one raw `data` row into a typed StockDayRow.
-func ParseStockDayRow(row []string) (StockDayRow, error) {
+func ParseStockDayRow(row []string) (model.StockDayRow, error) {
 	if len(row) < 9 {
-		return StockDayRow{}, fmt.Errorf("STOCK_DAY: row too short: %d cols", len(row))
+		return model.StockDayRow{}, fmt.Errorf("STOCK_DAY: row too short: %d cols", len(row))
 	}
-	return StockDayRow{
+	return model.StockDayRow{
 		Date:         strings.TrimSpace(row[0]),
 		Volume:       ParseInt(row[1]),
 		Amount:       ParseInt(row[2]),

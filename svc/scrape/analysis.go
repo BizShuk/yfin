@@ -19,8 +19,6 @@ const (
 	defaultCurrency = "USD"
 )
 
-// ComprehensiveAnalysisDTO re-export — defined in model/scrape_dtos.go.
-type ComprehensiveAnalysisDTO = model.ComprehensiveAnalysisDTO
 
 // AnalysisRegexConfig holds the regex patterns for analysis extraction
 type AnalysisRegexConfig struct {
@@ -92,12 +90,12 @@ func LoadAnalysisRegexConfig() error {
 }
 
 // ParseAnalysis parses analysis data from Yahoo Finance HTML
-func ParseAnalysis(html []byte, symbol, market string) (*ComprehensiveAnalysisDTO, error) {
+func ParseAnalysis(html []byte, symbol, market string) (*model.ComprehensiveAnalysisDTO, error) {
 	if err := LoadAnalysisRegexConfig(); err != nil {
 		return nil, fmt.Errorf("failed to load analysis regex config: %w", err)
 	}
 
-	dto := &ComprehensiveAnalysisDTO{
+	dto := &model.ComprehensiveAnalysisDTO{
 		Symbol: symbol,
 		Market: market,
 		AsOf:   time.Now(),
@@ -169,7 +167,7 @@ func parseString(s string) *string {
 }
 
 // extractEarningsEstimate extracts earnings estimate data from HTML
-func extractEarningsEstimate(html string, dto *ComprehensiveAnalysisDTO) error {
+func extractEarningsEstimate(html string, dto *model.ComprehensiveAnalysisDTO) error {
 	// Find the earnings estimate table section
 	sectionStart := strings.Index(html, analysisRegexConfig.EarningsEstimate.SectionPattern)
 	if sectionStart == -1 {
@@ -249,7 +247,7 @@ func extractEarningsEstimate(html string, dto *ComprehensiveAnalysisDTO) error {
 }
 
 // extractRevenueEstimate extracts revenue estimate data from HTML
-func extractRevenueEstimate(html string, dto *ComprehensiveAnalysisDTO) error {
+func extractRevenueEstimate(html string, dto *model.ComprehensiveAnalysisDTO) error {
 	// Find the revenue estimate table section
 	sectionStart := strings.Index(html, analysisRegexConfig.RevenueEstimate.SectionPattern)
 	if sectionStart == -1 {
@@ -334,7 +332,7 @@ func extractRevenueEstimate(html string, dto *ComprehensiveAnalysisDTO) error {
 }
 
 // extractEarningsHistory extracts earnings history data with dynamic dates from HTML
-func extractEarningsHistory(html string, dto *ComprehensiveAnalysisDTO) error {
+func extractEarningsHistory(html string, dto *model.ComprehensiveAnalysisDTO) error {
 	// Find the earnings history table section
 	sectionStart := strings.Index(html, analysisRegexConfig.EarningsHistory.SectionPattern)
 	if sectionStart == -1 {
@@ -373,7 +371,7 @@ func extractEarningsHistory(html string, dto *ComprehensiveAnalysisDTO) error {
 	var dates []string
 	for i, headerMatch := range headerMatches {
 		if i == 0 {
-			continue // Skip "Currency in USD" header
+			continue // Skip "model.Currency in USD" header
 		}
 		if len(headerMatch) >= 2 {
 			dates = append(dates, strings.TrimSpace(headerMatch[1]))
@@ -454,7 +452,7 @@ func extractEarningsHistory(html string, dto *ComprehensiveAnalysisDTO) error {
 }
 
 // extractEPSTrend extracts EPS trend data from HTML
-func extractEPSTrend(html string, dto *ComprehensiveAnalysisDTO) error {
+func extractEPSTrend(html string, dto *model.ComprehensiveAnalysisDTO) error {
 	// Find the EPS trend table section
 	sectionStart := strings.Index(html, analysisRegexConfig.EPSTrend.SectionPattern)
 	if sectionStart == -1 {
@@ -534,7 +532,7 @@ func extractEPSTrend(html string, dto *ComprehensiveAnalysisDTO) error {
 }
 
 // extractEPSRevisions extracts EPS revisions data from HTML
-func extractEPSRevisions(html string, dto *ComprehensiveAnalysisDTO) error {
+func extractEPSRevisions(html string, dto *model.ComprehensiveAnalysisDTO) error {
 	// Find the EPS revisions table section
 	sectionStart := strings.Index(html, analysisRegexConfig.EPSRevisions.SectionPattern)
 	if sectionStart == -1 {
@@ -609,7 +607,7 @@ func extractEPSRevisions(html string, dto *ComprehensiveAnalysisDTO) error {
 }
 
 // extractGrowthEstimate extracts growth estimate data from HTML (only ticker data, not S&P 500)
-func extractGrowthEstimate(html string, dto *ComprehensiveAnalysisDTO) error {
+func extractGrowthEstimate(html string, dto *model.ComprehensiveAnalysisDTO) error {
 	// Find the growth estimates table section
 	sectionStart := strings.Index(html, analysisRegexConfig.GrowthEstimate.SectionPattern)
 	if sectionStart == -1 {

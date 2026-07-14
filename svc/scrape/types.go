@@ -1,29 +1,18 @@
-// types.go — back-compat type aliases for `model.*` scrape types + scrape
 // configuration (`Config`, `RetryConfig`, `EndpointConfig`, `RobotsPolicy`,
 // `RobotsEnforce/Warn/Ignore`, `IsValidRobotsPolicy`, `DefaultConfig`).
-// The data structs (FetchMeta, ScrapeNewsItem=NewsItem, NewsStats) now
-// live in model/scrape.go; this file only retains scrape-package-internal
-// configuration types and constructors that aren't appropriate for model/.
+// All scrape data structs live in model/ (model.FetchMeta, model.ScrapeNewsItem,
+// model.NewsStats, model.RobotsRule, etc.); this file only retains
+// scrape-package-internal configuration types and constructors.
 
 package scrape
 
-import (
-	"time"
+import "time"
 
-	"github.com/bizshuk/yfin/model"
-)
 
-// FetchMeta re-export — defined in model/scrape.go.
-type FetchMeta = model.FetchMeta
-
-// NewsItem is the raw scrape-shape news article (carries ImageURL +
+// model.ScrapeNewsItem is the raw scrape-shape news article (carries ImageURL +
 // RelatedTickers); distinct from model.NewsItem which is the cleaned SDK
-// surface. Kept under the same name as before for back-compat with
 // scrape-internal code.
-type NewsItem = model.ScrapeNewsItem
 
-// NewsStats re-export — defined in model/scrape.go.
-type NewsStats = model.NewsStats
 
 // Config represents the scraping configuration
 type Config struct {
@@ -95,15 +84,8 @@ func IsValidRobotsPolicy(policy string) bool {
 		policy == string(RobotsIgnore)
 }
 
-// RobotsRule, RobotsCache, BackoffPolicyConfig, RateLimitConfig are
-// re-exported from model/scrape.go below for callers that still import them
+// model.RobotsRule, model.RobotsCache, model.BackoffPolicyConfig, model.RateLimitConfig are
 // from svc/scrape directly.
-type (
-	RobotsRule          = model.RobotsRule
-	RobotsCache         = model.RobotsCache
-	BackoffPolicyConfig = model.BackoffPolicyConfig
-	RateLimitConfig     = model.RateLimitConfig
-)
 
 // (time import retained for DefaultConfig potential future timestamp fields.)
 var _ = time.Now

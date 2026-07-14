@@ -7,17 +7,6 @@ import (
 	"github.com/bizshuk/yfin/model"
 )
 
-// Type aliases — structs now live in model/twse.go.
-type (
-	FMTQIKResponse = model.FMTQIKResponse
-	FMTQIKRow = model.FMTQIKRow
-)
-
-// FMTQIKResponse embeds the common Response envelope and adds the
-// `date` field that TWSE returns on this endpoint.
-
-// FMTQIKRow is a typed representation of one FMTQIK data row.
-// Fields: 日期, 成交股數, 成交金額, 成交筆數, 發行量加權股價指數.
 
 // FetchFMTQIK retrieves the TAIEX index and trading volume for `date`.
 // `date` should be YYYYMMDD (month-start or month-end).
@@ -32,15 +21,15 @@ func FetchFMTQIK(ctx context.Context, client *Client, date string, opts url.Valu
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[FMTQIKResponse](ctx, client, "/exchangeReport/FMTQIK", q)
+	return FetchJSON[model.FMTQIKResponse](ctx, client, "/exchangeReport/FMTQIK", q)
 }
 
 // ParseFMTQIKRow converts one raw `data` row into a typed FMTQIKRow.
-func ParseFMTQIKRow(row []string) (FMTQIKRow, error) {
+func ParseFMTQIKRow(row []string) (model.FMTQIKRow, error) {
 	if len(row) < 5 {
-		return FMTQIKRow{}, fmt.Errorf("FMTQIK: row too short: %d cols", len(row))
+		return model.FMTQIKRow{}, fmt.Errorf("FMTQIK: row too short: %d cols", len(row))
 	}
-	return FMTQIKRow{
+	return model.FMTQIKRow{
 		Date:         row[0],
 		Volume:       ParseInt(row[1]),
 		Amount:       ParseInt(row[2]),

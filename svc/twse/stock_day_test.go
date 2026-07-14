@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"github.com/bizshuk/yfin/model"
 )
 
 func TestFetchSTOCK_DAY_Decode(t *testing.T) {
@@ -34,9 +35,9 @@ func TestFetchSTOCK_DAY_Decode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FetchSTOCK_DAY returned error: %v", err)
 	}
-	resp, ok := raw.(STOCK_DAYResponse)
+	resp, ok := raw.(model.STOCK_DAYResponse)
 	if !ok {
-		t.Fatalf("expected STOCK_DAYResponse, got %T", raw)
+		t.Fatalf("expected model.STOCK_DAYResponse, got %T", raw)
 	}
 	if resp.GetStat() != "OK" {
 		t.Fatalf("expected stat OK, got %q", resp.GetStat())

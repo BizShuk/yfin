@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"github.com/bizshuk/yfin/model"
 )
 
 func TestFetchMI_5MINS_Decode(t *testing.T) {
@@ -34,9 +35,9 @@ func TestFetchMI_5MINS_Decode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FetchMI_5MINS returned error: %v", err)
 	}
-	resp, ok := raw.(MI_5MINSResponse)
+	resp, ok := raw.(model.MI_5MINSResponse)
 	if !ok {
-		t.Fatalf("expected MI_5MINSResponse, got %T", raw)
+		t.Fatalf("expected model.MI_5MINSResponse, got %T", raw)
 	}
 	if resp.GetStat() != "OK" {
 		t.Fatalf("expected stat OK, got %q", resp.GetStat())

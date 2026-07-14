@@ -8,17 +8,6 @@ import (
 	"github.com/bizshuk/yfin/model"
 )
 
-// Type aliases — structs now live in model/twse.go.
-type (
-	FMSRFKResponse = model.FMSRFKResponse
-	FMSRFKRow = model.FMSRFKRow
-)
-
-// FMSRFKResponse embeds the common Response envelope and adds stockNo/date
-// (year) fields that TWSE returns for /exchangeReport/FMSRFK.
-
-// FMSRFKRow is a typed representation of one FMSRFK data row.
-// Columns: 年度, 月份, 最高, 最低, 加權平均價, 成交股數, 成交金額, 週轉率%.
 
 // FetchFMSRFK retrieves per-stock monthly trading info for the year `date`.
 // `stockNo` is required (e.g. "2330"); `date` is the year (e.g. "2022").
@@ -37,15 +26,15 @@ func FetchFMSRFK(ctx context.Context, client *Client, stockNo, date string, opts
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[FMSRFKResponse](ctx, client, "/exchangeReport/FMSRFK", q)
+	return FetchJSON[model.FMSRFKResponse](ctx, client, "/exchangeReport/FMSRFK", q)
 }
 
 // ParseFMSRFKRow converts one raw `data` row into a typed FMSRFKRow.
-func ParseFMSRFKRow(row []string) (FMSRFKRow, error) {
+func ParseFMSRFKRow(row []string) (model.FMSRFKRow, error) {
 	if len(row) < 8 {
-		return FMSRFKRow{}, fmt.Errorf("FMSRFK: row too short: %d cols", len(row))
+		return model.FMSRFKRow{}, fmt.Errorf("FMSRFK: row too short: %d cols", len(row))
 	}
-	return FMSRFKRow{
+	return model.FMSRFKRow{
 		Year:        strings.TrimSpace(row[0]),
 		Month:       strings.TrimSpace(row[1]),
 		High:        ParseFloat(row[2]),

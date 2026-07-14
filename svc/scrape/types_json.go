@@ -1,8 +1,7 @@
-// types_json.go — back-compat type aliases for `model.*` scrape value types
-// (`Scaled`→`model.ScaledDecimal`, `Currency`, `YahooNum/YahooInt/YahooString`,
-// `ToYahooNum`/`ToYahooInt` helpers) and DTOs (`KeyStatisticsDTO`,
-// `FinancialsDTO`, `ProfileDTO`, `AnalysisDTO`, `PeriodLine`, `Recommendation`,
-// `QuarterlyEPS`, `Officer`). All of these now live in model/scrape.go and
+// (`model.Scaled`→`model.ScaledDecimal`, `model.Currency`, `model.YahooNum/model.YahooInt/model.YahooString`,
+// `ToYahooNum`/`ToYahooInt` helpers) and DTOs (`model.KeyStatisticsDTO`,
+// `model.FinancialsDTO`, `model.ProfileDTO`, `model.AnalysisDTO`, `model.PeriodLine`, `model.Recommendation`,
+// `model.QuarterlyEPS`, `model.Officer`). All of these now live in model/scrape.go and
 // model/scrape_dtos.go. This file retains the coercion helpers
 // (`CoerceCurrency`, `ParseYahooDate`, `ParseYahooPeriod`, `StringToInt64`,
 // `StringToFloat64`) which carry parsing logic and don't belong in model/.
@@ -19,25 +18,7 @@ import (
 )
 
 // Value type aliases — defined in model/scrape.go.
-type (
-	Scaled      = model.Scaled // alias to model.ScaledDecimal
-	Currency    = model.Currency
-	YahooNum    = model.YahooNum
-	YahooInt    = model.YahooInt
-	YahooString = model.YahooString
-)
 
-// DTO aliases — defined in model/scrape_dtos.go.
-type (
-	KeyStatisticsDTO = model.KeyStatisticsDTO
-	PeriodLine       = model.PeriodLine
-	FinancialsDTO    = model.FinancialsDTO
-	Recommendation   = model.Recommendation
-	QuarterlyEPS     = model.QuarterlyEPS
-	AnalysisDTO      = model.AnalysisDTO
-	Officer          = model.Officer
-	ProfileDTO       = model.ProfileDTO
-)
 
 // ToYahooNum converts a raw struct to YahooNum.
 func ToYahooNum(raw *float64, fmtStr, longFmt string) model.YahooNum {
@@ -52,7 +33,7 @@ func ToYahooInt(raw *int64, fmtStr, longFmt string) model.YahooInt {
 // Numeric coercion helpers — scraping-side logic, retained here.
 
 // CoerceCurrency extracts currency from various Yahoo formats
-func CoerceCurrency(v any) (Currency, bool) {
+func CoerceCurrency(v any) (model.Currency, bool) {
 	switch val := v.(type) {
 	case string:
 		currency := strings.TrimSpace(strings.ToUpper(val))

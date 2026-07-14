@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"github.com/bizshuk/yfin/model"
 )
 
 func TestFetchBFIAUUYEAR_RequiresDate(t *testing.T) {
@@ -50,9 +51,9 @@ func TestFetchBFIAUUYEAR_Decode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FetchBFIAUUYEAR returned error: %v", err)
 	}
-	resp, ok := raw.(BFIAUUYEARResponse)
+	resp, ok := raw.(model.BFIAUUYEARResponse)
 	if !ok {
-		t.Fatalf("expected *BFIAUUYEARResponse, got %T", raw)
+		t.Fatalf("expected *model.BFIAUUYEARResponse, got %T", raw)
 	}
 	if resp.GetStat() != "OK" {
 		t.Fatalf("expected stat OK, got %q", resp.GetStat())

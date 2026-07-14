@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"testing"
 	"time"
+	"github.com/bizshuk/yfin/model"
 )
 
 const (
@@ -278,7 +279,7 @@ func TestTickerValidation(t *testing.T) {
 func TestDeduplication(t *testing.T) {
 	now := time.Date(2025, 9, 29, 12, 0, 0, 0, time.UTC)
 
-	articles := []NewsItem{
+	articles := []model.ScrapeNewsItem{
 		{
 			Title:       "Test Article 1",
 			URL:         "https://finance.yahoo.com/news/test-1.html",
@@ -433,9 +434,9 @@ func BenchmarkDeduplication(b *testing.B) {
 	now := time.Date(2025, 9, 29, 12, 0, 0, 0, time.UTC)
 
 	// Create a large set of articles with some duplicates
-	articles := make([]NewsItem, 100)
+	articles := make([]model.ScrapeNewsItem, 100)
 	for i := 0; i < 100; i++ {
-		articles[i] = NewsItem{
+		articles[i] = model.ScrapeNewsItem{
 			Title:       fmt.Sprintf("Test Article %d", i%20), // 20 unique titles (5 duplicates each)
 			URL:         fmt.Sprintf("https://finance.yahoo.com/news/test-%d.html", i),
 			Source:      "Test Source",

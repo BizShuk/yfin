@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/bizshuk/yfin/model"
 	"github.com/bizshuk/yfin/utils/httpx"
 )
 
@@ -40,7 +41,7 @@ func NewClient(httpClient *httpx.Client, baseURL string) *Client {
 }
 
 // FetchDailyBars fetches daily bars for a symbol
-func (c *Client) FetchDailyBars(ctx context.Context, symbol string, start, end time.Time, adjusted bool) (*BarsResponse, error) {
+func (c *Client) FetchDailyBars(ctx context.Context, symbol string, start, end time.Time, adjusted bool) (*model.ChartResponse, error) {
 	// Build URL for daily bars
 	u, err := c.buildBarsURL(symbol, start, end, adjusted)
 	if err != nil {
@@ -76,7 +77,7 @@ func (c *Client) FetchDailyBars(ctx context.Context, symbol string, start, end t
 }
 
 // FetchQuote fetches a quote for a symbol using the chart endpoint (since v7 quote endpoint is restricted)
-func (c *Client) FetchQuote(ctx context.Context, symbol string) (*QuoteResponse, error) {
+func (c *Client) FetchQuote(ctx context.Context, symbol string) (*model.QuoteResponse, error) {
 	// Use chart endpoint to get quote data from metadata
 	// This is more reliable since v7 quote endpoint returns 401
 	end := time.Now()
@@ -104,7 +105,7 @@ var FundamentalsModules = []string{
 }
 
 // FetchFundamentalsQuarterly fetches quarterly fundamentals for a symbol using crumb auth.
-func (c *Client) FetchFundamentalsQuarterly(ctx context.Context, symbol string) (*FundamentalsResponse, error) {
+func (c *Client) FetchFundamentalsQuarterly(ctx context.Context, symbol string) (*model.FundamentalsResponse, error) {
 	raw, err := c.FetchQuoteSummary(ctx, symbol, FundamentalsModules)
 	if err != nil {
 		return nil, err
@@ -152,7 +153,7 @@ func (c *Client) buildBarsURL(symbol string, start, end time.Time, _ bool) (stri
 }
 
 // convertChartToQuote converts chart metadata to a quote response
-func (c *Client) convertChartToQuote(barsResp *BarsResponse) (*QuoteResponse, error) {
+func (c *Client) convertChartToQuote(barsResp *model.ChartResponse) (*model.QuoteResponse, error) {
 	if len(barsResp.Chart.Result) == 0 {
 		return nil, fmt.Errorf("no chart results found")
 	}
@@ -192,7 +193,7 @@ func (c *Client) convertChartToQuote(barsResp *BarsResponse) (*QuoteResponse, er
 	}
 
 	// Create a quote result from chart metadata
-	quoteResult := QuoteResult{
+	quoteResult := model.QuoteResult{
 		Symbol:                meta.Symbol,
 		Currency:              meta.Currency,
 		Exchange:              meta.ExchangeName,
@@ -213,9 +214,9 @@ func (c *Client) convertChartToQuote(barsResp *BarsResponse) (*QuoteResponse, er
 	}
 
 	// Create quote response
-	quoteResponse := &QuoteResponse{
-		QuoteResponse: QuoteResponseData{
-			Result: []QuoteResult{quoteResult},
+	quoteResponse := &model.QuoteResponse{
+		QuoteResponse: model.QuoteResponseData{
+			Result: []model.QuoteResult{quoteResult},
 			Error:  nil,
 		},
 	}
@@ -224,7 +225,7 @@ func (c *Client) convertChartToQuote(barsResp *BarsResponse) (*QuoteResponse, er
 }
 
 // FetchIntradayBars fetches intraday bars for a symbol
-func (c *Client) FetchIntradayBars(ctx context.Context, symbol string, start, end time.Time, interval string) (*BarsResponse, error) {
+func (c *Client) FetchIntradayBars(ctx context.Context, symbol string, start, end time.Time, interval string) (*model.ChartResponse, error) {
 	// Build URL for intraday bars
 	u, err := c.buildIntradayBarsURL(symbol, start, end, interval)
 	if err != nil {
@@ -260,7 +261,7 @@ func (c *Client) FetchIntradayBars(ctx context.Context, symbol string, start, en
 }
 
 // FetchWeeklyBars fetches weekly bars for a symbol
-func (c *Client) FetchWeeklyBars(ctx context.Context, symbol string, start, end time.Time, adjusted bool) (*BarsResponse, error) {
+func (c *Client) FetchWeeklyBars(ctx context.Context, symbol string, start, end time.Time, adjusted bool) (*model.ChartResponse, error) {
 	// Build URL for weekly bars
 	u, err := c.buildWeeklyBarsURL(symbol, start, end, adjusted)
 	if err != nil {
@@ -296,7 +297,7 @@ func (c *Client) FetchWeeklyBars(ctx context.Context, symbol string, start, end 
 }
 
 // FetchMonthlyBars fetches monthly bars for a symbol
-func (c *Client) FetchMonthlyBars(ctx context.Context, symbol string, start, end time.Time, adjusted bool) (*BarsResponse, error) {
+func (c *Client) FetchMonthlyBars(ctx context.Context, symbol string, start, end time.Time, adjusted bool) (*model.ChartResponse, error) {
 	// Build URL for monthly bars
 	u, err := c.buildMonthlyBarsURL(symbol, start, end, adjusted)
 	if err != nil {

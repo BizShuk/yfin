@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"github.com/bizshuk/yfin/model"
 )
 
 const (
@@ -18,7 +19,7 @@ const (
 )
 
 // extractNewsFromJSON extracts news from JSON data embedded in script tags
-func extractNewsFromJSON(html, baseURL string, now time.Time) ([]NewsItem, error) {
+func extractNewsFromJSON(html, baseURL string, now time.Time) ([]model.ScrapeNewsItem, error) {
 	// Look for the script tag containing the tickerStream data
 	scriptPattern := scriptPatternRegex
 	scriptRe := regexp.MustCompile(scriptPattern)
@@ -75,12 +76,12 @@ func parseTickersFromJSON(tickersJSON string) []string {
 }
 
 // extractArticlesFromNewsJSON extracts articles from the news JSON structure
-func extractArticlesFromNewsJSON(bodyJSON, baseURL string, now time.Time) ([]NewsItem, error) {
+func extractArticlesFromNewsJSON(bodyJSON, baseURL string, now time.Time) ([]model.ScrapeNewsItem, error) {
 	// Find blocks with contentType STORY directly to avoid brittle array parsing
 	storyBlock := regexp.MustCompile(`\{"id":"[^"]*","content":\{[^}]*"contentType":"STORY"[^}]*\}`)
 	blocks := storyBlock.FindAllString(bodyJSON, -1)
 
-	var allArticles []NewsItem
+	var allArticles []model.ScrapeNewsItem
 	for _, blk := range blocks {
 		// Extract core fields
 		title := extractFirstGroup(blk, `"title":"([^"]*)"`)
@@ -94,7 +95,7 @@ func extractArticlesFromNewsJSON(bodyJSON, baseURL string, now time.Time) ([]New
 			continue
 		}
 
-		item := NewsItem{Title: strings.TrimSpace(title), URL: strings.TrimSpace(url), Source: strings.TrimSpace(source), ImageURL: strings.TrimSpace(img)}
+		item := model.ScrapeNewsItem{Title: strings.TrimSpace(title), URL: strings.TrimSpace(url), Source: strings.TrimSpace(source), ImageURL: strings.TrimSpace(img)}
 		if pub != "" {
 			if t, err := time.Parse(time.RFC3339, pub); err == nil {
 				tt := t.UTC()
@@ -122,7 +123,7 @@ func extractFirstGroup(s, pattern string) string {
 }
 
 // enrichArticlesWithJSONMeta builds a title->(source,time) map once and enriches articles in place
-func enrichArticlesWithJSONMeta(fullHTML string, articles []NewsItem) {
+func enrichArticlesWithJSONMeta(fullHTML string, articles []model.ScrapeNewsItem) {
 	if len(articles) == 0 {
 		return
 	}

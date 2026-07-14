@@ -7,17 +7,7 @@ import (
 	"github.com/bizshuk/yfin/model"
 )
 
-// Type aliases — structs now live in model/twse.go.
-type (
-	T86Response = model.T86Response
-	T86Row = model.T86Row
-)
 
-// T86Response embeds the common Response envelope and adds the
-// `date` field that TWSE returns on this endpoint.
-
-
-// T86Row is a typed representation of one T86 data row.
 
 // FetchT86 retrieves the three-institution daily buy/sell for `date`.
 // selectType=ALL is always added by this fetcher.
@@ -33,15 +23,15 @@ func FetchT86(ctx context.Context, client *Client, date string, opts url.Values)
 			q.Add(k, v)
 		}
 	}
-	return FetchJSON[T86Response](ctx, client, "/fund/T86", q)
+	return FetchJSON[model.T86Response](ctx, client, "/fund/T86", q)
 }
 
 // ParseT86Row converts one raw `data` row into a typed T86Row.
-func ParseT86Row(row []string) (T86Row, error) {
+func ParseT86Row(row []string) (model.T86Row, error) {
 	if len(row) < 12 {
-		return T86Row{}, fmt.Errorf("T86: row too short: %d cols", len(row))
+		return model.T86Row{}, fmt.Errorf("T86: row too short: %d cols", len(row))
 	}
-	return T86Row{
+	return model.T86Row{
 		Code:        row[0],
 		Name:        row[1],
 		ForeignBuy:  ParseInt(row[2]),

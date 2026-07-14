@@ -1,4 +1,4 @@
-// — Parses Yahoo company-profile HTML (assetProfile + quoteResponse script tags) into ComprehensiveProfileDTO with executives and governance risk scores. Capacity: ~22 DTO fields + variable executive list.
+// — Parses Yahoo company-profile HTML (assetProfile + quoteResponse script tags) into model.ComprehensiveProfileDTO with executives and governance risk scores. Capacity: ~22 DTO fields + variable executive list.
 package scrape
 
 import (
@@ -10,14 +10,9 @@ import (
 	"github.com/bizshuk/yfin/model"
 )
 
-// DTO aliases — types now live in model/scrape_dtos.go.
-type (
-	Executive               = model.Executive
-	ComprehensiveProfileDTO = model.ComprehensiveProfileDTO
-)
 
 // extractCompanyNameFromQuote extracts company name from the quote data in the same script tag
-func extractCompanyNameFromQuote(html string, dto *ComprehensiveProfileDTO) {
+func extractCompanyNameFromQuote(html string, dto *model.ComprehensiveProfileDTO) {
 	// Find the script tag containing quote data for the specific symbol
 	// Look for script tags with v7/finance/quote URL that contain the symbol
 	scriptPattern := regexp.MustCompile(`(?s)<script type="application/json".*?v7/finance/quote.*?symbols=.*?` + dto.Symbol + `.*?>(.*?)</script>`)
@@ -82,8 +77,8 @@ func extractCompanyNameFromQuote(html string, dto *ComprehensiveProfileDTO) {
 }
 
 // ParseComprehensiveProfile extracts comprehensive profile data from HTML using JSON parsing
-func ParseComprehensiveProfile(html []byte, symbol, market string) (*ComprehensiveProfileDTO, error) {
-	dto := &ComprehensiveProfileDTO{
+func ParseComprehensiveProfile(html []byte, symbol, market string) (*model.ComprehensiveProfileDTO, error) {
+	dto := &model.ComprehensiveProfileDTO{
 		Symbol: symbol,
 		Market: market,
 		AsOf:   time.Now().UTC(),
@@ -103,7 +98,7 @@ func ParseComprehensiveProfile(html []byte, symbol, market string) (*Comprehensi
 }
 
 // extractProfileFromJSON extracts profile data from the JSON embedded in HTML
-func extractProfileFromJSON(html string, dto *ComprehensiveProfileDTO) error {
+func extractProfileFromJSON(html string, dto *model.ComprehensiveProfileDTO) error {
 	// Find the script tag containing assetProfile data
 	scriptPattern := regexp.MustCompile(`(?s)<script type="application/json".*?assetProfile.*?>(.*?)</script>`)
 	scriptMatch := scriptPattern.FindStringSubmatch(html)
@@ -165,7 +160,7 @@ func extractProfileFromJSON(html string, dto *ComprehensiveProfileDTO) error {
 }
 
 // extractCompanyInfoFromJSON extracts company information from the assetProfile JSON
-func extractCompanyInfoFromJSON(assetProfile map[string]interface{}, dto *ComprehensiveProfileDTO) {
+func extractCompanyInfoFromJSON(assetProfile map[string]interface{}, dto *model.ComprehensiveProfileDTO) {
 	// Company Name (from longName in the quote data, not assetProfile)
 	// We'll need to get this from the quote data separately
 
@@ -207,7 +202,7 @@ func extractCompanyInfoFromJSON(assetProfile map[string]interface{}, dto *Compre
 }
 
 // extractExecutivesFromJSON extracts executives information from the assetProfile JSON
-func extractExecutivesFromJSON(assetProfile map[string]interface{}, dto *ComprehensiveProfileDTO) {
+func extractExecutivesFromJSON(assetProfile map[string]interface{}, dto *model.ComprehensiveProfileDTO) {
 	companyOfficers, ok := assetProfile["companyOfficers"].([]interface{})
 	if !ok {
 		return
@@ -219,7 +214,7 @@ func extractExecutivesFromJSON(assetProfile map[string]interface{}, dto *Compreh
 			continue
 		}
 
-		executive := Executive{}
+		executive := model.Executive{}
 
 		if val, ok := officer["name"].(string); ok {
 			executive.Name = val
@@ -264,7 +259,7 @@ func extractExecutivesFromJSON(assetProfile map[string]interface{}, dto *Compreh
 }
 
 // extractAdditionalInfoFromJSON extracts additional information from the assetProfile JSON
-func extractAdditionalInfoFromJSON(assetProfile map[string]interface{}, dto *ComprehensiveProfileDTO) {
+func extractAdditionalInfoFromJSON(assetProfile map[string]interface{}, dto *model.ComprehensiveProfileDTO) {
 	if val, ok := assetProfile["maxAge"].(float64); ok {
 		maxAge := int64(val)
 		dto.MaxAge = &maxAge
