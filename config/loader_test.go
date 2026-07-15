@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
@@ -224,6 +225,80 @@ func TestGetHTTPConfig(t *testing.T) {
 
 	if httpConfig.QPS != 5.0 {
 		t.Errorf("Expected QPS to be 5.0, got %f", httpConfig.QPS)
+	}
+}
+
+func TestAssembleScrapeHTTPConfig(t *testing.T) {
+	tempFile := "test-scrape-http-config.yaml"
+	err := CreateEffectiveConfig(tempFile)
+	if err != nil {
+		t.Fatalf("Failed to create test config: %v", err)
+	}
+	defer os.Remove(tempFile)
+
+	loader := NewLoader(tempFile)
+	config, err := loader.Load()
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	// Scrape HTTP config is now assembled once during Load().
+	if config.Scrape.HTTP == nil {
+		t.Fatal("Scrape.HTTP is nil; expected post-load assembly")
+	}
+	sh := config.Scrape.HTTP
+
+	if sh.BaseURL != "https://finance.yahoo.com" {
+		t.Errorf("BaseURL = %q, want https://finance.yahoo.com", sh.BaseURL)
+	}
+	if sh.MaxBodyBytes != 8<<20 {
+		t.Errorf("MaxBodyBytes = %d, want %d (8 MiB scrape cap)", sh.MaxBodyBytes, 8<<20)
+	}
+	// Sane scrape-tuned defaults: short timeout, low QPS, conservative retry.
+	if sh.QPS <= 0 || sh.QPS > 5 {
+		t.Errorf("QPS = %v, want (0,5]", sh.QPS)
+	}
+	if sh.MaxAttempts < 1 {
+		t.Errorf("MaxAttempts = %d, want >= 1", sh.MaxAttempts)
+	}
+}
+
+func TestHTTPAndScrapeHTTPTypeMatch(t *testing.T) {
+	tempFile := "test-type-assert.yaml"
+	err := CreateEffectiveConfig(tempFile)
+	if err != nil {
+		t.Fatalf("Failed to create test config: %v", err)
+	}
+	defer os.Remove(tempFile)
+
+	loader := NewLoader(tempFile)
+	cfg, err := loader.Load()
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	// HTTP and Scrape.HTTP should both be populated post-load. They are
+	// different instances (Yahoo HTTP ≠ scrape traffic) but Go-static
+	// same type.
+	if cfg.HTTP == nil {
+		t.Fatal("cfg.HTTP is nil")
+	}
+	if cfg.Scrape.HTTP == nil {
+		t.Fatal("cfg.Scrape.HTTP is nil")
+	}
+	// Unit conversion: yaml timeout_ms (int) → http.Timeout (time.Duration).
+	if cfg.HTTP.Timeout.Milliseconds() != int64(cfg.Yahoo.TimeoutMs) {
+		t.Errorf("HTTP.Timeout = %v ms, want %d ms", cfg.HTTP.Timeout.Milliseconds(), cfg.Yahoo.TimeoutMs)
+	}
+	// Scrape HTTP knobs are no longer in yaml — defaults come from
+	// scrapeHTTPDefaults() in adapters.go (mirrors svc/scrape.DefaultConfig).
+	if cfg.Scrape.HTTP.Timeout != 10*time.Second {
+		t.Errorf("Scrape.HTTP.Timeout = %v, want 10s", cfg.Scrape.HTTP.Timeout)
+	}
+	// failure_threshold (float64 0-1) → FailureThreshold (int 0-100).
+	want := int(cfg.CircuitBreaker.FailureThreshold * 100)
+	if cfg.HTTP.FailureThreshold != want {
+		t.Errorf("HTTP.FailureThreshold = %d, want %d", cfg.HTTP.FailureThreshold, want)
 	}
 }
 

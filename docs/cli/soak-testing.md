@@ -15,7 +15,7 @@
 
 ```bash
 go run ./cmd/soak \
-  --config config/example.dev.yaml \
+  --config config/effective.yaml \
   --universe-file tests/testdata/universe/soak.txt \
   --endpoints key-statistics,financials,analysis,profile,news \
   --fallback auto \
@@ -29,7 +29,7 @@ go run ./cmd/soak \
 
 ```bash
 go run ./cmd/soak \
-  --config config/example.prod.yaml \
+  --config config/effective.yaml \
   --universe-file tests/testdata/universe/soak.txt \
   --endpoints key-statistics,financials,analysis,profile,news \
   --fallback auto \
@@ -43,7 +43,7 @@ go run ./cmd/soak \
 
 ```bash
 go run ./cmd/soak \
-  --config config/example.dev.yaml \
+  --config config/effective.yaml \
   --universe-file tests/testdata/universe/soak.txt \
   --endpoints news \
   --fallback auto \

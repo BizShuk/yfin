@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bizshuk/yfin/model"
@@ -66,33 +67,42 @@ type FinancialsRegexConfig struct {
 	} `yaml:"cash_flow"`
 }
 
-var financialsRegexConfig *FinancialsRegexConfig
+var (
+	financialsRegexConfig     *FinancialsRegexConfig
+	financialsRegexConfigOnce sync.Once
+	financialsRegexConfigErr  error
+)
 
-// LoadFinancialsRegexConfig loads the regex patterns from YAML file
+// LoadFinancialsRegexConfig loads the regex patterns from YAML file.
+// Thread-safe: the underlying load runs at most once via sync.Once, so
+// concurrent callers from multiple goroutines won't race on the
+// package-level config pointer.
 func LoadFinancialsRegexConfig() error {
-	if financialsRegexConfig != nil {
-		return nil // Already loaded
-	}
+	financialsRegexConfigOnce.Do(func() {
+		financialsRegexConfig, financialsRegexConfigErr = readFinancialsRegexConfig()
+	})
+	return financialsRegexConfigErr
+}
 
+func readFinancialsRegexConfig() (*FinancialsRegexConfig, error) {
 	// Get the directory of the current file
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
-		return fmt.Errorf("unable to get current file path")
+		return nil, fmt.Errorf("unable to get current file path")
 	}
 
 	configPath := filepath.Join(filepath.Dir(filename), "regex", "financials.yaml")
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
-		return fmt.Errorf("failed to read financials regex config file: %w", err)
+		return nil, fmt.Errorf("failed to read financials regex config file: %w", err)
 	}
 
-	financialsRegexConfig = &FinancialsRegexConfig{}
-	if err := yaml.Unmarshal(data, financialsRegexConfig); err != nil {
-		return fmt.Errorf("failed to parse financials regex config YAML: %w", err)
+	cfg := &FinancialsRegexConfig{}
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse financials regex config YAML: %w", err)
 	}
-
-	return nil
+	return cfg, nil
 }
 
 // ParseComprehensiveFinancials extracts comprehensive financials data from HTML using JSON parsing

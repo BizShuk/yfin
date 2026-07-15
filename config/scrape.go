@@ -2,28 +2,33 @@
 // finance.yahoo.com that the JSON API doesn't return). The nested
 // `ScrapeEndpointConfig` toggles which endpoints the scraper is allowed
 // to hit (key_statistics / financials / analysis / profile / news).
-// Capacity: 3 structs (`ScrapeConfig`, `ScrapeRetryConfig`,
-// `ScrapeEndpointConfig`).
+//
+// HTTP-layer knobs (timeout, qps, retry, user_agent, body cap) are NOT
+// declared here — they live in `utils/httpx.Config` and the loader
+// populates `HTTP *httpx.Config` from `svc/scrape.DefaultConfig().HTTP`.
+// To customise, callers pass a tuned `*httpx.Config` via Go code
+// (e.g., `facade.NewScrapeClientWithHTTP` or by mutating
+// `cfg.Scrape.HTTP` before `scrape.NewClient`).
+//
+// Capacity: 2 structs (`ScrapeConfig`, `ScrapeEndpointConfig`).
 package config
+
+import "github.com/bizshuk/yfin/utils/httpx"
 
 // ScrapeConfig represents scraping configuration
 type ScrapeConfig struct {
+	// HTTP is the assembled HTTP-layer config for scrape traffic. The
+	// loader populates this from `svc/scrape.DefaultConfig().HTTP` after
+	// Load(), so yaml users get sensible scrape-tuned defaults (QPS 0.7,
+	// 4 retries with 300–4000 ms backoff, 8 MiB body cap, robots.txt
+	// enforced). Override via Go code if needed.
+	HTTP *httpx.Config `yaml:"-"`
+
+	// Scrape-only knobs (no HTTP-layer concerns).
 	Enabled      bool                 `yaml:"enabled"`
-	UserAgent    string               `yaml:"user_agent"`
-	TimeoutMs    int                  `yaml:"timeout_ms"`
-	QPS          float64              `yaml:"qps"`
-	Burst        int                  `yaml:"burst"`
-	Retry        ScrapeRetryConfig    `yaml:"retry"`
 	RobotsPolicy string               `yaml:"robots_policy"`
 	CacheTTLMs   int                  `yaml:"cache_ttl_ms"`
 	Endpoints    ScrapeEndpointConfig `yaml:"endpoints"`
-}
-
-// ScrapeRetryConfig represents scraping retry configuration
-type ScrapeRetryConfig struct {
-	Attempts   int `yaml:"attempts"`
-	BaseMs     int `yaml:"base_ms"`
-	MaxDelayMs int `yaml:"max_delay_ms"`
 }
 
 // ScrapeEndpointConfig represents endpoint-specific scraping configuration

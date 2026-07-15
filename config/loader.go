@@ -71,6 +71,13 @@ func (l *Loader) Load() (*Config, error) {
 		return nil, fmt.Errorf("configuration validation failed: %w", err)
 	}
 
+	// Post-load: assemble the canonical HTTP-layer configs in one place.
+	// All three mappers (cmd/client.go:httpConfigToHttpx,
+	// facade/scrape.go:NewScrapeClientFromConfig,
+	// svc/scrape/client.go:NewClient) collapse to direct field reads.
+	config.HTTP = config.assembleHTTPConfig()
+	config.Scrape.HTTP = config.assembleScrapeHTTPConfig()
+
 	l.config = config
 	return config, nil
 }
@@ -167,17 +174,9 @@ func (l *Loader) validate(config *Config) error {
 			config.Concurrency.GlobalWorkers, config.Concurrency.PerHostWorkers)
 	}
 
-	if config.Concurrency.PerHostWorkers < config.Sessions.N {
-		return fmt.Errorf("concurrency.per_host_workers (%d) must be >= sessions.n (%d)",
-			config.Concurrency.PerHostWorkers, config.Sessions.N)
-	}
-
-	// Validate rate limit constraints
-	if config.RateLimit.PerSessionQPS*float64(config.Sessions.N) > config.RateLimit.PerHostQPS {
-		// This is a warning, not an error
-		// In a real implementation, you might want to log a warning
-		_ = config.RateLimit.PerSessionQPS // Suppress unused variable warning
-	}
+	// Sessions were removed (CLAUDE.md: session rotation dropped); the
+	// per_session rate-limit knobs that depended on Sessions.N are also
+	// gone, so no constraint check is needed here.
 
 	// Validate markets.allowed_intervals (daily-only enforcement)
 	if len(config.Markets.AllowedIntervals) != 1 || config.Markets.AllowedIntervals[0] != "1d" {

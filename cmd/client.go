@@ -19,6 +19,11 @@ import (
 // the same SDK surface external consumers use. CLI flag overrides
 // (`--qps`, `--retry-max`, `--timeout`) are applied on top of the
 // ampy-config HTTP settings so `yfin --qps=10` wins over `cfg.qps=2`.
+//
+// Historical note: prior to the *httpx.Config consolidation this builder
+// did a per-field copy from `config.HTTPConfig` into `*httpx.Config`
+// (`httpConfigToHttpx`). That mapper is gone — `(*Config).GetHTTPConfig`
+// now returns the assembled `*httpx.Config` directly.
 func CreateClient() (*facade.Client, error) {
 	// Determine effective config path
 	effectivePath := Global.ConfigFile
@@ -33,9 +38,15 @@ func CreateClient() (*facade.Client, error) {
 		return nil, fmt.Errorf("failed to load configuration: %w", err)
 	}
 
-	// Convert config.HTTPConfig → httpx.Config and apply CLI flag overrides.
-	httpxConfig := httpConfigToHttpx(cfg.GetHTTPConfig())
-
+	// Get the post-load assembled HTTP config (already an *httpx.Config
+	// after the consolidation). Apply CLI flag overrides on top so
+	// `yfin --qps=10` wins over the yaml default.
+	httpxConfig := cfg.GetHTTPConfig()
+	if httpxConfig == nil {
+		// Load() guarantees this is non-nil; this fallback exists only
+		// for defensive symmetry with httpx.NewClient's nil-config path.
+		httpxConfig = httpx.DefaultConfig()
+	}
 	if Global.QPS > 0 {
 		httpxConfig.QPS = Global.QPS
 	}
@@ -47,30 +58,4 @@ func CreateClient() (*facade.Client, error) {
 	}
 
 	return facade.NewClientWithConfig(httpxConfig), nil
-}
-
-// httpConfigToHttpx converts the flat config.HTTPConfig (loaded from YAML)
-// into the *httpx.Config facade.NewClientWithConfig expects. Field-by-field
-// mapping is mechanical; FailureThreshold gets converted from a 0–1 fraction
-// to a 0–100 percentage (httpx's expected unit).
-func httpConfigToHttpx(cfg *config.HTTPConfig) *httpx.Config {
-	return &httpx.Config{
-		BaseURL:          cfg.BaseURL,
-		Timeout:          cfg.Timeout,
-		IdleTimeout:      cfg.IdleTimeout,
-		MaxConnsPerHost:  cfg.MaxConnsPerHost,
-		UserAgent:        cfg.UserAgent,
-		MaxAttempts:      cfg.MaxAttempts,
-		BackoffBaseMs:    cfg.BackoffBaseMs,
-		BackoffJitterMs:  cfg.BackoffJitterMs,
-		MaxDelayMs:       cfg.MaxDelayMs,
-		QPS:              cfg.QPS,
-		Burst:            cfg.Burst,
-		CircuitWindow:    cfg.CircuitWindow,
-		FailureThreshold: int(cfg.FailureThreshold * 100), // 0–1 → 0–100
-		ResetTimeout:     cfg.ResetTimeout,
-		// MaxBodyBytes defaulting to 0 (unlimited) matches the previous
-		// cmd/client.go behaviour before the facade indirection.
-		MaxBodyBytes: 0,
-	}
 }

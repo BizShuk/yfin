@@ -41,7 +41,7 @@ func newConfigCmd() *cobra.Command {
 Loads and validates configuration from ampy-config files.)
 
 範例 (Examples):
-  yfin config --file ./config/example.dev.yaml --print-effective
+  yfin config --file ./config/effective.yaml --print-effective
   yfin config --print-effective --json`,
 		RunE: func(c *cobra.Command, args []string) error { return runConfig(cfg) },
 	}

@@ -139,8 +139,7 @@ yfin/
 │   └── obsv/                  #   OpenTelemetry + Prometheus 指標
 ├── config/                    # 頂層 YAML config loader（非 internal/）
 │   ├── types/                 #   拆分的子設定型別 + 驗證
-│   ├── effective.yaml         #   環境變數插值後的生效設定
-│   └── example.{dev,staging,prod}.yaml
+│   └── effective.yaml         #   環境變數插值後的生效設定（不同環境以 app.env 區分）
 ├── tests/                     # 測試資產（integration/crosslang/python）
 ├── monitoring/                # Grafana dashboard + runbooks
 ├── docs/                      # 文件（本檔所在）
@@ -237,7 +236,7 @@ CLI 子指令採用**子套件自治**模型；不要把所有指令塞在單一
 ### 5.3 調整 HTTP 限流參數
 
 1. 修改 `utils/httpx/client.go` 的 `Config` 結構。
-2. 修改 `config/example.prod.yaml` 對應的 YAML 設定。
+2. 修改 `config/effective.yaml` 對應的 YAML 設定。
 3. 修改 `config/types/` 的解析邏輯，必要時加上驗證。
 4. 透過 `utils/obsv/metrics.go` 暴露新指標。
 

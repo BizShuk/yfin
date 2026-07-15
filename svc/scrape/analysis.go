@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bizshuk/yfin/model"
@@ -60,33 +61,41 @@ type AnalysisRegexConfig struct {
 	} `yaml:"growth_estimate"`
 }
 
-var analysisRegexConfig *AnalysisRegexConfig
+var (
+	analysisRegexConfig     *AnalysisRegexConfig
+	analysisRegexConfigOnce sync.Once
+	analysisRegexConfigErr  error
+)
 
-// LoadAnalysisRegexConfig loads the regex patterns from YAML file
+// LoadAnalysisRegexConfig loads the regex patterns from YAML file.
+// Thread-safe: the underlying load runs at most once via sync.Once so
+// concurrent callers won't race on the package-level pointer.
 func LoadAnalysisRegexConfig() error {
-	if analysisRegexConfig != nil {
-		return nil // Already loaded
-	}
+	analysisRegexConfigOnce.Do(func() {
+		analysisRegexConfig, analysisRegexConfigErr = readAnalysisRegexConfig()
+	})
+	return analysisRegexConfigErr
+}
 
+func readAnalysisRegexConfig() (*AnalysisRegexConfig, error) {
 	// Get the directory of the current file
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
-		return fmt.Errorf("unable to get current file path")
+		return nil, fmt.Errorf("unable to get current file path")
 	}
 
 	configPath := filepath.Join(filepath.Dir(filename), "regex", "analysis.yaml")
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
-		return fmt.Errorf("failed to read analysis regex config file: %w", err)
+		return nil, fmt.Errorf("failed to read analysis regex config file: %w", err)
 	}
 
-	analysisRegexConfig = &AnalysisRegexConfig{}
-	if err := yaml.Unmarshal(data, analysisRegexConfig); err != nil {
-		return fmt.Errorf("failed to parse analysis regex config YAML: %w", err)
+	cfg := &AnalysisRegexConfig{}
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse analysis regex config YAML: %w", err)
 	}
-
-	return nil
+	return cfg, nil
 }
 
 // ParseAnalysis parses analysis data from Yahoo Finance HTML

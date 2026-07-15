@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/bizshuk/yfin/model"
@@ -32,33 +33,41 @@ type AnalystInsightsRegexConfig struct {
 	} `yaml:"individual_fields"`
 }
 
-var analystInsightsRegexConfig *AnalystInsightsRegexConfig
+var (
+	analystInsightsRegexConfig     *AnalystInsightsRegexConfig
+	analystInsightsRegexConfigOnce sync.Once
+	analystInsightsRegexConfigErr  error
+)
 
-// LoadAnalystInsightsRegexConfig loads the regex patterns from YAML file
+// LoadAnalystInsightsRegexConfig loads the regex patterns from YAML file.
+// Thread-safe: the underlying load runs at most once via sync.Once so
+// concurrent callers won't race on the package-level pointer.
 func LoadAnalystInsightsRegexConfig() error {
-	if analystInsightsRegexConfig != nil {
-		return nil // Already loaded
-	}
+	analystInsightsRegexConfigOnce.Do(func() {
+		analystInsightsRegexConfig, analystInsightsRegexConfigErr = readAnalystInsightsRegexConfig()
+	})
+	return analystInsightsRegexConfigErr
+}
 
+func readAnalystInsightsRegexConfig() (*AnalystInsightsRegexConfig, error) {
 	// Get the directory of the current file
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
-		return fmt.Errorf("unable to get current file path")
+		return nil, fmt.Errorf("unable to get current file path")
 	}
 
 	configPath := filepath.Join(filepath.Dir(filename), "regex", "analyst_insights.yaml")
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
-		return fmt.Errorf("failed to read analyst insights regex config file: %w", err)
+		return nil, fmt.Errorf("failed to read analyst insights regex config file: %w", err)
 	}
 
-	analystInsightsRegexConfig = &AnalystInsightsRegexConfig{}
-	if err := yaml.Unmarshal(data, analystInsightsRegexConfig); err != nil {
-		return fmt.Errorf("failed to parse analyst insights regex config YAML: %w", err)
+	cfg := &AnalystInsightsRegexConfig{}
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse analyst insights regex config YAML: %w", err)
 	}
-
-	return nil
+	return cfg, nil
 }
 
 // ParseAnalystInsights parses analyst insights data from Yahoo Finance HTML

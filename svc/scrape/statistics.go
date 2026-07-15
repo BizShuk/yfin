@@ -9,6 +9,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bizshuk/yfin/model"
@@ -65,33 +66,41 @@ type ColumnPatterns struct {
 }
 
 
-var regexConfig *RegexConfig
+var (
+	regexConfig     *RegexConfig
+	regexConfigOnce sync.Once
+	regexConfigErr  error
+)
 
-// LoadRegexConfig loads the regex patterns from YAML file
+// LoadRegexConfig loads the regex patterns from YAML file. Thread-safe:
+// the underlying load runs at most once via sync.Once so concurrent
+// callers from multiple goroutines won't race on the package-level pointer.
 func LoadRegexConfig() error {
-	if regexConfig != nil {
-		return nil // Already loaded
-	}
+	regexConfigOnce.Do(func() {
+		regexConfig, regexConfigErr = readStatisticsRegexConfig()
+	})
+	return regexConfigErr
+}
 
+func readStatisticsRegexConfig() (*RegexConfig, error) {
 	// Get the directory of the current file
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
-		return fmt.Errorf("unable to get current file path")
+		return nil, fmt.Errorf("unable to get current file path")
 	}
 
 	configPath := filepath.Join(filepath.Dir(filename), "regex", "statistics.yaml")
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
-		return fmt.Errorf("failed to read regex config file: %w", err)
+		return nil, fmt.Errorf("failed to read regex config file: %w", err)
 	}
 
-	regexConfig = &RegexConfig{}
-	if err := yaml.Unmarshal(data, regexConfig); err != nil {
-		return fmt.Errorf("failed to parse regex config YAML: %w", err)
+	cfg := &RegexConfig{}
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse regex config YAML: %w", err)
 	}
-
-	return nil
+	return cfg, nil
 }
 
 // ParseComprehensiveKeyStatistics extracts comprehensive key statistics data from HTML

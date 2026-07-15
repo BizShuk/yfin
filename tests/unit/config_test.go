@@ -218,12 +218,6 @@ concurrency:
 rate_limit:
   per_host_qps: 10.0
   per_host_burst: 5
-  per_session_qps: 1.0
-  per_session_burst: 1
-sessions:
-  n: 7
-  eject_after: 5
-  recreate_cooldown_ms: 15000
 retry:
   attempts: 5
   base_ms: 250
@@ -232,7 +226,6 @@ circuit_breaker:
   window: 50
   failure_threshold: 0.30
   reset_timeout_ms: 30000
-  half_open_probes: 3
 markets:
   allowed_intervals: ["1d"]
   allowed_mics: ["XNAS"]

@@ -22,9 +22,6 @@ CLI Flags > Environment Variables > Config File > Built-in Defaults
 | 路徑 | 用途 |
 | --- | --- |
 | `config/effective.yaml` | 預設設定檔（相對於工作目錄） |
-| `./config/example.dev.yaml` | 開發環境範本 |
-| `./config/example.staging.yaml` | 預上線環境範本 |
-| `./config/example.prod.yaml` | 生產環境範本 |
 | `--config <path>` | 自訂路徑（root flag） |
 
 > `gosdk/config` 不接受自訂 app config dir；環境切換透過 `APP_*` 環境變數或切換工作目錄。
@@ -79,7 +76,7 @@ yahoo:
   user_agent: "yfin/1.x"
 ```
 
-完整 default 值見 `config/effective.yaml`；四種環境差異範本見 `config/example.{dev,staging,prod}.yaml`。
+完整 default 值見 `config/effective.yaml`。不同環境（`dev` / `staging` / `prod`）以 `app.env` 區分。
 
 ## 4. Effective Config 檢視 (Effective Config Inspection)
 
@@ -93,7 +90,7 @@ yfin config-effective
 yfin config-effective --json
 
 # 載入自訂 YAML（驗證無誤即印出）
-yfin --config ./config/example.dev.yaml config-effective
+yfin --config ./config/effective.yaml config-effective
 ```
 
 範例輸出：

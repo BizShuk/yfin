@@ -1,7 +1,7 @@
-// retry.go — shared retry + circuit-breaker config used by both the
-// Yahoo HTTP client (driven from `Config.GetHTTPConfig`) and the bus
-// publisher (driven from `Config.GetBusConfig`). Capacity: 2 structs
-// (`RetryConfig`, `CircuitBreakerConfig`).
+// retry.go — shared retry + circuit-breaker config used by the
+// Yahoo HTTP client (driven from `Config.HTTP`, the assembled
+// `*httpx.Config` post-load). Capacity: 2 structs (`RetryConfig`,
+// `CircuitBreakerConfig`).
 package config
 
 // RetryConfig represents retry configuration
@@ -11,10 +11,13 @@ type RetryConfig struct {
 	MaxDelayMs int `yaml:"max_delay_ms"`
 }
 
-// CircuitBreakerConfig represents circuit breaker configuration
+// CircuitBreakerConfig represents circuit breaker configuration.
+// `HalfOpenProbes` was removed: utils/httpx uses a single-probe
+// half-open transition and has no field for N probes. To customise
+// the half-open behaviour, supply a tuned *httpx.Config via Go code
+// (facade.NewClientWithConfig).
 type CircuitBreakerConfig struct {
 	Window           int     `yaml:"window"`
 	FailureThreshold float64 `yaml:"failure_threshold"`
 	ResetTimeoutMs   int     `yaml:"reset_timeout_ms"`
-	HalfOpenProbes   int     `yaml:"half_open_probes"`
 }

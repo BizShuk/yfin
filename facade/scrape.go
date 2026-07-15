@@ -61,20 +61,13 @@ func (c *Client) scrapeClientForCmd() (scrape.Client, error) {
 }
 
 // NewScrapeClientFromConfig builds a svc/scrape.Client from ampy-config's
-// flat ScrapeConfig struct. Wraps the same field-by-field mapping that
-// cmd/scrape/ previously did inline.
+// ScrapeConfig. The HTTP-layer config is taken from the post-load
+// `cfg.HTTP` (assembled once by the config loader); scrape-only knobs
+// are passed through directly. No field-by-field mapping.
 func NewScrapeClientFromConfig(cfg *config.ScrapeConfig) (scrape.Client, error) {
 	return scrape.NewClient(&scrape.Config{
-		Enabled:   cfg.Enabled,
-		UserAgent: cfg.UserAgent,
-		TimeoutMs: cfg.TimeoutMs,
-		QPS:       cfg.QPS,
-		Burst:     cfg.Burst,
-		Retry: scrape.RetryConfig{
-			Attempts:   cfg.Retry.Attempts,
-			BaseMs:     cfg.Retry.BaseMs,
-			MaxDelayMs: cfg.Retry.MaxDelayMs,
-		},
+		HTTP:         cfg.HTTP,
+		Enabled:      cfg.Enabled,
 		RobotsPolicy: cfg.RobotsPolicy,
 		CacheTTLMs:   cfg.CacheTTLMs,
 		Endpoints: scrape.EndpointConfig{

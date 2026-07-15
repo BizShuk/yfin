@@ -70,7 +70,7 @@ flowchart TD
     - `utils/httpx/`: Resilient HTTP client — QPS rate limiting, exponential backoff, retry logic, circuit breaker. Single shared `http.Client`; session rotation removed.
     - `utils/cache/`: Refresh-frequency cache (daily/monthly/quarterly).
     - `utils/obsv/`: Structured logging (stdlib `slog`) + OpenTelemetry tracing (no-op tracer) + Prometheus metrics. Stands alone on stdlib + OTel + `prometheus/client_golang` (no external observability wrapper).
-- `config/`: Top-level YAML loader (`os.ReadFile` + `yaml.Unmarshal` into `map[string]interface{}`, then env-var interpolation + struct mapping + validation) — `config.Config` / `config.NewLoader` / `config.CreateEffectiveConfig`。一個 config section 一個檔案（`http.go` / `scrape.go` / `fx.go` / `markets.go` / `retry.go` ...），`loader.go` 只管讀檔與插值，`adapters.go` 只管轉成 HTTP/scrape/FX 的下游型別。leaf 套件，不 import 任何內部套件。sample YAML（`effective.yaml` / `example.*.yaml`）同目錄併存。
+- `config/`: Top-level YAML loader (`os.ReadFile` + `yaml.Unmarshal` into `map[string]interface{}`, then env-var interpolation + struct mapping + validation) — `config.Config` / `config.NewLoader` / `config.CreateEffectiveConfig`。一個 config section 一個檔案（`http.go` / `scrape.go` / `fx.go` / `markets.go` / `retry.go` ...），`loader.go` 只管讀檔與插值，`adapters.go` 只管轉成 HTTP/scrape/FX 的下游型別。leaf 套件，不 import 任何內部套件。runtime 預設設定 `effective.yaml` 同目錄併存（不同環境以 `app.env` 區分）。
 - `cmd/`: CLI composition root. `main.go` calls each sub-package's `Register(RootCmd)`:
     - `cmd/{root,client,global,build,exitcodes}.go`: helpers + persistent flags + shared client builder (`CreateClient()` returns `*facade.Client`).
     - `cmd/admin/`: `config-effective`, `version`.

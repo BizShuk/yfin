@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 
 	"gopkg.in/yaml.v3"
 )
@@ -38,33 +39,41 @@ type NewsRegexConfig struct {
 	} `yaml:"url_cleanup"`
 }
 
-var newsRegexConfig *NewsRegexConfig
+var (
+	newsRegexConfig     *NewsRegexConfig
+	newsRegexConfigOnce sync.Once
+	newsRegexConfigErr  error
+)
 
-// LoadNewsRegexConfig loads the news regex patterns from YAML file
+// LoadNewsRegexConfig loads the news regex patterns from YAML file.
+// Thread-safe: the underlying load runs at most once via sync.Once so
+// concurrent callers won't race on the package-level pointer.
 func LoadNewsRegexConfig() error {
-	if newsRegexConfig != nil {
-		return nil // Already loaded
-	}
+	newsRegexConfigOnce.Do(func() {
+		newsRegexConfig, newsRegexConfigErr = readNewsRegexConfig()
+	})
+	return newsRegexConfigErr
+}
 
+func readNewsRegexConfig() (*NewsRegexConfig, error) {
 	// Get the directory of the current file
 	_, filename, _, ok := runtime.Caller(0)
 	if !ok {
-		return fmt.Errorf("unable to get current file path")
+		return nil, fmt.Errorf("unable to get current file path")
 	}
 
 	configPath := filepath.Join(filepath.Dir(filename), "regex", "news.yaml")
 
 	data, err := os.ReadFile(configPath)
 	if err != nil {
-		return fmt.Errorf("failed to read news regex config file: %w", err)
+		return nil, fmt.Errorf("failed to read news regex config file: %w", err)
 	}
 
-	newsRegexConfig = &NewsRegexConfig{}
-	if err := yaml.Unmarshal(data, newsRegexConfig); err != nil {
-		return fmt.Errorf("failed to parse news regex config YAML: %w", err)
+	cfg := &NewsRegexConfig{}
+	if err := yaml.Unmarshal(data, cfg); err != nil {
+		return nil, fmt.Errorf("failed to parse news regex config YAML: %w", err)
 	}
-
-	return nil
+	return cfg, nil
 }
 
 // newsMetrics is the news-specific subset of the old scrape.Metrics —

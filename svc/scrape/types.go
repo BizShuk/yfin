@@ -1,62 +1,76 @@
-// configuration (`Config`, `RetryConfig`, `EndpointConfig`, `RobotsPolicy`,
-// `RobotsEnforce/Warn/Ignore`, `IsValidRobotsPolicy`, `DefaultConfig`).
-// All scrape data structs live in model/ (model.FetchMeta, model.ScrapeNewsItem,
-// model.NewsStats, model.RobotsRule, etc.); this file only retains
-// scrape-package-internal configuration types and constructors.
-
+// types.go — scrape-package configuration (`Config`, `EndpointConfig`,
+// `RobotsPolicy`, `RobotsEnforce/Warn/Ignore`, `IsValidRobotsPolicy`,
+// `DefaultConfig`). All scrape data structs live in model/
+// (model.FetchMeta, model.ScrapeNewsItem, model.NewsStats,
+// model.RobotsRule, etc.); this file only retains scrape-package
+// configuration types and constructors.
+//
+// `Config` holds scrape-specific knobs (RobotsPolicy, CacheTTLMs,
+// Endpoints, Enabled) plus `HTTP *httpx.Config` — the canonical
+// HTTP-layer config. The flat HTTP fields that used to live here
+// (UserAgent, TimeoutMs, QPS, Burst, Retry{}) have moved out: the
+// config loader assembles them into `*httpx.Config` and callers read
+// `cfg.HTTP.QPS`, `cfg.HTTP.MaxAttempts`, etc. directly. Capacity: 1
+// Config + 1 EndpointConfig + 3 RobotsPolicy constants + 2 helpers.
 package scrape
 
-import "time"
+import (
+	"time"
 
+	"github.com/bizshuk/yfin/utils/httpx"
+)
 
-// model.ScrapeNewsItem is the raw scrape-shape news article (carries ImageURL +
-// RelatedTickers); distinct from model.NewsItem which is the cleaned SDK
-// scrape-internal code.
-
-
-// Config represents the scraping configuration
+// Config represents the scraping configuration.
 type Config struct {
-	Enabled      bool           `yaml:"enabled"`
-	UserAgent    string         `yaml:"user_agent"`
-	TimeoutMs    int            `yaml:"timeout_ms"`
-	QPS          float64        `yaml:"qps"`
-	Burst        int            `yaml:"burst"`
-	Retry        RetryConfig    `yaml:"retry"`
-	RobotsPolicy string         `yaml:"robots_policy"`
-	CacheTTLMs   int            `yaml:"cache_ttl_ms"`
-	Endpoints    EndpointConfig `yaml:"endpoints"`
-}
+	// HTTP is the canonical HTTP-layer config (Timeout, QPS, Burst,
+	// Retry, UserAgent, MaxBodyBytes, etc.). Caller (facade.NewScrape-
+	// ClientFromConfig or tests) populates this from the assembled
+	// `config.Scrape.HTTP` rather than re-mapping scrape-side fields
+	// by hand.
+	HTTP *httpx.Config
 
-// RetryConfig represents retry configuration
-type RetryConfig struct {
-	Attempts   int `yaml:"attempts"`
-	BaseMs     int `yaml:"base_ms"`
-	MaxDelayMs int `yaml:"max_delay_ms"`
+	// Scrape-only knobs that don't belong on the HTTP layer.
+	Enabled      bool
+	RobotsPolicy string
+	CacheTTLMs   int
+	Endpoints    EndpointConfig
 }
 
 // EndpointConfig represents endpoint-specific configuration
 type EndpointConfig struct {
-	KeyStatistics bool `yaml:"key_statistics"`
-	Financials    bool `yaml:"financials"`
-	Analysis      bool `yaml:"analysis"`
-	Profile       bool `yaml:"profile"`
-	News          bool `yaml:"news"`
+	KeyStatistics bool
+	Financials    bool
+	Analysis      bool
+	Profile       bool
+	News          bool
 }
 
-// DefaultConfig returns a sensible default configuration
+// DefaultConfig returns a sensible default configuration with scrape-
+// tuned HTTP defaults: 0.7 QPS, 4 retries with 300–4000 ms backoff,
+// 8 MiB body cap, robots.txt enforced. The HTTP defaults match the
+// pre-consolidation hardcoded values in `NewClient` so existing
+// callers see identical behavior when they pass nil to NewScrapeClient.
 func DefaultConfig() *Config {
 	return &Config{
-		Enabled:   true,
-		UserAgent: "Mozilla/5.0 (Ampy yfinance-go scraper)",
-		TimeoutMs: 10000,
-		QPS:       0.7,
-		Burst:     1,
-		Retry: RetryConfig{
-			Attempts:   4,
-			BaseMs:     300,
-			MaxDelayMs: 4000,
+		HTTP: &httpx.Config{
+			BaseURL:          "https://finance.yahoo.com",
+			Timeout:          10 * time.Second,
+			IdleTimeout:      90 * time.Second,
+			MaxConnsPerHost:  10,
+			MaxAttempts:      4,
+			BackoffBaseMs:    300,
+			BackoffJitterMs:  150,
+			MaxDelayMs:       4000,
+			QPS:              0.7,
+			Burst:            1,
+			CircuitWindow:    60 * time.Second,
+			FailureThreshold: 5,
+			ResetTimeout:     30 * time.Second,
+			UserAgent:        "Mozilla/5.0 (Ampy yfinance-go scraper)",
+			MaxBodyBytes:     8 << 20, // 8 MiB — scrape body cap.
 		},
-		RobotsPolicy: "enforce",
+		Enabled:      true,
+		RobotsPolicy: string(RobotsEnforce),
 		CacheTTLMs:   60000,
 		Endpoints: EndpointConfig{
 			KeyStatistics: true,
@@ -83,9 +97,3 @@ func IsValidRobotsPolicy(policy string) bool {
 		policy == string(RobotsWarn) ||
 		policy == string(RobotsIgnore)
 }
-
-// model.RobotsRule, model.RobotsCache, model.BackoffPolicyConfig, model.RateLimitConfig are
-// from svc/scrape directly.
-
-// (time import retained for DefaultConfig potential future timestamp fields.)
-var _ = time.Now

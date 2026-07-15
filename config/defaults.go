@@ -34,15 +34,8 @@ func CreateEffectiveConfig(path string) error {
 			"per_host_workers": 32,
 		},
 		"rate_limit": map[string]interface{}{
-			"per_host_qps":      5.0,
-			"per_host_burst":    5,
-			"per_session_qps":   1.0,
-			"per_session_burst": 1,
-		},
-		"sessions": map[string]interface{}{
-			"n":                    7,
-			"eject_after":          5,
-			"recreate_cooldown_ms": 15000,
+			"per_host_qps":   5.0,
+			"per_host_burst": 5,
 		},
 		"retry": map[string]interface{}{
 			"attempts":     5,
@@ -53,7 +46,6 @@ func CreateEffectiveConfig(path string) error {
 			"window":            50,
 			"failure_threshold": 0.30,
 			"reset_timeout_ms":  30000,
-			"half_open_probes":  3,
 		},
 		"markets": map[string]interface{}{
 			"allowed_intervals":         []string{"1d"},
@@ -107,16 +99,7 @@ func CreateEffectiveConfig(path string) error {
 			},
 		},
 		"scrape": map[string]interface{}{
-			"enabled":    true,
-			"user_agent": "Mozilla/5.0 (Ampy yfinance-go scraper)",
-			"timeout_ms": 10000,
-			"qps":        0.7,
-			"burst":      1,
-			"retry": map[string]interface{}{
-				"attempts":     4,
-				"base_ms":      300,
-				"max_delay_ms": 4000,
-			},
+			"enabled":       true,
 			"robots_policy": "enforce",
 			"cache_ttl_ms":  60000,
 			"endpoints": map[string]interface{}{

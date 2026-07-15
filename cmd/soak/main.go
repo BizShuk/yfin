@@ -76,8 +76,8 @@ func runSoak(cmd *cobra.Command, args []string) error {
 
 	// NOTE: CLI overrides for --qps / --retry-max / --timeout are bound as flags
 	// but not yet wired into *config.Config after the nested-struct refactor.
-	// Apply them via cfg.GetHTTPConfig() + cfg.Yahoo.TimeoutMs / cfg.RateLimit.PerHostQPS /
-	// cfg.Retry.Attempts when orchestrator override hooks are available.
+	// Apply them via cfg.HTTP (the assembled *httpx.Config post-load) when
+	// orchestrator override hooks are available.
 	_ = cfg // keep cfg referenced for now
 
 	// Initialize soak test orchestrator

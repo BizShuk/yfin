@@ -219,7 +219,7 @@ go mod download
 yfin config --print-effective
 
 # 從指定 config 載入 (validate configuration file)
-yfin config --config ./config/example.dev.yaml --print-effective
+yfin config --config ./config/effective.yaml --print-effective
 ```
 
 ### Getting Help

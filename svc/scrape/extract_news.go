@@ -24,6 +24,14 @@ func ParseNews(html []byte, baseURL string, now time.Time) ([]model.ScrapeNewsIt
 		metrics.recordNewsParseLatency(time.Since(start))
 	}()
 
+	// Load the HTML-regex config up front: both extractNextPageHint (called
+	// from the JSON success path below) and parseNewsFromHTML (the fallback)
+	// dereference newsRegexConfig. A first-call JSON hit previously crashed
+	// with a nil pointer when no earlier scrape had warmed the config.
+	if err := LoadNewsRegexConfig(); err != nil {
+		return nil, nil, fmt.Errorf("failed to load news regex config: %w", err)
+	}
+
 	htmlStr := string(html)
 
 	// Try JSON-based extraction first (for real Yahoo Finance pages)

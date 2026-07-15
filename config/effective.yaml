@@ -19,13 +19,8 @@ concurrency:
 rate_limit:
   per_host_qps: 5.0
   per_host_burst: 5
-  per_session_qps: 1.0
-  per_session_burst: 1
-
-sessions:
-  n: 7
-  eject_after: 5
-  recreate_cooldown_ms: 15000
+  # per_session_qps / per_session_burst removed: session rotation was
+  # dropped (see CLAUDE.md); per-session knobs are vestigial.
 
 retry:
   attempts: 5
@@ -36,7 +31,9 @@ circuit_breaker:
   window: 50
   failure_threshold: 0.30
   reset_timeout_ms: 30000
-  half_open_probes: 3
+  # half_open_probes removed: not consumed by utils/httpx (which uses a
+  # single-probe half-open transition). To customise, supply a tuned
+  # *httpx.Config via Go code (facade.NewClientWithConfig).
 
 markets:
   # Daily-only enforcement; other intervals are invalid for yfinance-go.
@@ -62,14 +59,10 @@ fx:
 
 scrape:
   enabled: true
-  user_agent: "Mozilla/5.0 (Ampy yfinance-go scraper)"
-  timeout_ms: 15000
-  qps: 3.0
-  burst: 5
-  retry:
-    attempts: 4
-    base_ms: 300
-    max_delay_ms: 4000
+  # scrape HTTP knobs (user_agent / timeout_ms / qps / burst / retry.*)
+  # removed: defaults now live in svc/scrape.DefaultConfig().HTTP and can
+  # be overridden via Go code (facade.NewScrapeClientFromConfig takes a
+  # *config.ScrapeConfig whose HTTP field is settable).
   robots_policy: "enforce"
   cache_ttl_ms: 60000
   endpoints:

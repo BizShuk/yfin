@@ -46,9 +46,16 @@ func NewClientWithCaller(caller httpx.Caller, config *Config) (Client, error) {
 }
 
 // NewClient is a deprecated convenience wrapper. It builds a default
-// `httpx.Client` with scrape-tuned settings and delegates to
-// NewClientWithCaller. Pass nil for `pool` to use a fresh client; pass
-// an existing client to share a connection pool.
+// `httpx.Client` from `config.HTTP` and delegates to NewClientWithCaller.
+// Pass nil for `pool` to use a fresh client; pass an existing client to
+// share a connection pool.
+//
+// Historical note: pre-consolidation, this wrapper hardcoded 8 scrape-
+// side defaults (IdleTimeout, MaxConnsPerHost, BackoffJitterMs,
+// CircuitWindow, FailureThreshold, ResetTimeout, MaxBodyBytes, BaseURL)
+// inline. Those defaults now live in `DefaultConfig()` so callers see
+// the same behavior whether they pass `DefaultConfig()` explicitly or
+// rely on the nil-config fallback.
 func NewClient(config *Config, pool *httpx.Client) (Client, error) {
 	if config == nil {
 		config = DefaultConfig()
@@ -57,23 +64,7 @@ func NewClient(config *Config, pool *httpx.Client) (Client, error) {
 	if pool != nil {
 		caller = pool
 	} else {
-		caller = httpx.NewClient(&httpx.Config{
-			BaseURL:          "https://finance.yahoo.com",
-			Timeout:          time.Duration(config.TimeoutMs) * time.Millisecond,
-			IdleTimeout:      90 * time.Second,
-			MaxConnsPerHost:  10,
-			MaxAttempts:      config.Retry.Attempts,
-			BackoffBaseMs:    config.Retry.BaseMs,
-			BackoffJitterMs:  config.Retry.BaseMs / 2,
-			MaxDelayMs:       config.Retry.MaxDelayMs,
-			QPS:              config.QPS,
-			Burst:            config.Burst,
-			CircuitWindow:    60 * time.Second,
-			FailureThreshold: 5,
-			ResetTimeout:     30 * time.Second,
-			UserAgent:        config.UserAgent,
-			MaxBodyBytes:     8 << 20, // 8 MiB — scrape body cap.
-		})
+		caller = httpx.NewClient(config.HTTP)
 	}
 	return NewClientWithCaller(caller, config)
 }

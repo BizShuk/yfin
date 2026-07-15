@@ -213,8 +213,7 @@ flowchart TD
 - `types/loader.go`: YAML 載入 + 環境變數插值 + 驗證。
 - `types/adapters.go`: HTTP / scrape / FX 等子設定型別。
 - `types/loader_test.go`: 解析測試。
-- `effective.yaml`: 經由環境變數插值後產生的實際生效設定。
-- `example.{dev,staging,prod}.yaml`: 三種環境範本。
+- `effective.yaml`: 經由環境變數插值後產生的實際生效設定。不同環境以 `app.env` 區分。
 
 ### 套件設計與運作
 
