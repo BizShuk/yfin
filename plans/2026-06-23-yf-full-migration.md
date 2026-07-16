@@ -552,7 +552,7 @@ go list -f '{{.ImportPath}} {{join .Imports " "}}' ./cmd/... | grep svc/ && exit
 - Python script標為oracle；
 - 記錄ordered manifest、atomic output、non-zero failure behavior與parity gate。
 
-> 2026-07-16 execution note：AAPL live gate正確exit 1。Python oracle完成30 commands；Go端受Yahoo `getcrumb` 429、scrape pages 404/503與後續circuit-open影響，只發布2/30 artifacts。已修正 `fc.yahoo.com` 404 + valid cookie的bootstrap相容性；2330.TW未執行，因AAPL prerequisite未通過。本step與live acceptance維持未勾選。
+> 2026-07-16 execution note：AAPL live gate正確 exit 1。Python oracle 完成 30 commands；Go 端只有 2 success、28 failed，主因為 Yahoo 對 client fingerprint 的差異處理：同一時刻 stdlib / 一般 curl 的 fresh 與 cached `A3` cookie 對 `query1/query2 getcrumb` 皆回 429，而 Python yfinance 使用的 `curl_cffi` Chrome impersonation 回 200；financials、balance-sheet、cash-flow、analysis、news 頁面亦為 stdlib 404、`curl_cffi` 200。後續 shared circuit breaker open 是放大效應，不是原始原因。計畫禁止新增第三方 dependency，故不將 Python、`curl_cffi` 或 TLS-impersonation library 注入 production Go；2330.TW 未執行，因 AAPL prerequisite 未通過。本 step 與 live acceptance 維持未勾選。
 
 - [x] **Step 5: Commit**
 
