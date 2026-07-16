@@ -24,6 +24,41 @@ type FetchContext struct {
 // fetchFunc fetches a single command's data; result must be JSON-marshalable.
 type fetchFunc func(ctx context.Context, fc *FetchContext, symbol string) (any, error)
 
+// commandOrder mirrors skills/scripts/config.py and is the canonical batch
+// execution order used by parity checks and production dispatch.
+var commandOrder = []string{
+	"info",
+	"history",
+	"actions",
+	"income",
+	"balance",
+	"cashflow",
+	"major-holders",
+	"institutional-holders",
+	"mutualfund-holders",
+	"insider-transactions",
+	"insider-purchases",
+	"insider-roster",
+	"recommendations",
+	"recommendations-summary",
+	"upgrades",
+	"earnings-dates",
+	"earnings-history",
+	"eps-trend",
+	"eps-revisions",
+	"earnings-estimates",
+	"revenue-estimates",
+	"growth-estimates",
+	"price-targets",
+	"news",
+	"calendar",
+	"sec-filings",
+	"sustainability",
+	"isin",
+	"options",
+	"metadata",
+}
+
 // commandRegistry maps Python-style command names to fetchers. All entries
 // route through facade — never svc/yahoo or svc/scrape directly.
 var commandRegistry = map[string]fetchFunc{
@@ -98,22 +133,22 @@ var commandRegistry = map[string]fetchFunc{
 		return fc.Root.ScrapeCashFlow(ctx, s, fc.RunID)
 	},
 	"earnings-history": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Root.ScrapeAnalysis(ctx, s, fc.RunID)
+		return fc.Root.ScrapeAnalysisDimension(ctx, "earnings-history", s, fc.RunID)
 	},
 	"eps-trend": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Root.ScrapeAnalysis(ctx, s, fc.RunID)
+		return fc.Root.ScrapeAnalysisDimension(ctx, "eps-trend", s, fc.RunID)
 	},
 	"eps-revisions": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Root.ScrapeAnalysis(ctx, s, fc.RunID)
+		return fc.Root.ScrapeAnalysisDimension(ctx, "eps-revisions", s, fc.RunID)
 	},
 	"earnings-estimates": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Root.ScrapeAnalysis(ctx, s, fc.RunID)
+		return fc.Root.ScrapeAnalysisDimension(ctx, "earnings-estimates", s, fc.RunID)
 	},
 	"revenue-estimates": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Root.ScrapeAnalysis(ctx, s, fc.RunID)
+		return fc.Root.ScrapeAnalysisDimension(ctx, "revenue-estimates", s, fc.RunID)
 	},
 	"growth-estimates": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Root.ScrapeAnalysis(ctx, s, fc.RunID)
+		return fc.Root.ScrapeAnalysisDimension(ctx, "growth-estimates", s, fc.RunID)
 	},
 	"price-targets": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
 		return fc.Root.ScrapeAnalystInsights(ctx, s, fc.RunID)

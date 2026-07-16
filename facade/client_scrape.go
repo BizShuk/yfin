@@ -93,6 +93,15 @@ func (c *Client) ScrapeKeyStatistics(ctx context.Context, symbol string, runID s
 // ScrapeAnalysis fetches analysis data and returns the plain SDK
 // FundamentalsSnapshot.
 func (c *Client) ScrapeAnalysis(ctx context.Context, symbol string, runID string) (*FundamentalsSnapshot, error) {
+	dto, err := c.ScrapeAnalysisData(ctx, symbol, runID)
+	if err != nil {
+		return nil, err
+	}
+	return model.ScrapeAnalysisToSnapshot(dto, dto.Market), nil
+}
+
+// ScrapeAnalysisData fetches and parses the complete Yahoo analysis surface.
+func (c *Client) ScrapeAnalysisData(ctx context.Context, symbol, runID string) (*model.ComprehensiveAnalysisDTO, error) {
 	url := fmt.Sprintf("https://finance.yahoo.com/quote/%s/analysis", symbol)
 	body, _, err := c.scrapeClient.Fetch(ctx, url)
 	if err != nil {
@@ -106,7 +115,39 @@ func (c *Client) ScrapeAnalysis(ctx context.Context, symbol string, runID string
 		return nil, fmt.Errorf("failed to parse analysis: %w", err)
 	}
 
-	return model.ScrapeAnalysisToSnapshot(dto, mic), nil
+	return dto, nil
+}
+
+// ScrapeAnalysisDimension fetches the shared analysis page and projects the
+// command-specific yfinance-compatible dimension.
+func (c *Client) ScrapeAnalysisDimension(ctx context.Context, command, symbol, runID string) (any, error) {
+	dto, err := c.ScrapeAnalysisData(ctx, symbol, runID)
+	if err != nil {
+		return nil, err
+	}
+	return projectAnalysisDimension(command, dto)
+}
+
+func projectAnalysisDimension(command string, dto *model.ComprehensiveAnalysisDTO) (any, error) {
+	if dto == nil {
+		return nil, fmt.Errorf("analysis data is nil")
+	}
+	switch command {
+	case "earnings-history":
+		return dto.EarningsHistory, nil
+	case "eps-trend":
+		return dto.EPSTrend, nil
+	case "eps-revisions":
+		return dto.EPSRevisions, nil
+	case "earnings-estimates":
+		return dto.EarningsEstimate, nil
+	case "revenue-estimates":
+		return dto.RevenueEstimate, nil
+	case "growth-estimates":
+		return dto.GrowthEstimate, nil
+	default:
+		return nil, fmt.Errorf("unsupported analysis command %q", command)
+	}
 }
 
 // ScrapeAnalystInsights fetches analyst insights data and returns the plain

@@ -265,17 +265,17 @@ git commit -m "fix(facade): return command-specific yahoo payloads"
 - Produces: `ScrapeAnalysisDimension(ctx, command, symbol, runID) (any, error)`
 - Produces: `commandOrder []string`，恰好含Python `COMMANDS` 的30個名稱。
 
-- [ ] **Step 1: 寫失敗測試**
+- [x] **Step 1: 寫失敗測試**
 
 測試 `projectAnalysisDimension` 分別回傳 `EarningsHistory`、`EPSTrend`、`EPSRevisions`、`EarningsEstimate`、`RevenueEstimate`、`GrowthEstimate`。`dispatch_test.go` assert registry與order長度皆30，且順序逐項等於 `skills/scripts/config.py`。
 
-- [ ] **Step 2: 確認失敗**
+- [x] **Step 2: 確認失敗**
 
 ```bash
 go test ./facade ./cmd/dispatch -run 'TestProjectAnalysisDimension|TestCommandRegistryMatchesPythonManifest' -v
 ```
 
-- [ ] **Step 3: 最小實作**
+- [x] **Step 3: 最小實作**
 
 抽出現有analysis fetch/parse：
 
@@ -297,13 +297,13 @@ func (c *Client) ScrapeAnalysisData(ctx context.Context, symbol, runID string) (
 
 新增pure projection switch；`ScrapeAnalysis`改用上述helper後轉snapshot。registry六個analysis command改呼叫 `ScrapeAnalysisDimension`。batch後續只依 `commandOrder` 執行，不range map。
 
-- [ ] **Step 4: 驗證**
+- [x] **Step 4: 驗證**
 
 ```bash
 go test ./facade ./cmd/dispatch ./svc/scrape ./model -v
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add facade/client_scrape.go facade/client_scrape_test.go cmd/dispatch/dispatch.go cmd/dispatch/dispatch_test.go
