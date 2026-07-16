@@ -481,6 +481,8 @@ git commit -m "fix(batch): make artifacts atomic and cache deterministic"
 - Create: `cmd/dispatch/batch_integration_test.go`
 - Create: `skills/scripts/compare_yfin_parity.py`
 - Create: `scripts/verify-yf-parity.sh`
+- Modify: `cmd/dispatch/batch.go` / integration tests
+- Modify: `svc/yahoo/auth.go` / tests（live smoke發現 `fc.yahoo.com` 404仍會下發有效cookie）。
 - Modify: `README.md`、`CLAUDE.md`、`skills/SKILL.md`、`docs/cli/usage.md`、`docs/cli/commands.md`
 
 **Interfaces:**
@@ -488,7 +490,7 @@ git commit -m "fix(batch): make artifacts atomic and cache deterministic"
 - CI gate：無外網，injected 30-entry registry驗證lifecycle、artifacts、failure與cancellation。
 - Manual gate：同一symbol / UTC date執行Python oracle與Go batch，檢查artifact存在、JSON有效、空值語意與top-level type。
 
-- [ ] **Step 1: 寫lifecycle integration test**
+- [x] **Step 1: 寫lifecycle integration test**
 
 以30-entry fake registry執行 `runBatch`，逐一assert：
 
@@ -498,7 +500,9 @@ git commit -m "fix(batch): make artifacts atomic and cache deterministic"
 
 內容必須含對應command與symbol。另測任一failed command令CLI回non-zero，但已成功artifact保留。
 
-- [ ] **Step 2: 實作manual comparator**
+- [x] **Step 2: 實作manual comparator**
+
+`runBatch` 在worker完成後若 `failed > 0`，回傳包含failed count的error；`not_found` 保持獨立狀態，不視為CLI failure。
 
 `compare_yfin_parity.py` 逐一讀 `config.COMMANDS`：
 
@@ -526,7 +530,7 @@ python3 skills/scripts/compare_yfin_parity.py \
 
 `~/.config/stock` 只允許存在於legacy oracle，不得出現在Go production code。
 
-- [ ] **Step 3: deterministic verification**
+- [x] **Step 3: deterministic verification**
 
 ```bash
 go test ./...
@@ -541,14 +545,16 @@ go list -f '{{.ImportPath}} {{join .Imports " "}}' ./cmd/... | grep svc/ && exit
 ./scripts/verify-yf-parity.sh 2330.TW
 ```
 
-兩次exit 0後才更新文件：
+完成smoke嘗試後同步文件；只有兩次exit 0才可宣告live parity通過：
 
 - runtime path改為 `~/.config/yfin/data/raw`；
 - `go run ./cmd/yfin batch`改為 `go run . batch`；
 - Python script標為oracle；
 - 記錄ordered manifest、atomic output、non-zero failure behavior與parity gate。
 
-- [ ] **Step 5: Commit**
+> 2026-07-16 execution note：AAPL live gate正確exit 1。Python oracle完成30 commands；Go端受Yahoo `getcrumb` 429、scrape pages 404/503與後續circuit-open影響，只發布2/30 artifacts。已修正 `fc.yahoo.com` 404 + valid cookie的bootstrap相容性；2330.TW未執行，因AAPL prerequisite未通過。本step與live acceptance維持未勾選。
+
+- [x] **Step 5: Commit**
 
 ```bash
 git add cmd/dispatch/batch_integration_test.go skills/scripts/compare_yfin_parity.py scripts/verify-yf-parity.sh README.md CLAUDE.md skills/SKILL.md docs/cli/usage.md docs/cli/commands.md
@@ -559,19 +565,19 @@ git commit -m "test(docs): gate and document yahoo 30-command parity"
 
 ## Final Acceptance Criteria
 
-- [ ] `go test -race ./...` PASS。
-- [ ] `go build .` PASS。
-- [ ] `cmd` tree對 `svc` direct import edge為0。
-- [ ] `yfin batch --ticker AAPL --max-workers 1` 不panic，使用 `cmd.CreateClient()`。
-- [ ] default universe由embedded `cmd/dispatch/ticker_list.csv`提供，不依賴cwd。
-- [ ] runtime artifacts只寫 `~/.config/yfin/data/raw`。
-- [ ] holders、insider、analysis aliases各自回傳獨立維度。
-- [ ] info collision precedence deterministic。
-- [ ] I/O error不會標記success；target只以atomic rename發布。
-- [ ] cache以newest valid artifact判freshness。
-- [ ] cancellation停止新worker；non-positive workers回config error。
+- [x] `go test -race ./...` PASS。
+- [x] `go build .` PASS。
+- [x] `cmd` tree對 `svc` direct import edge為0。
+- [x] `yfin batch --ticker AAPL --max-workers 1` 不panic，使用 `cmd.CreateClient()`。
+- [x] default universe由embedded `cmd/dispatch/ticker_list.csv`提供，不依賴cwd。
+- [x] runtime artifacts只寫 `~/.config/yfin/data/raw`。
+- [x] holders、insider、analysis aliases各自回傳獨立維度。
+- [x] info collision precedence deterministic。
+- [x] I/O error不會標記success；target只以atomic rename發布。
+- [x] cache以newest valid artifact判freshness。
+- [x] cancellation停止新worker；non-positive workers回config error。
 - [ ] AAPL與2330.TW的30-command semantic parity smoke皆exit 0。
-- [ ] README、CLAUDE.md、skills與CLI docs無舊路徑或未驗證宣告。
+- [x] README、CLAUDE.md、skills與CLI docs無舊路徑或未驗證宣告。
 
 ## Rollback Boundaries
 
@@ -582,6 +588,6 @@ git commit -m "test(docs): gate and document yahoo 30-command parity"
 | 3 | analysis projection + command order | auth、artifact path |
 | 4 | production wiring + embedded universe | decoders、model types |
 | 5 | atomic output + cache | facade fetch contracts |
-| 6 | parity scripts、integration gate、docs | production runtime code |
+| 6 | parity scripts、integration gate、docs、batch non-zero、404 bootstrap compatibility | 其餘fetch/decoder與artifact contracts |
 
 每個task完成後均須保持可編譯、可測試；不得把production wiring推遲到文件或驗證task。

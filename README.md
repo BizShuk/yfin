@@ -467,32 +467,35 @@ func main() {
 
 ## 🐍→🦫 Batch Mode (Python yf parity)
 
-`yfin batch` 對等複刻 `skills/scripts/all_ticker_yf.py`,以 Go 重做整套批次抓取 + 分級快取管線:
+`yfin batch` 以 Go 實作 `skills/scripts/all_ticker_yf.py` 的 30-command 批次、分級快取與 artifact lifecycle；Python 版本保留為 live oracle：
 
-- 30 個資料維度(含 quoteSummary 新增的 holders / insider / upgrades / calendar / sec-filings / sustainability / isin / options / actions / metadata)對齊 Python 的 30 指令。
-- 認證:Yahoo 免費 cookie + crumb,無需付費訂閱即可走 `v10/finance/quoteSummary` 與 `v7/finance/options/`。
-- 輸出結構一致:`<rawDir>/<command>/<ticker>.<YYYY-MM-DD>.json`;失敗寫 `<rawDir>/_failed/<ticker>.<command>.err`。
-- 快取分級沿用 Python 的 `REFRESH_MAP`(`daily` / `monthly` / `quarterly` / `annually`)。
+- `commandOrder` 固定對齊 Python `COMMANDS` 的 30 個名稱與順序。
+- 預設 universe 由 binary embedded `cmd/dispatch/ticker_list.csv` 提供，不依賴 current working directory。
+- Go artifacts 寫入 `~/.config/yfin/data/raw/<command>/<ticker>.<YYYY-MM-DD>.json`；Python oracle 保留在 `~/.config/stock/data/raw/`。
+- JSON 與 error artifacts 皆以同目錄 temporary file + atomic rename 發布；cache 只以最新有效 artifact 判 freshness。
+- HTTP `404/422` 記為 `not_found`；任何 `failed` command 會保留已成功 artifacts，並令 batch exit non-zero。
 
 ```bash
-# 預設:抓 skills/references/ticker_list.csv 中所有 ticker × 30 指令
-./yfin batch
+# 預設：抓 embedded universe 中所有 ticker × 30 指令
+go run . batch
 
 # 單股 / 強制重抓 / 調整並行
-./yfin batch --ticker 2330.TW
-./yfin batch --ticker 2330.TW --force
-./yfin batch --max-workers 5
+go run . batch --ticker 2330.TW
+go run . batch --ticker 2330.TW --force
+go run . batch --max-workers 5
+
+# Live semantic gate：Python oracle → Go batch → 30-command comparator
+./scripts/verify-yf-parity.sh AAPL
+./scripts/verify-yf-parity.sh 2330.TW
 ```
 
-對應 Python 端:在 `skills/SKILL.md` 末尾的 `## Go client 對等能力 (Go parity)` 段。
+對應 Python 端：見 `skills/SKILL.md` 的 `## Go client parity gate`。
 
-### Cross-Verify Parity Matrix(30 指令)
+### 30-command implementation matrix
 
-`★ Insight ─────────────────────────────────────`
-經過逐一對照 yfinance source 與 `cmd/dispatch/dispatch.go` 的 `commandRegistry`,目前 30 個指令**全部達到 Python 語意對等**(`earnings-dates` 走 HTML scrape、`metadata` 1d range 對齊 `get_history_metadata` 的不重抓語意,均已對應)。
-`─────────────────────────────────────────────────`
+下表只表示 Go command 已接線到對應資料來源，不等同 live parity 已通過。release 前必須以 `scripts/verify-yf-parity.sh` 對 AAPL 與 2330.TW 驗證 artifact 存在、JSON validity、empty semantics 與 top-level type；Yahoo rate limit 或頁面變更會讓 gate 以 non-zero 明確失敗。
 
-| 指令                                                                                                     | 來源 (Python)                                     | Go 端實作                                | 對齊 |
+| 指令                                                                                                     | 來源 (Python)                                     | Go 端實作                                | 接線 |
 | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | ---------------------------------------- | ---- |
 | info                                                                                                     | 5 quoteSummary 模組                               | `(*yahoo.Client).FetchInfo`              | ✅   |
 | history                                                                                                  | chart 30d/daily                                   | `(*facade.Client).FetchDailyBars` 30d    | ✅   |
@@ -504,7 +507,7 @@ func main() {
 | recommendations / recommendations-summary                                                                | 同源(quoteSummary)                                | `FetchRecommendationTrend`               | ✅   |
 | upgrades                                                                                                 | quoteSummary                                      | `FetchUpgrades`                          | ✅   |
 | earnings-dates                                                                                           | **HTML scrape** `/calendar/earnings?symbol=`      | `(*yahoo.Client).FetchEarningsDates`     | ✅   |
-| earnings-history / eps-trend / eps-revisions / earnings-estimates / revenue-estimates / growth-estimates | quoteSummary                                      | `ScrapeAnalysis`                         | ✅   |
+| earnings-history / eps-trend / eps-revisions / earnings-estimates / revenue-estimates / growth-estimates | quoteSummary                                      | `ScrapeAnalysisDimension`                | ✅   |
 | price-targets                                                                                            | quoteSummary                                      | `ScrapeAnalystInsights`                  | ✅   |
 | news                                                                                                     | scrape HTML/JSON                                  | `ScrapeNews`                             | ✅   |
 | calendar                                                                                                 | quoteSummary `calendarEvents`                     | `FetchCalendar`                          | ✅   |
@@ -513,8 +516,6 @@ func main() {
 | isin                                                                                                     | business-insider                                  | `FetchISIN`                              | ✅   |
 | options                                                                                                  | `/v7/finance/options/`                            | `FetchOptions`                           | ✅   |
 | metadata                                                                                                 | 1d chart(不重抓)                                  | `FetchMetadata`(1d range)                | ✅   |
-
-對應 commit 範圍:`6cc0517` → `4db5d5d`(21 個功能 commit)+ `e769820`/`a580493`/`7e4af80`/`4db5d5d`/`5c35fac`/`d09291c`(6 個 cross-verify fix)。
 
 ---
 
@@ -710,7 +711,7 @@ These require a paid Yahoo Finance subscription through the API, but the scrape 
 
 ### ⚠️ Available via `batch` / `YahooDispatch` only
 
-Reachable through the free cookie+crumb `quoteSummary` path — see the [parity matrix](#cross-verify-parity-matrix30-指令) — but not exposed as first-class `facade.Client.Fetch*` methods. Use `yfin batch --ticker X` or call `facade.YahooDispatch`:
+Reachable through the cookie+crumb `quoteSummary` path — see the [implementation matrix](#30-command-implementation-matrix) — but not exposed as first-class `facade.Client.Fetch*` methods. Use `yfin batch --ticker X` or call `facade.YahooDispatch`:
 
 - **Options Data** - Options chains and pricing
 - **Insider Trading** - Transactions, roster, purchase summary

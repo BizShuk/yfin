@@ -40,10 +40,10 @@ yfin
 | `fundamentals` | 擷取 fundamentals 季報（需付費） | `--ticker` / `--preview` |
 | `comprehensive-stats` | 擷取完整 key statistics + 5 年歷史 | `--ticker` / `--preview` |
 | `comprehensive-profile` | 擷取公司基本資料 + key executives | `--ticker` / `--preview` |
-| `scrape` | Yahoo Finance 網頁爬蟲（4 種 mode） | `--check` / `--preview-json` / `--preview-news` / `--preview-proto` / `--ticker` / `--endpoint` / `--endpoints` / `--force` |
+| `scrape` | Yahoo Finance 網頁爬蟲（3 種 mode） | `--check` / `--preview-json` / `--preview-news` / `--ticker` / `--endpoint` / `--endpoints` / `--force` |
 | `twse` | 查詢任一 23 個 TWSE endpoint | `--endpoint` (必填) / `--date` / `--stock` / `--month` / `--timeout` / `--pretty` |
 | `batch` | 批次擷取 universe 全部 commands | `--ticker` / `--max-workers` / `--force` |
-| `config` | 印出 effective config | `--print-effective` / `--json` |
+| `config-effective` | 印出 effective config | `--print-effective` / `--json` |
 | `version` | 列印 CLI 版本與 build 細節 | — |
 
 ## Basic Usage
@@ -66,7 +66,7 @@ yfin quote --help
 yfin fundamentals --help
 yfin scrape --help
 yfin twse --help
-yfin config --help
+yfin config-effective --help
 ```
 
 ## Daily Bars (`pull` command)
@@ -191,7 +191,7 @@ echo $?  # 401 / 未授權時為 2 (PaidFeatureRequired)
 
 ## Web Scraping (`scrape` command)
 
-`scrape` 提供 4 種互斥 mode，必填其一：
+`scrape` 提供 3 種互斥 mode，必填其一：
 
 ```bash
 # 連線測試 (connectivity check)
@@ -203,14 +203,12 @@ yfin scrape --preview-json --ticker AAPL --endpoints key-statistics,financials,a
 # news parser 乾跑 (dry-run news parser)
 yfin scrape --preview-news --ticker AAPL
 
-# proto 完整輸出乾跑 (proto emission dry-run)
-yfin scrape --preview-proto --ticker AAPL --endpoints financials,analysis,profile,news
 ```
 
 支援的 endpoint：`profile` / `key-statistics` / `financials` / `balance-sheet` / `cash-flow` / `analysis` / `analyst-insights` / `news`。
 
 - `--check` mode：搭配 `--endpoint`（單一 endpoint）
-- `--preview-json` / `--preview-proto` mode：搭配 `--endpoints`（CSV，多 endpoint）
+- `--preview-json` mode：搭配 `--endpoints`（CSV，多 endpoint）
 - `--force`：忽略 API 可用性檢查，強制走爬蟲
 
 ## TWSE (`twse` command)
@@ -239,6 +237,8 @@ Endpoint 完整清單：`MI_INDEX` / `STOCK_DAY` / `BWIBBU_d` / `MI_INDEX_PLUS` 
 
 批次擷取 universe 中所有 symbols 的所有 registered commands：
 
+預設 universe embedded 自 `cmd/dispatch/ticker_list.csv`；Go runtime artifacts 固定寫入 `~/.config/yfin/data/raw/`。30 個 command 依固定順序執行，output 以 atomic rename 發布，cache 只看最新有效 artifact；任一 `failed` command 令 CLI 回 non-zero，已成功 artifacts 保留。
+
 ```bash
 # 從 ticker_list.csv 讀取 universe
 yfin batch
@@ -251,6 +251,10 @@ yfin batch --ticker AAPL --force
 
 # 調整 worker pool 大小
 yfin batch --max-workers 32
+
+# 與 Python oracle 做 live semantic parity gate
+./scripts/verify-yf-parity.sh AAPL
+./scripts/verify-yf-parity.sh 2330.TW
 ```
 
 ## Configuration Management
@@ -259,10 +263,10 @@ yfin batch --max-workers 32
 
 ```bash
 # 印出 effective config (key=value 格式)
-yfin config --print-effective
+yfin config-effective --print-effective
 
 # 以 JSON 格式印出
-yfin config --print-effective --json
+yfin config-effective --print-effective --json
 ```
 
 ### Use Custom Configuration
@@ -417,7 +421,7 @@ yfin fundamentals --ticker AAPL --preview
 
 # scrape mode 必填其一
 yfin scrape --ticker AAPL
-# ERROR: either --check, --preview-json, --preview-news, or --preview-proto flag is required
+# ERROR: either --check, --preview-json, or --preview-news flag is required
 ```
 
 ## Best Practices
@@ -508,7 +512,7 @@ docker run --rm \
 1. **網路逾時 (network timeouts)**：調升 `--timeout`，或檢查網路狀態
 2. **Rate limiting**：降低 `--qps`，或減少 `--concurrency`
 3. **記憶體問題**：大型 universe 時降低 `--concurrency`
-4. **組態錯誤**：使用 `yfin config --print-effective` 除錯
+4. **組態錯誤**：使用 `yfin config-effective --print-effective` 除錯
 
 ### Debug Mode
 
@@ -531,7 +535,7 @@ yfin --help
 yfin pull --help
 
 # 驗證 config
-yfin config --print-effective
+yfin config-effective --print-effective
 ```
 
 ## Next Steps

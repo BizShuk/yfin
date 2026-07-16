@@ -125,21 +125,26 @@ func TestReadEmbeddedTickerList(t *testing.T) {
 
 func TestBatchCommandUsesInjectedClient(t *testing.T) {
 	var called atomic.Bool
+	registry := make(map[string]fetchFunc, len(commandOrder))
+	for _, command := range commandOrder {
+		registry[command] = func(_ context.Context, _ *FetchContext, _ string) (any, error) {
+			return map[string]string{"command": command}, nil
+		}
+	}
+	registry["info"] = func(_ context.Context, fc *FetchContext, _ string) (any, error) {
+		require.NotNil(t, fc)
+		require.NotNil(t, fc.Root)
+		called.Store(true)
+		return map[string]string{"ok": "true"}, nil
+	}
 	deps := batchDeps{
 		newClient: func() (*facade.Client, error) { return facade.NewClient(), nil },
 		dataDir:   t.TempDir,
 		readTickers: func() ([]string, error) {
 			return []string{"AAPL"}, nil
 		},
-		now: func() time.Time { return time.Date(2026, 6, 23, 0, 0, 0, 0, time.UTC) },
-		registry: map[string]fetchFunc{
-			"info": func(_ context.Context, fc *FetchContext, _ string) (any, error) {
-				require.NotNil(t, fc)
-				require.NotNil(t, fc.Root)
-				called.Store(true)
-				return map[string]string{"ok": "true"}, nil
-			},
-		},
+		now:      func() time.Time { return time.Date(2026, 6, 23, 0, 0, 0, 0, time.UTC) },
+		registry: registry,
 	}
 	command := newBatchCmd(deps)
 	command.SetArgs([]string{"--ticker", "AAPL", "--max-workers", "1", "--force"})

@@ -65,7 +65,7 @@ yfin version
 
 ### `batch`
 
-對 universe 中所有 symbols 批次執行 `commandRegistry` 內每個 command，套用 tiered cache 與 worker pool。預設讀取 `yf/references/ticker_list.csv`。
+對 universe 中所有 symbols 依固定 `commandOrder` 執行 30 個 commands，套用 tiered cache 與 worker pool。預設 universe embedded 自 `cmd/dispatch/ticker_list.csv`，不讀 current working directory。Go artifacts 固定寫入 `~/.config/yfin/data/raw/`；atomic write 成功後才標記 success，任一 failed command 令 CLI 回 non-zero。
 
 | 旗標 | 型別 | 預設值 | 說明 |
 | --- | --- | --- | --- |
@@ -76,6 +76,7 @@ yfin version
 ```bash
 yfin batch
 yfin batch --ticker AAPL --max-workers 32 --force
+./scripts/verify-yf-parity.sh AAPL
 ```
 
 ### `fundamentals`
@@ -157,14 +158,13 @@ yfin quote --tickers AAPL --out json --out-dir ./quotes --preview
 
 ### `scrape`
 
-Yahoo Finance 網頁爬蟲，提供 **4 種互斥 mode**（必填其一）。HTTP 連線由 `utils/httpx` 統一管理（限速、重試、circuit breaker）。
+Yahoo Finance 網頁爬蟲，提供 3 種互斥 mode（必填其一）。HTTP 連線由 `utils/httpx` 統一管理（限速、重試、circuit breaker）。
 
 | Mode | 旗標 | 必要搭配 | 用途 |
 | --- | --- | --- | --- |
 | 連線測試 | `--check` | `--ticker` + `--endpoint` | 不解析、僅確認可達性 |
 | extractor 乾跑 | `--preview-json` | `--ticker` + `--endpoints` | 解析 DTO 並輸出 JSON |
 | news parser 乾跑 | `--preview-news` | `--ticker` | 解析 news 文章 |
-| 完整輸出乾跑 | `--preview-proto` | `--ticker` + `--endpoints` | 完整 DTO 含 counts / periods / metadata |
 
 **完整旗標表：**
 
@@ -173,10 +173,9 @@ Yahoo Finance 網頁爬蟲，提供 **4 種互斥 mode**（必填其一）。HTT
 | `--check` | bool | `false` | 連線測試（與其他 mode 互斥） |
 | `--preview-json` | bool | `false` | extractor 乾跑（互斥） |
 | `--preview-news` | bool | `false` | news parser 乾跑（互斥） |
-| `--preview-proto` | bool | `false` | 完整 DTO 輸出乾跑（互斥） |
 | `--ticker` | string | `""` | 必填。股票代號 |
 | `--endpoint` | string | `""` | 單一 endpoint，搭配 `--check`；可選值：`profile` / `key-statistics` / `financials` / `balance-sheet` / `cash-flow` / `analysis` / `analyst-insights` / `news` |
-| `--endpoints` | string | `""` | CSV 多 endpoint，搭配 `--preview-json` / `--preview-proto` |
+| `--endpoints` | string | `""` | CSV 多 endpoint，搭配 `--preview-json` |
 | `--preview` | bool | `false` | 顯示 preview |
 | `--force` | bool | `false` | 忽略 API 可用性檢查，強制走爬蟲（僅測試用） |
 
@@ -184,7 +183,6 @@ Yahoo Finance 網頁爬蟲，提供 **4 種互斥 mode**（必填其一）。HTT
 yfin scrape --check --ticker AAPL --endpoint profile --preview
 yfin scrape --preview-json --ticker AAPL --endpoints key-statistics,financials,analysis,profile
 yfin scrape --preview-news --ticker TSLA
-yfin scrape --preview-proto --ticker AAPL --endpoints financials,analysis,profile,news
 ```
 
 ### `twse`
@@ -200,7 +198,7 @@ yfin scrape --preview-proto --ticker AAPL --endpoints financials,analysis,profil
 | `--timeout` | duration | `30s` | HTTP timeout |
 | `--pretty` | bool | `false` | 將輸出 JSON 縮排美化 |
 
-支援的 21 個 endpoint：`MI_INDEX` / `STOCK_DAY` / `BWIBBU_d` / `MI_INDEX_PLUS` / `MI_INDEX_ODD` / `MI_5MINS` / `TWTB4U` / `MI_MARGN` / `T86` / `MI_QFIIS` / `BFI82U` / `TWT38U` / `TWT43U` / `TWT44U` / `BFIAUU` / `BFIAUU_STOCK` / `BFIMUU` / `BFIAUU_YEAR` / `FMTQIK` / `STOCK_DAY_AVG` / `FMSRFK` / `BFIAMU` / `MI_WEEK`。
+支援的 23 個 endpoint：`MI_INDEX` / `STOCK_DAY` / `BWIBBU_d` / `MI_INDEX_PLUS` / `MI_INDEX_ODD` / `MI_5MINS` / `TWTB4U` / `MI_MARGN` / `T86` / `MI_QFIIS` / `BFI82U` / `TWT38U` / `TWT43U` / `TWT44U` / `BFIAUU` / `BFIAUU_STOCK` / `BFIMUU` / `BFIAUU_YEAR` / `FMTQIK` / `STOCK_DAY_AVG` / `FMSRFK` / `BFIAMU` / `MI_WEEK`。
 
 ```bash
 yfin twse --endpoint MI_INDEX --date 20221230

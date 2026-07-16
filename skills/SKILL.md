@@ -10,9 +10,10 @@ description: 封裝 yfinance 程式庫以獲取股票數據、資訊和新聞 (W
 ## 路徑 (Path)
 
 ```tree
-skills/yf/scripts/
+skills/scripts/
 ├── yf.py              # 提供 yfinance 各指令的 API 接口 (30 指令)
 ├── all_ticker_yf.py   # 批次 fetch 主程序 (67 tickers × 30 指令)
+├── compare_yfin_parity.py # Python oracle 與 Go artifacts 的 semantic comparator
 └── config.py          # 共用設定 (COMMANDS, REFRESH_MAP)
 ```
 
@@ -41,17 +42,17 @@ income_json = yf.fetch_data("income", "2330.TW", freq="quarterly")
 透過 `all_ticker_yf.py` 腳本，可以批次下載所有 Tickers 的各項數據，並存儲為 Raw JSON 格式：
 
 ```bash
-# 下載 references/ticker_list.csv 中所有個股的所有數據
-python3 skills/yf/scripts/all_ticker_yf.py
+# 下載 cmd/dispatch/ticker_list.csv 中所有個股的所有數據
+~/.venv/bin/python skills/scripts/all_ticker_yf.py
 
 # 僅下載單一股票
-python3 skills/yf/scripts/all_ticker_yf.py --ticker 2330.TW
+~/.venv/bin/python skills/scripts/all_ticker_yf.py --ticker 2330.TW
 
 # 調整並行線程數 (預設為 10)
-python3 skills/yf/scripts/all_ticker_yf.py --max-workers 5
+~/.venv/bin/python skills/scripts/all_ticker_yf.py --max-workers 5
 
 # 無視快取，強制重新下載
-python3 skills/yf/scripts/all_ticker_yf.py --force
+~/.venv/bin/python skills/scripts/all_ticker_yf.py --force
 ```
 
 - 輸出路徑：`~/.config/stock/data/raw/<command>/<ticker>.<YYYY-MM-DD>.json`
@@ -79,22 +80,25 @@ python3 skills/yf/scripts/all_ticker_yf.py --force
 | 月/週更新 | monthly | 內部人交易備案 (Form 4)、行事曆下次盈餘日期 |
 | 年更新 | annually | ISIN 識別碼、選擇權履約價結構 (近乎永久) |
 
-## Go client 對等能力 (Go parity)
+## Go client parity gate
 
-`yfinance-go` 已在 `cmd/yfin batch` 對等複刻 `all_ticker_yf.py` 的批次 + 分級快取管線:
+`all_ticker_yf.py` 是 live Python oracle；Go production path 是 root-level `batch` command：
 
-- 30 個資料維度(含 quoteSummary 新增的 holders / insider / upgrades / calendar / sec-filings / sustainability / isin / options / actions / metadata)對齊 `yf/scripts/yf.py` 的 30 指令。
-- 認證:使用 Yahoo 免費的 cookie + crumb 流程,免付費即可走 `v10/finance/quoteSummary` 與 `v7/finance/options/`。
-- 輸出結構一致:`<rawDir>/<command>/<ticker>.<YYYY-MM-DD>.json`;錯誤寫 `<rawDir>/_failed/<ticker>.<command>.err`。
-- 快取分級沿用 `REFRESH_MAP`(`daily` / `monthly` / `quarterly` / `annually`)。
+- Go 的 ordered manifest 與 Python `COMMANDS` 同為 30 個名稱；CI 使用 injected registry 驗證完整 lifecycle，不需外網。
+- Go runtime 固定寫 `~/.config/yfin/data/raw/`；Python oracle 固定寫 `~/.config/stock/data/raw/`，兩者不混放。
+- Go output 使用 atomic rename，cache 看最新有效 artifact；任何 `failed` command 令 CLI exit non-zero。
+- Live parity 必須以 comparator 檢查 artifact existence、JSON validity、empty semantics 與 top-level type；command wiring 本身不代表 live Yahoo 驗證已通過。
 
 ```bash
 # 對齊 all_ticker_yf.py 的預設行為
-go run ./cmd/yfin batch
+go run . batch
 
 # 單股
-go run ./cmd/yfin batch --ticker 2330.TW
+go run . batch --ticker 2330.TW
 
 # 強制重抓
-go run ./cmd/yfin batch --ticker 2330.TW --force
+go run . batch --ticker 2330.TW --force
+
+# Python oracle + Go batch + semantic comparator
+./scripts/verify-yf-parity.sh 2330.TW
 ```

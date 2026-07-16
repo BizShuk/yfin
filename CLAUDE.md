@@ -59,7 +59,7 @@ flowchart TD
     - `client.go`: `Client` struct (MIC cache + `sync.RWMutex`) + 2 constructors + 共用 helper (`inferMICForSymbol` / `isAuthenticationError`)。
     - `client_yahoo.go`: 8 個 chart-API `Fetch*`（Daily/Intraday/Weekly/Monthly bars、Quote、FundamentalsQuarterly、CompanyInfo、MarketData），回傳 float64 的 plain SDK struct。
     - `client_norm.go`: 4 個 `Fetch*Norm` 變體，回傳 `*model.Normalized*`（保留 ScaledDecimal 精度）。
-    - `client_scrape.go`: 8 個 `Scrape*`，走 `svc/scrape` 抓頁面後直接轉 model。
+    - `client_scrape.go`: 10 個 `Scrape*`，包含完整 analysis DTO、六維 projection 與既有 model converter。
     - `twse.go` / `twse_dispatch.go`: `TwseClient` 不透明 handle（含建構、`Dispatch`、no-data 判定）/ endpoint registry + 23 個 fetcher map。
 - `svc/`: SDK-first business services (HTTP fetch + decode + validation only):
     - `svc/yahoo/`: Yahoo Finance raw HTTP API client (Crumb auth, chart API, fundamentals). Owns its response envelope types (BarsResponse, QuoteResponse, FundamentalsResponse, etc.); these stay in svc/yahoo because model/normalize.go consumes them and Go would create an import cycle if they moved to model/.
@@ -68,17 +68,17 @@ flowchart TD
 - `model/`: Pure data types + normalization logic — the **lowest layer** of the dependency graph. Houses: 8 facade-aligned SDK DTOs (`Bar`/`BarBatch`/`Quote`/`MarketData`/`CompanyInfo`/`FundamentalsSnapshot`/`FundamentalsLine`/`NewsItem`), `ScaledDecimal` precision type + helpers, `Security` + `InferMIC` + `CreateSecurity` + `ExchangeToMIC`, 9 `Normalized*` types + 4 `Converted*` + `ConvertTo` methods + `FXConverter`/`FXMeta`/`MockFXConverter`, all `Normalize*` functions (`NormalizeBars`/`Quote`/`Fundamentals`/`MarketData`/`CompanyInfo`/`Holders`/`Insider`), `ToUTCDayBoundaries`, scrape DTOs (`FetchMeta`/`ScrapeNewsItem`/`NewsStats`/value types/`Scaled` alias/`Currency` alias/`YahooNum`/`YahooInt`/`YahooString`/all comprehensive DTOs), TWSE `Response` envelope + 22 endpoint `*Response` + `*Row` types, and `scrape_convert.go` (DTO→model direct converters: `ScrapeFinancialsToSnapshot`/`BalanceSheet`/`CashFlow`/`KeyStatistics`/`Analysis`/`AnalystInsights` + `ScrapeNewsToItems`, replacing the former ampy-proto emit hop). **`svc/norm/` was merged into `model/`** in Phase 2; `svc/norm/` no longer exists.
 - `utils/`: Shared infrastructure (`utils/*` may NOT import `svc/*`):
     - `utils/httpx/`: Resilient HTTP client — QPS rate limiting, exponential backoff, retry logic, circuit breaker. Single shared `http.Client`; session rotation removed.
-    - `utils/cache/`: Refresh-frequency cache (daily/monthly/quarterly).
+    - `utils/cache/`: Refresh-frequency cache (daily/monthly/quarterly/annually)，以最新有效 artifact 判 freshness。
     - `utils/obsv/`: Structured logging (stdlib `slog`) + OpenTelemetry tracing (no-op tracer) + Prometheus metrics. Stands alone on stdlib + OTel + `prometheus/client_golang` (no external observability wrapper).
 - `config/`: Top-level YAML loader (`os.ReadFile` + `yaml.Unmarshal` into `map[string]interface{}`, then env-var interpolation + struct mapping + validation) — `config.Config` / `config.NewLoader` / `config.CreateEffectiveConfig`。一個 config section 一個檔案（`http.go` / `scrape.go` / `fx.go` / `markets.go` / `retry.go` ...），`loader.go` 只管讀檔與插值，`adapters.go` 只管轉成 HTTP/scrape/FX 的下游型別。leaf 套件，不 import 任何內部套件。runtime 預設設定 `effective.yaml` 同目錄併存（不同環境以 `app.env` 區分）。
 - `cmd/`: CLI composition root. `main.go` calls each sub-package's `Register(RootCmd)`:
     - `cmd/{root,client,global,build,exitcodes}.go`: helpers + persistent flags + shared client builder (`CreateClient()` returns `*facade.Client`).
     - `cmd/admin/`: `config-effective`, `version`.
-    - `cmd/dispatch/`: `batch` (sub-package name is `dispatch` but no top-level `yfin dispatch` command exists).
+    - `cmd/dispatch/`: `batch` (sub-package name is `dispatch` but no top-level `yfin dispatch` command exists)。依固定 30-command manifest 執行，embedded universe 位於 `cmd/dispatch/ticker_list.csv`，atomic artifacts 寫入 `~/.config/yfin/data/raw/`；任一 `failed` command 令 CLI 回 non-zero。
     - `cmd/format/`: **共用** 的 comprehensive-\* DTO → stdout formatter（`ComprehensiveStatistics` / `ComprehensiveProfile` / `ComprehensiveFinancials`），一個 DTO 一個檔案。`cmd/fundamentals` 與 `cmd/scrape` 都由此取用；此套件只 import `model/`，是 leaf。
     - `cmd/fundamentals/`: `fundamentals`, `comprehensive-stats`, `comprehensive-profile`.
     - `cmd/market/`: `pull`, `quote`.
-    - `cmd/scrape/`: `scrape` (4 mutually-exclusive modes: `--check` / `--preview` / `--preview-json` / `--preview-news`；`--preview-proto` 已隨 ampy-proto 移除)。
+    - `cmd/scrape/`: `scrape` (3 mutually-exclusive modes: `--check` / `--preview-json` / `--preview-news`；`--preview` 是 check output flag，`--preview-proto` 已隨 ampy-proto 移除)。
     - `cmd/twse/`: `twse` (23 endpoints with `--endpoint` / `--date` / `--stock` / `--month` flags). 只 import `facade`；TWSE client 是 `*facade.TwseClient` 不透明 handle，dispatch 走 `client.Dispatch(ctx, endpoint, date, opts)`。
     - `cmd/soak/`: Standalone binary `soak` (invoked via `go run ./cmd/soak`, NOT `yfin soak`).
     - `cmd/samples/`, `cmd/tools/`: scripts + golden fixtures.

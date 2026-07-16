@@ -66,7 +66,8 @@ func (m *CrumbManager) bootstrapCookie(ctx context.Context) error {
 	resp, err := m.httpClient.Do(ctx, req)
 	if err != nil {
 		var statusErr *httpx.HTTPError
-		if errors.As(err, &statusErr) && statusErr.StatusCode == http.StatusForbidden {
+		if errors.As(err, &statusErr) &&
+			(statusErr.StatusCode == http.StatusForbidden || statusErr.StatusCode == http.StatusNotFound) {
 			return nil
 		}
 		return fmt.Errorf("cookie bootstrap failed: %w", err)

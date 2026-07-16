@@ -204,5 +204,8 @@ func runBatch(ctx context.Context, options batchOptions, deps batchDeps) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	if failed > 0 {
+		return fmt.Errorf("batch completed with %d failed command(s)", failed)
+	}
 	return nil
 }
