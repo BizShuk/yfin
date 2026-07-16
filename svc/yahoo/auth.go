@@ -3,6 +3,7 @@ package yahoo
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -64,6 +65,10 @@ func (m *CrumbManager) bootstrapCookie(ctx context.Context) error {
 	}
 	resp, err := m.httpClient.Do(ctx, req)
 	if err != nil {
+		var statusErr *httpx.HTTPError
+		if errors.As(err, &statusErr) && statusErr.StatusCode == http.StatusForbidden {
+			return nil
+		}
 		return fmt.Errorf("cookie bootstrap failed: %w", err)
 	}
 	defer resp.Body.Close()

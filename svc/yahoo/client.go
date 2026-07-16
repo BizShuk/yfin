@@ -37,6 +37,7 @@ func NewClient(httpClient *httpx.Client, baseURL string) *Client {
 	return &Client{
 		httpClient: httpClient,
 		baseURL:    baseURL,
+		crumb:      NewCrumbManager(httpClient, "", ""),
 	}
 }
 

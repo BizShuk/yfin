@@ -167,7 +167,7 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 			// Check if response indicates retry
 			if c.shouldRetryResponse(resp, attempt) {
 				resp.Body.Close()
-				lastErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+				lastErr = NewHTTPError(resp.StatusCode, http.StatusText(resp.StatusCode), nil)
 				c.circuitBreaker.RecordFailure()
 
 				// Record retry
@@ -193,7 +193,7 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 				} else {
 					// Failure that we can't retry (e.g., 400, 404, etc.)
 					resp.Body.Close()
-					lastErr = fmt.Errorf("HTTP %d", resp.StatusCode)
+					lastErr = NewHTTPError(resp.StatusCode, http.StatusText(resp.StatusCode), nil)
 
 					// Don't count 401 errors as circuit breaker failures
 					// 401 errors are expected for paid endpoints like fundamentals

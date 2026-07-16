@@ -217,3 +217,28 @@ func TestErrorTypes(t *testing.T) {
 		})
 	}
 }
+
+func TestClientDoReturnsTypedHTTPError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+	}))
+	defer server.Close()
+
+	config := DefaultConfig()
+	config.MaxAttempts = 1
+	config.Burst = 100
+	config.QPS = 100
+	req, err := http.NewRequest(http.MethodGet, server.URL, nil)
+	if err != nil {
+		t.Fatalf("create request: %v", err)
+	}
+
+	_, err = NewClient(config).Do(context.Background(), req)
+	var statusErr *HTTPError
+	if !errors.As(err, &statusErr) {
+		t.Fatalf("expected *HTTPError, got %T: %v", err, err)
+	}
+	if statusErr.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("status code = %d, want %d", statusErr.StatusCode, http.StatusUnauthorized)
+	}
+}

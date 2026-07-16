@@ -53,3 +53,26 @@ func TestCrumbManager_InvalidateForcesRefetch(t *testing.T) {
 	_, _ = cm.Crumb(context.Background())
 	require.Equal(t, 2, crumbCalls)
 }
+
+func TestCrumbManagerAcceptsForbiddenCookieBootstrap(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/":
+			http.SetCookie(w, &http.Cookie{Name: "A1", Value: "tok", Path: "/"})
+			http.Error(w, "forbidden", http.StatusForbidden)
+		case "/v1/test/getcrumb":
+			_, _ = w.Write([]byte("CRUMB"))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	cfg := httpx.DefaultConfig()
+	cfg.MaxAttempts = 1
+	manager := NewCrumbManager(httpx.NewClient(cfg), srv.URL, srv.URL)
+
+	crumb, err := manager.Crumb(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "CRUMB", crumb)
+}
