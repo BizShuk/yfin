@@ -409,17 +409,17 @@ git commit -m "fix(batch): wire production facade client and embedded universe"
 - Produces: `writeErrorAtomic(path string, err error) error`
 - Preserves: `cache.ShouldSkip(...) bool`
 
-- [ ] **Step 1: 寫失敗測試**
+- [x] **Step 1: 寫失敗測試**
 
 建立old+new兩個artifact，assert cache以newest判fresh。傳入不可marshal的function，assert target不存在。另測write失敗時status不是success。
 
-- [ ] **Step 2: 確認失敗**
+- [x] **Step 2: 確認失敗**
 
 ```bash
 go test ./utils/cache ./cmd/dispatch -run 'TestShouldSkipUsesNewestArtifact|TestWriteJSONAtomic|TestRunBatchForTickerReportsWriteFailure' -v
 ```
 
-- [ ] **Step 3: 最小實作**
+- [x] **Step 3: 最小實作**
 
 `ShouldSkip` 選最大valid date後判tier。新增atomic writer：
 
@@ -459,13 +459,13 @@ func writeBytesAtomic(path string, data []byte) error {
 
 移除batch-level retry。HTTP 404/422分類為not_found；其他為failed。只有atomic write成功才設success；error artifact寫入失敗必須回報。
 
-- [ ] **Step 4: 驗證race**
+- [x] **Step 4: 驗證race**
 
 ```bash
 go test -race ./utils/cache ./cmd/dispatch -v
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add cmd/dispatch/output.go cmd/dispatch/output_test.go cmd/dispatch/batch.go cmd/dispatch/batch_test.go utils/cache/refresh.go utils/cache/refresh_test.go

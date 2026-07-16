@@ -5,9 +5,8 @@ package dispatch
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sync"
 	"time"
@@ -16,14 +15,14 @@ import (
 	rootcmd "github.com/bizshuk/yfin/cmd"
 	"github.com/bizshuk/yfin/facade"
 	"github.com/bizshuk/yfin/utils/cache"
+	"github.com/bizshuk/yfin/utils/httpx"
 	"github.com/spf13/cobra"
 )
-
-const batchRetries = 3
 
 type tickerResult struct {
 	Ticker   string
 	Commands map[string]string
+	Errors   map[string]error
 }
 
 type batchOptions struct {
@@ -60,7 +59,7 @@ func Register(rootCmd *cobra.Command) {
 func runBatchForTicker(ctx context.Context, fc *FetchContext, registry map[string]fetchFunc, ticker string,
 	commands []string, force bool, rawDir string, now time.Time,
 ) tickerResult {
-	res := tickerResult{Ticker: ticker, Commands: map[string]string{}}
+	res := tickerResult{Ticker: ticker, Commands: map[string]string{}, Errors: map[string]error{}}
 	for _, command := range commands {
 		if ctx.Err() != nil {
 			return res
@@ -71,44 +70,43 @@ func runBatchForTicker(ctx context.Context, fc *FetchContext, registry map[strin
 		}
 		fn, ok := registry[command]
 		if !ok {
-			res.Commands[command] = "failed"
+			recordCommandFailure(&res, rawDir, ticker, command, fmt.Errorf("command %q is not registered", command))
 			continue
 		}
 
-		var lastErr error
-		var data any
-		for attempt := 0; attempt < batchRetries; attempt++ {
-			data, lastErr = fn(ctx, fc, ticker)
-			if lastErr == nil {
-				break
+		data, err := fn(ctx, fc, ticker)
+		if err != nil {
+			if isNotFoundError(err) {
+				res.Commands[command] = "not_found"
+				continue
 			}
-			if attempt < batchRetries-1 {
-				delay := time.NewTimer(time.Duration(1<<attempt) * time.Second)
-				select {
-				case <-ctx.Done():
-					if !delay.Stop() {
-						<-delay.C
-					}
-					return res
-				case <-delay.C:
-				}
-			}
-		}
-		if lastErr != nil {
-			errPath := filepath.Join(rawDir, "_failed", fmt.Sprintf("%s.%s.err", ticker, command))
-			_ = os.MkdirAll(filepath.Dir(errPath), 0o755)
-			_ = os.WriteFile(errPath, []byte(lastErr.Error()), 0o644)
-			res.Commands[command] = "failed"
+			recordCommandFailure(&res, rawDir, ticker, command, err)
 			continue
 		}
 
 		outPath := filepath.Join(rawDir, command, fmt.Sprintf("%s.%s.json", ticker, now.Format("2006-01-02")))
-		_ = os.MkdirAll(filepath.Dir(outPath), 0o755)
-		b, _ := json.MarshalIndent(data, "", "  ")
-		_ = os.WriteFile(outPath, b, 0o644)
+		if err := writeJSONAtomic(outPath, data); err != nil {
+			recordCommandFailure(&res, rawDir, ticker, command, err)
+			continue
+		}
 		res.Commands[command] = "success"
 	}
 	return res
+}
+
+func isNotFoundError(err error) bool {
+	var statusErr *httpx.HTTPError
+	return errors.As(err, &statusErr) &&
+		(statusErr.StatusCode == 404 || statusErr.StatusCode == 422)
+}
+
+func recordCommandFailure(res *tickerResult, rawDir, ticker, command string, cause error) {
+	res.Commands[command] = "failed"
+	res.Errors[command] = cause
+	errPath := filepath.Join(rawDir, "_failed", fmt.Sprintf("%s.%s.err", ticker, command))
+	if err := writeErrorAtomic(errPath, cause); err != nil {
+		res.Errors[command] = fmt.Errorf("%w; write error artifact: %v", cause, err)
+	}
 }
 
 func newBatchCmd(deps batchDeps) *cobra.Command {
@@ -156,7 +154,7 @@ func runBatch(ctx context.Context, options batchOptions, deps batchDeps) error {
 	sem := make(chan struct{}, options.maxWorkers)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
-	var success, skipped, failed int
+	var success, skipped, failed, notFound int
 
 	dispatching := true
 	for _, t := range tickers {
@@ -190,14 +188,19 @@ func runBatch(ctx context.Context, options batchOptions, deps batchDeps) error {
 					skipped++
 				case "failed":
 					failed++
+				case "not_found":
+					notFound++
 				}
+			}
+			for command, err := range r.Errors {
+				fmt.Printf("  %s/%s: %v\n", tk, command, err)
 			}
 			mu.Unlock()
 			fmt.Printf("  %s: %d commands processed\n", tk, len(r.Commands))
 		}(t)
 	}
 	wg.Wait()
-	fmt.Printf("Done. success=%d skipped=%d failed=%d\n", success, skipped, failed)
+	fmt.Printf("Done. success=%d skipped=%d failed=%d not_found=%d\n", success, skipped, failed, notFound)
 	if err := ctx.Err(); err != nil {
 		return err
 	}

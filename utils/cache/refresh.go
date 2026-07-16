@@ -35,7 +35,7 @@ func ShouldSkip(command, ticker string, force bool, rawDir string, now time.Time
 		tier = "daily"
 	}
 	matches, _ := filepath.Glob(filepath.Join(rawDir, command, ticker+".*.json"))
-	var dates []time.Time
+	var newest time.Time
 	for _, f := range matches {
 		base := filepath.Base(f)
 		stem := base[:len(base)-len(".json")]
@@ -47,28 +47,25 @@ func ShouldSkip(command, ticker string, force bool, rawDir string, now time.Time
 		if err != nil {
 			continue
 		}
-		dates = append(dates, fd)
+		if fd.After(newest) {
+			newest = fd
+		}
 	}
-	if len(dates) == 0 {
+	if newest.IsZero() {
 		return false
 	}
-	for _, fd := range dates {
-		var ok bool
-		switch tier {
-		case "daily":
-			ok = fd.Year() == now.Year() && fd.YearDay() == now.YearDay()
-		case "weekly":
-			ok = now.Sub(fd).Hours() < 7*24
-		case "monthly":
-			ok = fd.Year() == now.Year() && fd.Month() == now.Month()
-		case "quarterly":
-			ok = fd.Year() == now.Year() && quarter(fd.Month()) == quarter(now.Month())
-		case "annually":
-			ok = fd.Year() == now.Year()
-		}
-		if !ok {
-			return false
-		}
+	switch tier {
+	case "daily":
+		return newest.Year() == now.Year() && newest.YearDay() == now.YearDay()
+	case "weekly":
+		return now.Sub(newest).Hours() < 7*24
+	case "monthly":
+		return newest.Year() == now.Year() && newest.Month() == now.Month()
+	case "quarterly":
+		return newest.Year() == now.Year() && quarter(newest.Month()) == quarter(now.Month())
+	case "annually":
+		return newest.Year() == now.Year()
+	default:
+		return false
 	}
-	return true
 }

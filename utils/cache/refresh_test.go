@@ -32,9 +32,9 @@ func TestShouldSkip_QuarterlyTier(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(cmdDir, "AAPL.2026-04-10.json"), []byte("{}"), 0o644))
 	require.True(t, ShouldSkip("income", "AAPL", false, root, now))
 
-	// Jan 5 is Q1 — different quarter
+	// An older Q1 artifact does not invalidate the newer Q2 artifact.
 	require.NoError(t, os.WriteFile(filepath.Join(cmdDir, "AAPL.2026-01-05.json"), []byte("{}"), 0o644))
-	require.False(t, ShouldSkip("income", "AAPL", false, root, now))
+	require.True(t, ShouldSkip("income", "AAPL", false, root, now))
 }
 
 func TestShouldSkip_AnnuallyTier(t *testing.T) {
@@ -45,7 +45,18 @@ func TestShouldSkip_AnnuallyTier(t *testing.T) {
 	// same year (2026) → skip
 	require.NoError(t, os.WriteFile(filepath.Join(cmdDir, "AAPL.2026-02-01.json"), []byte("{}"), 0o644))
 	require.True(t, ShouldSkip("isin", "AAPL", false, root, now))
-	// previous year → do not skip
+	// A previous-year artifact does not invalidate the newer same-year artifact.
 	require.NoError(t, os.WriteFile(filepath.Join(cmdDir, "AAPL.2025-12-31.json"), []byte("{}"), 0o644))
-	require.False(t, ShouldSkip("isin", "AAPL", false, root, now))
+	require.True(t, ShouldSkip("isin", "AAPL", false, root, now))
+}
+
+func TestShouldSkipUsesNewestArtifact(t *testing.T) {
+	root := t.TempDir()
+	now := time.Date(2026, 6, 23, 0, 0, 0, 0, time.UTC)
+	cmdDir := filepath.Join(root, "history")
+	require.NoError(t, os.MkdirAll(cmdDir, 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(cmdDir, "AAPL.2025-01-01.json"), []byte("{}"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(cmdDir, "AAPL.2026-06-23.json"), []byte("{}"), 0o644))
+
+	require.True(t, ShouldSkip("history", "AAPL", false, root, now))
 }

@@ -4,6 +4,7 @@ package dispatch
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"sync/atomic"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/bizshuk/yfin/facade"
+	"github.com/bizshuk/yfin/utils/httpx"
 	"github.com/stretchr/testify/require"
 )
 
@@ -59,6 +61,55 @@ func TestRunBatchForTicker_RecordsFailure(t *testing.T) {
 	errPath := filepath.Join(root, "_failed", "AAPL.bad.err")
 	_, err := os.Stat(errPath)
 	require.NoError(t, err)
+}
+
+func TestRunBatchForTickerReportsWriteFailure(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "info"), []byte("not a directory"), 0o644))
+	now := time.Date(2026, 6, 23, 0, 0, 0, 0, time.UTC)
+
+	res := runBatchForTicker(context.Background(), nil, stubRegistry(), "AAPL",
+		[]string{"info"}, true, root, now)
+
+	require.Equal(t, "failed", res.Commands["info"])
+	require.Contains(t, res.Errors, "info")
+	_, err := os.Stat(filepath.Join(root, "info", "AAPL.2026-06-23.json"))
+	require.Error(t, err)
+}
+
+func TestRunBatchForTickerReportsErrorArtifactFailure(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "_failed"), []byte("not a directory"), 0o644))
+	now := time.Date(2026, 6, 23, 0, 0, 0, 0, time.UTC)
+	registry := map[string]fetchFunc{
+		"bad": func(context.Context, *FetchContext, string) (any, error) { return nil, errBoom },
+	}
+
+	res := runBatchForTicker(context.Background(), nil, registry, "AAPL",
+		[]string{"bad"}, true, root, now)
+
+	require.Equal(t, "failed", res.Commands["bad"])
+	require.ErrorContains(t, res.Errors["bad"], "write error artifact")
+}
+
+func TestRunBatchForTickerClassifiesNotFoundStatus(t *testing.T) {
+	for _, statusCode := range []int{404, 422} {
+		t.Run(fmt.Sprintf("status_%d", statusCode), func(t *testing.T) {
+			root := t.TempDir()
+			registry := map[string]fetchFunc{
+				"info": func(context.Context, *FetchContext, string) (any, error) {
+					return nil, httpx.NewHTTPError(statusCode, "not found", nil)
+				},
+			}
+
+			res := runBatchForTicker(context.Background(), nil, registry, "AAPL",
+				[]string{"info"}, true, root, time.Now())
+
+			require.Equal(t, "not_found", res.Commands["info"])
+			require.Empty(t, res.Errors)
+			require.NoFileExists(t, filepath.Join(root, "_failed", "AAPL.info.err"))
+		})
+	}
 }
 
 func TestRunBatchRejectsNonPositiveWorkers(t *testing.T) {
