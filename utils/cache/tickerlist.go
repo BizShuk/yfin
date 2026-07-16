@@ -1,42 +1,35 @@
-// — `ReadTickerList` loads a newline-delimited ticker list from disk (CSV with ticker as last comma-separated field). Capacity: 1 ticker per line, header line skipped, blank lines tolerated.
+// — `ReadTickerList` loads a CSV ticker universe from an io.Reader. Capacity: 1 ticker per row, header row skipped, blank ticker values tolerated.
 
 package cache
 
 import (
-	"bufio"
-	"os"
+	"encoding/csv"
+	"io"
 	"strings"
 )
 
 // ReadTickerList reads a CSV file where the ticker is the last comma-separated field
 // of each non-header, non-empty line. Mirrors the yfinance script convention.
-func ReadTickerList(path string) ([]string, error) {
-	f, err := os.Open(path)
+func ReadTickerList(src io.Reader) ([]string, error) {
+	reader := csv.NewReader(src)
+	reader.TrimLeadingSpace = true
+	records, err := reader.ReadAll()
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
-
 	var tickers []string
-	sc := bufio.NewScanner(f)
-	first := true
-	for sc.Scan() {
-		if first { // skip header
-			first = false
+	for index, record := range records {
+		if index == 0 {
 			continue
 		}
-		parts := strings.Split(strings.TrimSpace(sc.Text()), ",")
-		if len(parts) == 0 {
+		if len(record) == 0 {
 			continue
 		}
-		t := strings.TrimSpace(parts[len(parts)-1])
+		t := strings.TrimSpace(record[len(record)-1])
 		if t == "" {
 			continue
 		}
 		tickers = append(tickers, t)
-	}
-	if err := sc.Err(); err != nil {
-		return nil, err
 	}
 	return tickers, nil
 }

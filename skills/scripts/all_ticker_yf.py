@@ -17,7 +17,9 @@ from config import (
 )
 import yf
 
-TICKER_LIST_PATH = Path(__file__).parent.parent / "references" / "ticker_list.csv"
+TICKER_LIST_PATH = (
+    Path(__file__).resolve().parents[2] / "cmd" / "dispatch" / "ticker_list.csv"
+)
 DEFAULT_MAX_WORKERS = 10
 RETRIES = 3
 

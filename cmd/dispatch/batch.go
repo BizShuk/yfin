@@ -12,6 +12,9 @@ import (
 	"sync"
 	"time"
 
+	sdkconfig "github.com/bizshuk/gosdk/config"
+	rootcmd "github.com/bizshuk/yfin/cmd"
+	"github.com/bizshuk/yfin/facade"
 	"github.com/bizshuk/yfin/utils/cache"
 	"github.com/spf13/cobra"
 )
@@ -23,23 +26,50 @@ type tickerResult struct {
 	Commands map[string]string
 }
 
+type batchOptions struct {
+	ticker     string
+	maxWorkers int
+	force      bool
+}
+
+type batchDeps struct {
+	newClient   func() (*facade.Client, error)
+	dataDir     func() string
+	readTickers func() ([]string, error)
+	now         func() time.Time
+	registry    map[string]fetchFunc
+}
+
+func newProductionBatchDeps() batchDeps {
+	return batchDeps{
+		newClient:   rootcmd.CreateClient,
+		dataDir:     sdkconfig.GetAppDataDir,
+		readTickers: readEmbeddedTickerList,
+		now:         func() time.Time { return time.Now().UTC() },
+		registry:    commandRegistry,
+	}
+}
+
 // Register attaches the `batch` subcommand onto rootCmd.
 func Register(rootCmd *cobra.Command) {
-	rootCmd.AddCommand(newBatchCmd())
+	rootCmd.AddCommand(newBatchCmd(newProductionBatchDeps()))
 }
 
 // runBatchForTicker fetches each command for a single ticker, honoring the
 // tiered cache. fc may be nil in tests (registries that ignore it).
-func runBatchForTicker(ctx context.Context, fc *FetchContext, ticker string,
+func runBatchForTicker(ctx context.Context, fc *FetchContext, registry map[string]fetchFunc, ticker string,
 	commands []string, force bool, rawDir string, now time.Time,
 ) tickerResult {
 	res := tickerResult{Ticker: ticker, Commands: map[string]string{}}
 	for _, command := range commands {
+		if ctx.Err() != nil {
+			return res
+		}
 		if cache.ShouldSkip(command, ticker, force, rawDir, now) {
 			res.Commands[command] = "skipped"
 			continue
 		}
-		fn, ok := commandRegistry[command]
+		fn, ok := registry[command]
 		if !ok {
 			res.Commands[command] = "failed"
 			continue
@@ -53,7 +83,15 @@ func runBatchForTicker(ctx context.Context, fc *FetchContext, ticker string,
 				break
 			}
 			if attempt < batchRetries-1 {
-				time.Sleep(time.Duration(1<<attempt) * time.Second)
+				delay := time.NewTimer(time.Duration(1<<attempt) * time.Second)
+				select {
+				case <-ctx.Done():
+					if !delay.Stop() {
+						<-delay.C
+					}
+					return res
+				case <-delay.C:
+				}
 			}
 		}
 		if lastErr != nil {
@@ -73,64 +111,76 @@ func runBatchForTicker(ctx context.Context, fc *FetchContext, ticker string,
 	return res
 }
 
-var (
-	batchTicker     string
-	batchMaxWorkers int
-	batchForce      bool
-)
-
-func newBatchCmd() *cobra.Command {
+func newBatchCmd(deps batchDeps) *cobra.Command {
+	options := batchOptions{maxWorkers: 10}
 	c := &cobra.Command{
 		Use:   "batch",
 		Short: "批次擷取 universe 全部 commands 對齊 skills/scripts 行為 (Batch-fetch all commands for a ticker universe — skills/scripts parity)",
-		RunE:  runBatch,
+		RunE: func(command *cobra.Command, _ []string) error {
+			return runBatch(command.Context(), options, deps)
+		},
 	}
-	c.Flags().StringVar(&batchTicker, "ticker", "", "Single ticker (default: ticker_list.csv)")
-	c.Flags().IntVar(&batchMaxWorkers, "max-workers", 10, "Max concurrent workers")
-	c.Flags().BoolVar(&batchForce, "force", false, "Force re-fetch, ignore cache")
+	c.Flags().StringVar(&options.ticker, "ticker", "", "Single ticker (default: ticker_list.csv)")
+	c.Flags().IntVar(&options.maxWorkers, "max-workers", 10, "Max concurrent workers")
+	c.Flags().BoolVar(&options.force, "force", false, "Force re-fetch, ignore cache")
 	return c
 }
 
-func runBatch(cmd *cobra.Command, args []string) error {
-	rawDir := filepath.Join(os.Getenv("HOME"), ".config", "stock", "data", "raw")
-	now := time.Now()
+func runBatch(ctx context.Context, options batchOptions, deps batchDeps) error {
+	if options.maxWorkers <= 0 {
+		return fmt.Errorf("max-workers must be greater than zero")
+	}
+
+	client, err := deps.newClient()
+	if err != nil {
+		return fmt.Errorf("create facade client: %w", err)
+	}
+	if client == nil {
+		return fmt.Errorf("create facade client: nil client")
+	}
+	rawDir := filepath.Join(deps.dataDir(), "raw")
+	now := deps.now().UTC()
 
 	var tickers []string
-	if batchTicker != "" {
-		tickers = []string{batchTicker}
+	if options.ticker != "" {
+		tickers = []string{options.ticker}
 	} else {
-		var err error
-		tickers, err = cache.ReadTickerList(
-			filepath.Join("yf", "references", "ticker_list.csv"))
+		tickers, err = deps.readTickers()
 		if err != nil {
-			return err
+			return fmt.Errorf("read ticker universe: %w", err)
 		}
 	}
 
-	allCommands := make([]string, 0, len(commandRegistry))
-	for k := range commandRegistry {
-		allCommands = append(allCommands, k)
-	}
+	fc := &FetchContext{Root: client}
 
-	ctx := context.Background()
-	// TODO(phase-21): wire real *yfinance.Client and authed *yahoo.Client.
-	// For now, the FetchContext can be nil; commands that don't touch the
-	// root client still work, and the new authed fetchers will be wired in
-	// Task 21 / e2e docs phase.
-	var fc *FetchContext
-
-	sem := make(chan struct{}, batchMaxWorkers)
+	sem := make(chan struct{}, options.maxWorkers)
 	var wg sync.WaitGroup
 	var mu sync.Mutex
 	var success, skipped, failed int
 
+	dispatching := true
 	for _, t := range tickers {
+		select {
+		case <-ctx.Done():
+			dispatching = false
+		default:
+		}
+		if !dispatching {
+			break
+		}
+		select {
+		case sem <- struct{}{}:
+		case <-ctx.Done():
+			dispatching = false
+		}
+		if !dispatching {
+			break
+		}
 		wg.Add(1)
-		sem <- struct{}{}
 		go func(tk string) {
 			defer wg.Done()
 			defer func() { <-sem }()
-			r := runBatchForTicker(ctx, fc, tk, allCommands, batchForce, rawDir, now)
+			r := runBatchForTicker(ctx, fc, deps.registry, tk, commandOrder, options.force, rawDir, now)
 			mu.Lock()
 			for _, st := range r.Commands {
 				switch st {
@@ -148,5 +198,8 @@ func runBatch(cmd *cobra.Command, args []string) error {
 	}
 	wg.Wait()
 	fmt.Printf("Done. success=%d skipped=%d failed=%d\n", success, skipped, failed)
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	return nil
 }

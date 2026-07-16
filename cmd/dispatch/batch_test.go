@@ -6,31 +6,27 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/bizshuk/yfin/facade"
 	"github.com/stretchr/testify/require"
 )
 
-// stubRegistry overrides commandRegistry for the test. We register a single
-// "info" command that returns a fixed map.
-func stubRegistry(t *testing.T) {
-	t.Helper()
-	prev := commandRegistry
-	commandRegistry = map[string]fetchFunc{
+func stubRegistry() map[string]fetchFunc {
+	return map[string]fetchFunc{
 		"info": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
 			return map[string]string{"symbol": s}, nil
 		},
 	}
-	t.Cleanup(func() { commandRegistry = prev })
 }
 
 func TestRunBatchForTicker_WritesOutputAndRespectsCache(t *testing.T) {
-	stubRegistry(t)
 	root := t.TempDir()
 	now := time.Date(2026, 6, 23, 0, 0, 0, 0, time.UTC)
 
-	res := runBatchForTicker(context.Background(), nil, "AAPL",
+	res := runBatchForTicker(context.Background(), nil, stubRegistry(), "AAPL",
 		[]string{"info"}, false, root, now)
 	require.Equal(t, "success", res.Commands["info"])
 
@@ -42,29 +38,86 @@ func TestRunBatchForTicker_WritesOutputAndRespectsCache(t *testing.T) {
 	require.Equal(t, "AAPL", got["symbol"])
 
 	// monthly tier: same month → skip
-	res2 := runBatchForTicker(context.Background(), nil, "AAPL",
+	res2 := runBatchForTicker(context.Background(), nil, stubRegistry(), "AAPL",
 		[]string{"info"}, false, root, now)
 	require.Equal(t, "skipped", res2.Commands["info"])
 }
 
 func TestRunBatchForTicker_RecordsFailure(t *testing.T) {
-	prev := commandRegistry
-	commandRegistry = map[string]fetchFunc{
+	registry := map[string]fetchFunc{
 		"bad": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
 			return nil, errBoom
 		},
 	}
-	t.Cleanup(func() { commandRegistry = prev })
 
 	root := t.TempDir()
 	now := time.Date(2026, 6, 23, 0, 0, 0, 0, time.UTC)
-	res := runBatchForTicker(context.Background(), nil, "AAPL",
+	res := runBatchForTicker(context.Background(), nil, registry, "AAPL",
 		[]string{"bad"}, false, root, now)
 	require.Equal(t, "failed", res.Commands["bad"])
 
 	errPath := filepath.Join(root, "_failed", "AAPL.bad.err")
 	_, err := os.Stat(errPath)
 	require.NoError(t, err)
+}
+
+func TestRunBatchRejectsNonPositiveWorkers(t *testing.T) {
+	err := runBatch(context.Background(), batchOptions{maxWorkers: 0}, batchDeps{})
+	require.EqualError(t, err, "max-workers must be greater than zero")
+}
+
+func TestReadEmbeddedTickerList(t *testing.T) {
+	tickers, err := readEmbeddedTickerList()
+	require.NoError(t, err)
+	require.Contains(t, tickers, "2330.TW")
+}
+
+func TestBatchCommandUsesInjectedClient(t *testing.T) {
+	var called atomic.Bool
+	deps := batchDeps{
+		newClient: func() (*facade.Client, error) { return facade.NewClient(), nil },
+		dataDir:   t.TempDir,
+		readTickers: func() ([]string, error) {
+			return []string{"AAPL"}, nil
+		},
+		now: func() time.Time { return time.Date(2026, 6, 23, 0, 0, 0, 0, time.UTC) },
+		registry: map[string]fetchFunc{
+			"info": func(_ context.Context, fc *FetchContext, _ string) (any, error) {
+				require.NotNil(t, fc)
+				require.NotNil(t, fc.Root)
+				called.Store(true)
+				return map[string]string{"ok": "true"}, nil
+			},
+		},
+	}
+	command := newBatchCmd(deps)
+	command.SetArgs([]string{"--ticker", "AAPL", "--max-workers", "1", "--force"})
+
+	require.NoError(t, command.Execute())
+	require.True(t, called.Load())
+}
+
+func TestRunBatchStopsDispatchAfterCancellation(t *testing.T) {
+	var calls atomic.Int64
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	deps := batchDeps{
+		newClient: func() (*facade.Client, error) { return facade.NewClient(), nil },
+		dataDir:   t.TempDir,
+		readTickers: func() ([]string, error) {
+			return []string{"AAPL", "MSFT"}, nil
+		},
+		now: time.Now,
+		registry: map[string]fetchFunc{
+			"info": func(_ context.Context, _ *FetchContext, _ string) (any, error) {
+				calls.Add(1)
+				return nil, nil
+			},
+		},
+	}
+
+	require.ErrorIs(t, runBatch(ctx, batchOptions{maxWorkers: 1}, deps), context.Canceled)
+	require.Zero(t, calls.Load())
 }
 
 type errString string

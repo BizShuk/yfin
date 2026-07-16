@@ -328,17 +328,17 @@ git commit -m "fix(dispatch): project analysis commands into distinct payloads"
 - Produces: `cache.ReadTickerList(r io.Reader) ([]string, error)`，供embedded與測試來源共用。
 - Production: `newProductionBatchDeps()` 使用 `cmd.CreateClient()` 與 `sdkconfig.GetAppDataDir()`。
 
-- [ ] **Step 1: 寫失敗測試**
+- [x] **Step 1: 寫失敗測試**
 
 測試 `max-workers <= 0` 回 `"max-workers must be greater than zero"`；reader-based CSV parser正確忽略空值；embedded universe包含 `2330.TW`；注入fake deps執行Cobra command時fetcher收到非nil `FetchContext.Root`。
 
-- [ ] **Step 2: 確認失敗**
+- [x] **Step 2: 確認失敗**
 
 ```bash
 go test ./utils/cache ./cmd/dispatch -run 'TestReadTickerList|TestRunBatchRejectsNonPositiveWorkers|TestReadEmbeddedTickerList|TestBatchCommandUsesInjectedClient' -v
 ```
 
-- [ ] **Step 3: 最小實作**
+- [x] **Step 3: 最小實作**
 
 ```go
 type batchOptions struct {
@@ -377,7 +377,7 @@ func newProductionBatchDeps() batchDeps {
 
 `ReadTickerList` 先改用 `encoding/csv` + `io.Reader`。`ticker_list.csv` 以 `git mv` 移到 `cmd/dispatch`，由 `go:embed` 載入；legacy Python oracle同步改讀新canonical path。
 
-- [ ] **Step 4: 驗證**
+- [x] **Step 4: 驗證**
 
 ```bash
 go test ./utils/cache ./cmd/dispatch ./cmd -v
@@ -386,7 +386,7 @@ go build .
 
 Expected: 不再含production `~/.config/stock` 或 `yf/references/ticker_list.csv`。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add cmd/dispatch/batch.go cmd/dispatch/batch_test.go cmd/dispatch/tickers.go cmd/dispatch/ticker_list.csv utils/cache/tickerlist.go utils/cache/tickerlist_test.go skills/scripts/all_ticker_yf.py
