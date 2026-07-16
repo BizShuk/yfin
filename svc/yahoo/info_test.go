@@ -28,3 +28,17 @@ func TestDecodeInfo_EmptyResult(t *testing.T) {
 	_, err := DecodeInfo([]byte(`{"quoteSummary":{"result":[],"error":null}}`))
 	require.Error(t, err)
 }
+
+func TestDecodeInfoUsesInfoModulesOrder(t *testing.T) {
+	raw := []byte(`{"quoteSummary":{"result":[{
+	  "assetProfile":{"shared":"profile"},
+	  "financialData":{"shared":"financial"},
+	  "quoteType":{"shared":"quote"}
+	}],"error":null}}`)
+
+	for range 50 {
+		got, err := DecodeInfo(raw)
+		require.NoError(t, err)
+		require.Equal(t, "quote", got["shared"])
+	}
+}

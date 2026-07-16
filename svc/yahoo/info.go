@@ -26,7 +26,11 @@ func DecodeInfo(data []byte) (map[string]any, error) {
 		return nil, fmt.Errorf("info: empty result")
 	}
 	out := map[string]any{}
-	for _, modRaw := range r.QuoteSummary.Result[0] {
+	for _, module := range InfoModules {
+		modRaw, ok := r.QuoteSummary.Result[0][module]
+		if !ok {
+			continue
+		}
 		var fields map[string]json.RawMessage
 		if err := json.Unmarshal(modRaw, &fields); err != nil {
 			continue // module wasn't an object (e.g. null) — skip

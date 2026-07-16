@@ -13,6 +13,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/bizshuk/yfin/svc/yahoo"
 )
 
 // YahooDispatch maps a yfinance-style command name (info / actions /
@@ -28,13 +30,18 @@ func (c *Client) YahooDispatch(ctx context.Context, command, symbol string) (any
 		return c.yahooClient.FetchActions(ctx, symbol)
 	case "metadata":
 		return c.yahooClient.FetchMetadata(ctx, symbol)
-	// FetchHolders serves 3 Python yfinance aliases (major / institutional /
-	// mutualfund) — they're the same Yahoo endpoint.
 	case "major-holders", "institutional-holders", "mutualfund-holders":
-		return c.yahooClient.FetchHolders(ctx, symbol)
-	// FetchInsider serves 3 aliases (transactions / purchases / roster).
+		dto, err := c.yahooClient.FetchHolders(ctx, symbol)
+		if err != nil {
+			return nil, err
+		}
+		return projectHolders(command, dto)
 	case "insider-transactions", "insider-purchases", "insider-roster":
-		return c.yahooClient.FetchInsider(ctx, symbol)
+		dto, err := c.yahooClient.FetchInsider(ctx, symbol)
+		if err != nil {
+			return nil, err
+		}
+		return projectInsider(command, dto)
 	case "upgrades":
 		return c.yahooClient.FetchUpgrades(ctx, symbol)
 	case "calendar":
@@ -54,6 +61,32 @@ func (c *Client) YahooDispatch(ctx context.Context, command, symbol string) (any
 		return c.yahooClient.FetchISIN(ctx, symbol)
 	default:
 		return nil, fmt.Errorf("unknown yahoo command %q", command)
+	}
+}
+
+func projectHolders(command string, dto *yahoo.HoldersDTO) (any, error) {
+	switch command {
+	case "major-holders":
+		return dto.MajorDirectHolders, nil
+	case "institutional-holders":
+		return dto.InstitutionOwnership, nil
+	case "mutualfund-holders":
+		return dto.FundOwnership, nil
+	default:
+		return nil, fmt.Errorf("unsupported holders command %q", command)
+	}
+}
+
+func projectInsider(command string, dto *yahoo.InsiderDTO) (any, error) {
+	switch command {
+	case "insider-transactions":
+		return dto.Transactions, nil
+	case "insider-purchases":
+		return yahoo.InsiderPurchaseSummaryTable(&dto.PurchaseActivity), nil
+	case "insider-roster":
+		return dto.Roster, nil
+	default:
+		return nil, fmt.Errorf("unsupported insider command %q", command)
 	}
 }
 

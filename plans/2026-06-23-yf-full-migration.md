@@ -175,7 +175,7 @@ git commit -m "fix(yahoo): wire typed status errors into crumb rotation"
 - Produces: holders / insider aliases各自回傳自己的維度。
 - Preserves: `earnings-dates → FetchEarningsDates`、`calendar → FetchCalendar`。
 
-- [ ] **Step 1: 寫失敗測試**
+- [x] **Step 1: 寫失敗測試**
 
 ```go
 func TestDecodeInfoUsesInfoModulesOrder(t *testing.T) {
@@ -194,13 +194,13 @@ func TestDecodeInfoUsesInfoModulesOrder(t *testing.T) {
 
 在 `facade/yahoo_test.go` 以DTO測 `projectHolders` / `projectInsider`：major、institution、fund、transactions、purchase summary、roster必須得到不同payload。
 
-- [ ] **Step 2: 確認測試失敗**
+- [x] **Step 2: 確認測試失敗**
 
 ```bash
 go test ./svc/yahoo ./facade -run 'TestDecodeInfoUsesInfoModulesOrder|TestProjectHolders|TestProjectInsider' -v
 ```
 
-- [ ] **Step 3: 最小實作**
+- [x] **Step 3: 最小實作**
 
 `DecodeInfo` 依 `InfoModules` 固定順序合併，後列module覆蓋前列。新增：
 
@@ -234,7 +234,7 @@ func projectInsider(command string, dto *yahoo.InsiderDTO) (any, error) {
 
 `YahooDispatch` 先fetch再投影，不在 `cmd` type assert任何 `svc` DTO。
 
-- [ ] **Step 4: 驗證**
+- [x] **Step 4: 驗證**
 
 ```bash
 go test ./svc/yahoo ./facade -v
@@ -243,7 +243,7 @@ go list -f '{{.ImportPath}} {{join .Imports " "}}' ./cmd/... | grep svc/ && exit
 
 Expected: tests PASS；architecture check無輸出。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add svc/yahoo/info.go svc/yahoo/info_test.go facade/yahoo.go facade/yahoo_test.go
