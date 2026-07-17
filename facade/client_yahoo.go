@@ -1,7 +1,6 @@
-// client_yahoo.go — the chart-API surface of facade.Client: the 8 `Fetch*`
-// methods (Daily/Intraday/Weekly/Monthly bars, Quote, FundamentalsQuarterly,
-// CompanyInfo, MarketData) that hit `svc/yahoo` and return plain,
-// reflection-free SDK structs with float64 prices.
+// client_yahoo.go — the Yahoo API surface of facade.Client: chart data,
+// annual fundamentals-timeseries statements, and the ticker news XHR. All
+// methods return plain, reflection-free SDK/model structs.
 package facade
 
 import (
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	"github.com/bizshuk/yfin/model"
+	"github.com/bizshuk/yfin/svc/yahoo"
 )
 
 // FetchDailyBars fetches daily bars for a symbol and returns the plain SDK
@@ -212,4 +212,36 @@ func (c *Client) FetchMarketData(ctx context.Context, symbol string, runID strin
 		return nil, err
 	}
 	return FromMarketData(md), nil
+}
+
+// FetchIncomeStatement fetches the latest annual income statement from
+// Yahoo's fundamentals-timeseries endpoint.
+func (c *Client) FetchIncomeStatement(ctx context.Context, symbol string) (*FundamentalsSnapshot, error) {
+	return c.fetchFinancialStatement(ctx, symbol, yahoo.IncomeStatement)
+}
+
+// FetchBalanceSheet fetches the latest annual balance sheet from Yahoo's
+// fundamentals-timeseries endpoint.
+func (c *Client) FetchBalanceSheet(ctx context.Context, symbol string) (*FundamentalsSnapshot, error) {
+	return c.fetchFinancialStatement(ctx, symbol, yahoo.BalanceSheet)
+}
+
+// FetchCashFlowStatement fetches the latest annual cash-flow statement from
+// Yahoo's fundamentals-timeseries endpoint.
+func (c *Client) FetchCashFlowStatement(ctx context.Context, symbol string) (*FundamentalsSnapshot, error) {
+	return c.fetchFinancialStatement(ctx, symbol, yahoo.CashFlow)
+}
+
+func (c *Client) fetchFinancialStatement(ctx context.Context, symbol string, kind yahoo.StatementKind) (*FundamentalsSnapshot, error) {
+	snapshot, err := c.yahooClient.FetchFinancialStatement(ctx, symbol, kind)
+	if err != nil {
+		return nil, err
+	}
+	snapshot.MIC = c.inferMICForSymbol(ctx, symbol)
+	return snapshot, nil
+}
+
+// FetchNews fetches the latest ticker news from Yahoo's JSON XHR endpoint.
+func (c *Client) FetchNews(ctx context.Context, symbol string) ([]NewsItem, error) {
+	return c.yahooClient.FetchNews(ctx, symbol)
 }

@@ -1,13 +1,18 @@
-// client_test.go — Tests `Client` end-to-end: retry-then-success against `httptest.Server`, circuit-breaker open / half-open transitions, rate-limiter burst + throttle, error retryable / fatal classification. Capacity: 4 test functions.
+// client_test.go — Tests `Client` retry, authority/group breaker outcomes, half-open transitions, rate limiting, and error classification.
 package httpx
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestClientRetry(t *testing.T) {
@@ -53,6 +58,35 @@ func TestClientRetry(t *testing.T) {
 	}
 }
 
+func TestClientRetryReplaysPOSTBody(t *testing.T) {
+	var bodies []string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		bodies = append(bodies, string(body))
+		if len(bodies) == 1 {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	config := DefaultConfig()
+	config.MaxAttempts = 2
+	config.BackoffBaseMs = 1
+	config.BackoffJitterMs = 0
+	client := NewClient(config)
+	payload := []byte(`{"serviceConfig":{"snippetCount":10,"s":["AAPL"]}}`)
+	req, err := http.NewRequest(http.MethodPost, server.URL, bytes.NewReader(payload))
+	require.NoError(t, err)
+
+	resp, err := client.Do(context.Background(), req)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	require.Equal(t, []string{string(payload), string(payload)}, bodies)
+}
+
 func TestClientCircuitBreaker(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
@@ -75,6 +109,7 @@ func TestClientCircuitBreaker(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
+	breaker := client.circuitBreakers.forHost(req.URL.Host)
 
 	// First request should fail
 	_, err = client.Do(ctx, req)
@@ -83,8 +118,8 @@ func TestClientCircuitBreaker(t *testing.T) {
 	}
 
 	// Check circuit is still closed (1 failure, threshold is 2)
-	if client.circuitBreaker.State() != StateClosed {
-		t.Errorf("Expected circuit to be closed after 1 failure, got state %v", client.circuitBreaker.State())
+	if breaker.State() != StateClosed {
+		t.Errorf("Expected circuit to be closed after 1 failure, got state %v", breaker.State())
 	}
 
 	// Second request should fail and open the circuit
@@ -94,8 +129,8 @@ func TestClientCircuitBreaker(t *testing.T) {
 	}
 
 	// Check circuit is now open (2 failures, threshold is 2)
-	if client.circuitBreaker.State() != StateOpen {
-		t.Errorf("Expected circuit to be open after 2 failures, got state %v", client.circuitBreaker.State())
+	if breaker.State() != StateOpen {
+		t.Errorf("Expected circuit to be open after 2 failures, got state %v", breaker.State())
 	}
 
 	// Third request should be rejected by circuit breaker
@@ -110,27 +145,155 @@ func TestClientCircuitBreaker(t *testing.T) {
 	// Wait for circuit to reset (transition to half-open)
 	time.Sleep(60 * time.Millisecond) // Wait longer than resetTimeout
 
-	// Trigger transition to half-open by calling Allow()
-	allowed := client.circuitBreaker.Allow()
-	if !allowed {
-		t.Error("Circuit should allow requests in half-open state")
-	}
-
-	// Check circuit is now half-open
-	if client.circuitBreaker.State() != StateHalfOpen {
-		t.Errorf("Expected circuit to be half-open after reset timeout, got state %v", client.circuitBreaker.State())
-	}
-
-	// Next request should be allowed (half-open state) but still fail
+	// The next request owns the single half-open probe and still fails.
 	_, err = client.Do(ctx, req)
 	if err == nil {
 		t.Error("Request should still fail (server still returns 500)")
 	}
 
 	// After failure in half-open state, circuit should be open again
-	if client.circuitBreaker.State() != StateOpen {
-		t.Errorf("Expected circuit to be open again after failure in half-open state, got state %v", client.circuitBreaker.State())
+	if breaker.State() != StateOpen {
+		t.Errorf("Expected circuit to be open again after failure in half-open state, got state %v", breaker.State())
 	}
+}
+
+func TestClientRetryFailureRecordsOneBreakerOutcome(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer server.Close()
+
+	config := DefaultConfig()
+	config.MaxAttempts = 5
+	config.BackoffBaseMs = 1
+	config.BackoffJitterMs = 0
+	config.MaxDelayMs = 2
+	config.FailureThreshold = 2
+	client := NewClient(config)
+	req, err := http.NewRequest(http.MethodGet, server.URL, nil)
+	require.NoError(t, err)
+
+	_, err = client.Do(context.Background(), req)
+	require.Error(t, err)
+	breaker := client.circuitBreakers.forHost(req.URL.Host)
+	assert.Equal(t, 1, breaker.Failures())
+	assert.Equal(t, StateClosed, breaker.State())
+}
+
+func TestClientCircuitBreakerIsScopedByHost(t *testing.T) {
+	failing := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer failing.Close()
+	healthy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer healthy.Close()
+
+	config := DefaultConfig()
+	config.MaxAttempts = 1
+	config.FailureThreshold = 1
+	client := NewClient(config)
+	failReq, err := http.NewRequest(http.MethodGet, failing.URL, nil)
+	require.NoError(t, err)
+	healthyReq, err := http.NewRequest(http.MethodGet, healthy.URL, nil)
+	require.NoError(t, err)
+
+	_, err = client.Do(context.Background(), failReq)
+	require.Error(t, err)
+	resp, err := client.Do(context.Background(), healthyReq)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+}
+
+func TestClientCircuitBreakerIsScopedByRequestGroup(t *testing.T) {
+	var authHits, chartHits int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/auth":
+			authHits++
+			w.WriteHeader(http.StatusTooManyRequests)
+		case "/chart":
+			chartHits++
+			w.WriteHeader(http.StatusOK)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	config := DefaultConfig()
+	config.MaxAttempts = 1
+	config.FailureThreshold = 1
+	config.QPS = 100
+	config.Burst = 10
+	client := NewClient(config)
+
+	authCtx := WithCircuitGroup(context.Background(), "yahoo-auth")
+	authReq, err := http.NewRequestWithContext(authCtx, http.MethodGet, server.URL+"/auth", nil)
+	require.NoError(t, err)
+	_, err = client.Do(context.Background(), authReq)
+	require.Error(t, err)
+
+	secondAuthReq, err := http.NewRequestWithContext(authCtx, http.MethodGet, server.URL+"/auth", nil)
+	require.NoError(t, err)
+	_, err = client.Do(context.Background(), secondAuthReq)
+	require.ErrorIs(t, err, ErrCircuitOpen)
+
+	chartCtx := WithCircuitGroup(context.Background(), "yahoo-chart")
+	chartReq, err := http.NewRequestWithContext(chartCtx, http.MethodGet, server.URL+"/chart", nil)
+	require.NoError(t, err)
+	resp, err := client.Do(context.Background(), chartReq)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	assert.Equal(t, 1, authHits)
+	assert.Equal(t, 1, chartHits)
+}
+
+func TestClientHTTP404IsBreakerSuccess(t *testing.T) {
+	statuses := []int{http.StatusInternalServerError, http.StatusNotFound}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		status := statuses[0]
+		statuses = statuses[1:]
+		w.WriteHeader(status)
+	}))
+	defer server.Close()
+
+	config := DefaultConfig()
+	config.MaxAttempts = 1
+	config.FailureThreshold = 0
+	config.FailureRateThreshold = 0.75
+	config.MinimumRequests = 2
+	client := NewClient(config)
+	req, err := http.NewRequest(http.MethodGet, server.URL, nil)
+	require.NoError(t, err)
+	_, _ = client.Do(context.Background(), req)
+	_, _ = client.Do(context.Background(), req)
+
+	breaker := client.circuitBreakers.forHost(req.URL.Host)
+	assert.Equal(t, 2, breaker.Samples())
+	assert.Equal(t, 1, breaker.Failures())
+	assert.Equal(t, StateClosed, breaker.State())
+}
+
+func TestClientCancellationIsBreakerNeutral(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		<-r.Context().Done()
+	}))
+	defer server.Close()
+
+	config := DefaultConfig()
+	config.MaxAttempts = 1
+	client := NewClient(config)
+	req, err := http.NewRequest(http.MethodGet, server.URL, nil)
+	require.NoError(t, err)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+
+	_, err = client.Do(ctx, req)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.Equal(t, 0, client.circuitBreakers.forHost(req.URL.Host).Samples())
 }
 
 func TestRateLimiter(t *testing.T) {

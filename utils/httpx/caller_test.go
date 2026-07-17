@@ -1,4 +1,4 @@
-// caller_test.go — Tests `Caller.Get` returns *Meta with Status / Bytes / Duration / Attempts / Host / Endpoint / Gzip populated. Capacity: 4 test functions.
+// caller_test.go — Tests `Caller.Get` returns *Meta with Status / Bytes / Duration / Attempts / Host / Endpoint / Gzip populated. Capacity: 5 test functions.
 package httpx
 
 import (
@@ -83,6 +83,57 @@ func TestGet_PopulatesMetaOnSuccess(t *testing.T) {
 	}
 	if meta.Gzip {
 		t.Errorf("expected Gzip false for plain response, got true")
+	}
+}
+
+// TestGet_AbsoluteURLOverridesBaseURL verifies that a caller can target a
+// different host without the configured BaseURL being prepended.
+func TestGet_AbsoluteURLOverridesBaseURL(t *testing.T) {
+	var baseCalls int
+	baseServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		baseCalls++
+		_, _ = w.Write([]byte("configured base"))
+	}))
+	defer baseServer.Close()
+
+	var targetCalls int
+	targetServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		targetCalls++
+		if r.URL.Path != "/quote/AAPL/financials" {
+			t.Errorf("expected target path %q, got %q", "/quote/AAPL/financials", r.URL.Path)
+		}
+		if r.URL.Query().Get("period") != "annual" {
+			t.Errorf("expected period query %q, got %q", "annual", r.URL.Query().Get("period"))
+		}
+		_, _ = w.Write([]byte("target"))
+	}))
+	defer targetServer.Close()
+
+	cfg := DefaultConfig()
+	cfg.BaseURL = baseServer.URL
+	cfg.MaxAttempts = 1
+
+	c := NewClient(cfg)
+	body, meta, err := c.Get(
+		testCtx(t),
+		targetServer.URL+"/quote/AAPL/financials",
+		url.Values{"period": {"annual"}},
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if baseCalls != 0 {
+		t.Errorf("expected configured base to receive 0 requests, got %d", baseCalls)
+	}
+	if targetCalls != 1 {
+		t.Errorf("expected absolute target to receive 1 request, got %d", targetCalls)
+	}
+	if string(body) != "target" {
+		t.Errorf("expected target body %q, got %q", "target", body)
+	}
+	wantHost := targetServer.Listener.Addr().String()
+	if meta.Host != wantHost {
+		t.Errorf("expected Meta.Host %q, got %q", wantHost, meta.Host)
 	}
 }
 

@@ -36,20 +36,22 @@ func (c *Config) assembleHTTPConfig() *httpx.Config {
 		jitter = c.Retry.BaseMs / 2
 	}
 	return &httpx.Config{
-		BaseURL:          c.Yahoo.BaseURL,
-		Timeout:          time.Duration(c.Yahoo.TimeoutMs) * time.Millisecond,
-		IdleTimeout:      time.Duration(c.Yahoo.IdleTimeoutMs) * time.Millisecond,
-		MaxConnsPerHost:  c.Yahoo.MaxConnsPerHost,
-		UserAgent:        c.Yahoo.UserAgent,
-		MaxAttempts:      c.Retry.Attempts,
-		BackoffBaseMs:    c.Retry.BaseMs,
-		BackoffJitterMs:  jitter,
-		MaxDelayMs:       c.Retry.MaxDelayMs,
-		QPS:              c.RateLimit.PerHostQPS,
-		Burst:            c.RateLimit.PerHostBurst,
-		CircuitWindow:    time.Duration(c.CircuitBreaker.Window) * time.Second,
-		FailureThreshold: int(c.CircuitBreaker.FailureThreshold * 100), // 0–1 → 0–100
-		ResetTimeout:     time.Duration(c.CircuitBreaker.ResetTimeoutMs) * time.Millisecond,
+		BaseURL:              c.Yahoo.BaseURL,
+		Timeout:              time.Duration(c.Yahoo.TimeoutMs) * time.Millisecond,
+		IdleTimeout:          time.Duration(c.Yahoo.IdleTimeoutMs) * time.Millisecond,
+		MaxConnsPerHost:      c.Yahoo.MaxConnsPerHost,
+		UserAgent:            c.Yahoo.UserAgent,
+		MaxAttempts:          c.Retry.Attempts,
+		BackoffBaseMs:        c.Retry.BaseMs,
+		BackoffJitterMs:      jitter,
+		MaxDelayMs:           c.Retry.MaxDelayMs,
+		QPS:                  c.RateLimit.PerHostQPS,
+		Burst:                c.RateLimit.PerHostBurst,
+		CircuitWindow:        time.Duration(c.CircuitBreaker.Window) * time.Second,
+		FailureThreshold:     0,
+		FailureRateThreshold: c.CircuitBreaker.FailureThreshold,
+		MinimumRequests:      c.CircuitBreaker.MinimumRequests,
+		ResetTimeout:         time.Duration(c.CircuitBreaker.ResetTimeoutMs) * time.Millisecond,
 		// MaxBodyBytes defaults to 0 (unlimited) — matches the previous
 		// cmd/client.go behaviour before the facade indirection.
 	}
@@ -63,21 +65,23 @@ func (c *Config) assembleHTTPConfig() *httpx.Config {
 // live in `svc/scrape/client.go:NewClient`.
 func scrapeHTTPDefaults() *httpx.Config {
 	return &httpx.Config{
-		BaseURL:          "https://finance.yahoo.com",
-		Timeout:          10 * time.Second,
-		IdleTimeout:      90 * time.Second,
-		MaxConnsPerHost:  10,
-		UserAgent:        "Mozilla/5.0 (Ampy yfinance-go scraper)",
-		MaxAttempts:      4,
-		BackoffBaseMs:    300,
-		BackoffJitterMs:  150,
-		MaxDelayMs:       4000,
-		QPS:              0.7,
-		Burst:            1,
-		CircuitWindow:    60 * time.Second,
-		FailureThreshold: 5,
-		ResetTimeout:     30 * time.Second,
-		MaxBodyBytes:     8 << 20, // 8 MiB — scrape body cap.
+		BaseURL:              "https://finance.yahoo.com",
+		Timeout:              10 * time.Second,
+		IdleTimeout:          90 * time.Second,
+		MaxConnsPerHost:      10,
+		UserAgent:            "Mozilla/5.0 (Ampy yfinance-go scraper)",
+		MaxAttempts:          4,
+		BackoffBaseMs:        300,
+		BackoffJitterMs:      150,
+		MaxDelayMs:           4000,
+		QPS:                  0.7,
+		Burst:                1,
+		CircuitWindow:        60 * time.Second,
+		FailureThreshold:     0,
+		FailureRateThreshold: 0.30,
+		MinimumRequests:      10,
+		ResetTimeout:         30 * time.Second,
+		MaxBodyBytes:         8 << 20, // 8 MiB — scrape body cap.
 	}
 }
 

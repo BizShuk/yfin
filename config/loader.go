@@ -155,6 +155,9 @@ func (l *Loader) mapToConfig(configMap map[string]interface{}) (*Config, error) 
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		return nil, err
 	}
+	if config.CircuitBreaker.MinimumRequests == 0 {
+		config.CircuitBreaker.MinimumRequests = defaultCircuitMinimumRequests
+	}
 
 	return &config, nil
 }
@@ -196,6 +199,9 @@ func (l *Loader) validate(config *Config) error {
 	// Validate circuit breaker thresholds
 	if config.CircuitBreaker.FailureThreshold <= 0 || config.CircuitBreaker.FailureThreshold > 1 {
 		return fmt.Errorf("circuit_breaker.failure_threshold must be between 0 and 1")
+	}
+	if config.CircuitBreaker.MinimumRequests < 1 {
+		return fmt.Errorf("circuit_breaker.minimum_requests must be >= 1")
 	}
 
 	// Validate observability configuration

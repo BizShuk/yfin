@@ -54,8 +54,16 @@ func TestDefaultConfig(t *testing.T) {
 		t.Error("Expected CircuitWindow to be positive")
 	}
 
-	if config.FailureThreshold <= 0 {
-		t.Error("Expected FailureThreshold to be positive")
+	if config.FailureThreshold != 0 {
+		t.Errorf("Expected legacy FailureThreshold 0, got %d", config.FailureThreshold)
+	}
+
+	if config.FailureRateThreshold != 0.30 {
+		t.Errorf("Expected FailureRateThreshold 0.30, got %v", config.FailureRateThreshold)
+	}
+
+	if config.MinimumRequests != 10 {
+		t.Errorf("Expected MinimumRequests 10, got %d", config.MinimumRequests)
 	}
 
 	if config.ResetTimeout <= 0 {
@@ -70,20 +78,22 @@ func TestDefaultConfig(t *testing.T) {
 func TestConfigFields(t *testing.T) {
 	// Test that we can create a config with all fields
 	config := &Config{
-		BaseURL:          "https://example.com",
-		Timeout:          30 * time.Second,
-		IdleTimeout:      90 * time.Second,
-		MaxConnsPerHost:  10,
-		MaxAttempts:      3,
-		BackoffBaseMs:    200,
-		BackoffJitterMs:  100,
-		MaxDelayMs:       10000,
-		QPS:              1.0,
-		Burst:            3,
-		CircuitWindow:    60 * time.Second,
-		FailureThreshold: 3,
-		ResetTimeout:     30 * time.Second,
-		UserAgent:        "test-agent",
+		BaseURL:              "https://example.com",
+		Timeout:              30 * time.Second,
+		IdleTimeout:          90 * time.Second,
+		MaxConnsPerHost:      10,
+		MaxAttempts:          3,
+		BackoffBaseMs:        200,
+		BackoffJitterMs:      100,
+		MaxDelayMs:           10000,
+		QPS:                  1.0,
+		Burst:                3,
+		CircuitWindow:        60 * time.Second,
+		FailureThreshold:     3,
+		FailureRateThreshold: 0.40,
+		MinimumRequests:      20,
+		ResetTimeout:         30 * time.Second,
+		UserAgent:            "test-agent",
 	}
 
 	// Basic validation that fields are set

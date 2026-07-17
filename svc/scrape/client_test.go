@@ -1,9 +1,11 @@
-// client_test.go — Tests `Client.Fetch` delegates exactly once to `httpx.Caller.Get`, respects robots.txt policy, and propagates `*Meta` fields. Capacity: 4 test functions.
+// client_test.go — Tests `Client.Fetch` delegates exactly once to `httpx.Caller.Get`, respects robots.txt policy, and propagates `*Meta` fields. Capacity: 5 test functions.
 package scrape
 
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"testing"
 	"time"
@@ -18,20 +20,20 @@ import (
 var errStubCaller = errors.New("stub caller error")
 
 // stubCaller is a minimal `httpx.Caller` for tests. It records the
-// number of Get calls and the path/query arguments, returning a canned
+// number of Get calls and the target/query arguments, returning a canned
 // body + Meta.
 type stubCaller struct {
-	calls    int
-	lastPath string
-	lastQry  url.Values
-	body     []byte
-	meta     *httpx.Meta
-	err      error
+	calls      int
+	lastTarget string
+	lastQry    url.Values
+	body       []byte
+	meta       *httpx.Meta
+	err        error
 }
 
-func (s *stubCaller) Get(_ context.Context, path string, q url.Values) ([]byte, *httpx.Meta, error) {
+func (s *stubCaller) Get(_ context.Context, target string, q url.Values) ([]byte, *httpx.Meta, error) {
 	s.calls++
-	s.lastPath = path
+	s.lastTarget = target
 	s.lastQry = q
 	if s.err != nil {
 		return nil, nil, s.err
@@ -53,7 +55,7 @@ func TestFetch_DelegatesToCallerOnce(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []byte("ok"), body)
 	assert.Equal(t, 1, stub.calls)
-	assert.Equal(t, "/quote/AAPL", stub.lastPath)
+	assert.Equal(t, "https://finance.yahoo.com/quote/AAPL", stub.lastTarget)
 	assert.NotNil(t, fetchMeta)
 	assert.Equal(t, 200, fetchMeta.Status)
 	assert.Equal(t, "finance.yahoo.com", fetchMeta.Host)
@@ -128,4 +130,34 @@ func TestNewClient_NilPoolFallbacksToFreshClient(t *testing.T) {
 		_, _, _ = c.Fetch(ctx, "https://finance.yahoo.com/quote/AAPL")
 	}()
 	assert.Nil(t, panicVal, "Fetch must not panic on a typed-nil caller; fresh-client fallback should run when pool is nil")
+}
+
+func TestFetchUsesYahooWebCircuitGroup(t *testing.T) {
+	hits := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits++
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+
+	config := DefaultConfig()
+	config.RobotsPolicy = string(RobotsIgnore)
+	config.HTTP.MaxAttempts = 1
+	config.HTTP.FailureThreshold = 1
+	config.HTTP.FailureRateThreshold = 0
+	config.HTTP.QPS = 100
+	config.HTTP.Burst = 10
+	transport := httpx.NewClient(config.HTTP)
+	client, err := NewClientWithCaller(transport, config)
+	require.NoError(t, err)
+
+	_, _, err = client.Fetch(context.Background(), server.URL+"/quote/AAPL/analysis")
+	require.Error(t, err)
+	grouped := httpx.WithCircuitGroup(context.Background(), "yahoo-web")
+	req, err := http.NewRequestWithContext(grouped, http.MethodGet,
+		server.URL+"/quote/AAPL/financials", nil)
+	require.NoError(t, err)
+	_, err = transport.Do(grouped, req)
+	require.ErrorIs(t, err, httpx.ErrCircuitOpen)
+	assert.Equal(t, 1, hits, "second yahoo-web request must be rejected before transport")
 }

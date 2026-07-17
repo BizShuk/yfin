@@ -44,6 +44,7 @@ func (c *Client) doQuoteSummary(ctx context.Context, symbol string, modules []st
 	}
 	u.RawQuery = q.Encode()
 
+	ctx = circuitContext(ctx, circuitGroupAuth)
 	req, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
 	if err != nil {
 		return nil, err

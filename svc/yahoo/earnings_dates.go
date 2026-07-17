@@ -127,6 +127,7 @@ func parseCellFloat(s string) *float64 {
 // FetchEarningsDates scrapes the Yahoo calendar/earnings HTML page for `symbol`.
 func (c *Client) FetchEarningsDates(ctx context.Context, symbol string) ([]EarningsDateRow, error) {
 	u := earningsCalendarURL + "?symbol=" + symbol
+	ctx = circuitContext(ctx, circuitGroupWeb)
 	req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
 	if err != nil {
 		return nil, err

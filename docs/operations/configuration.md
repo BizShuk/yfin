@@ -196,6 +196,7 @@ CLI 端可用 `--observability-disable-tracing` / `--observability-disable-metri
 | `markets.default_adjustment_policy ∈ {raw, split_dividend}` | 列舉 | `must be 'raw' or 'split_dividend'` |
 | `retry.attempts >= 1` | 範圍 | `must be >= 1` |
 | `circuit_breaker.failure_threshold ∈ (0, 1]` | 範圍 | `must be between 0 and 1` |
+| `circuit_breaker.minimum_requests >= 1` | 範圍 | `must be >= 1` |
 | `observability.metrics.prometheus.addr`（啟用時） | 必填 | `is required when prometheus is enabled` |
 | `observability.tracing.otlp.endpoint`（啟用時） | 必填 | `is required when OTLP tracing is enabled` |
 

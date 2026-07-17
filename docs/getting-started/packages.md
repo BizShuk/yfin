@@ -26,9 +26,7 @@ flowchart TD
     SOAK --> SC
 
     CMD["cmd/ (CLI composition root)"] -->|"讀取"| CFG["config/ (YAML)"]
-    CMD --> YS
-    CMD --> SC
-    CMD --> TW
+    CMD -->|"只經 facade"| FAC
 ```
 
 ---
@@ -54,7 +52,7 @@ flowchart TD
 
 - 外部套件在匯入本專案時，應以此套件作為邊界，避免直接存取 `svc/` 或 `utils/`。
 - 將內部的定點十進位 `ScaledDecimal` 轉化為標準的 `float64` 浮點數，便於資料序列化 (serialization) 與一般數值計算。
-- 整合了 `svc/yahoo` 的原始 API 呼叫與 `svc/scrape` 的爬蟲備援引擎；當付費 API 限制、網路逾時或回傳 `429` 時，能自動切換至爬網流程。
+- 整合 `svc/yahoo` 的 JSON API/XHR 與 `svc/scrape` 的顯式爬蟲 surface；呼叫端依需求選擇 `Fetch*` 或 `Scrape*`，不進行隱式 fallback。
 - 所有取回的資料會經由 `model/` 的 `Normalize*` 函式正規化後，以統一格式回傳給呼叫端。
 
 ---
@@ -67,9 +65,11 @@ flowchart TD
 
 ### 關鍵檔案
 
-- `client.go`: 對接原始 API（如 `/v10/finance/quoteSummary`、`/v7/finance/options`、`/v8/finance/chart`）。
+- `client.go`: Yahoo client 與固定 endpoint origin。
 - `auth.go`: 管理 Yahoo API 認證所需的 `Cookie` 與 `Crumb` 機制，會自動刷新並快取。
 - `bars.go`, `quotes.go`, `fundamentals.go`: 對接並解析對應的 API 報文 (raw responses)。
+- `timeseries.go`: annual income、balance sheet、cash flow 的 fundamentals-timeseries fetch/decode。
+- `news.go`: `POST /xhr/ncp` tickerStream fetch/decode。
 
 ### 套件設計與運作
 
@@ -150,16 +150,17 @@ flowchart TD
 
 ### 關鍵檔案
 
-- `client.go`: 核心用戶端，整合限流、重試與斷路器。
-- `limiter.go`: 實作權杖桶 (token bucket) 演算法的速率限制器 (rate limiter)。
-- `circuit_breaker.go`: 實作斷路器 (circuit breaker)，在遠端伺服器大量發生故障時暫時熔斷請求。
+- `client.go`: 核心用戶端，整合權杖桶限流、重試與最終 outcome 分類。
+- `caller.go`: 將相對或完整 URL 轉為 GET request，並回傳 response body 與 `Meta`。
+- `circuit_breaker.go`: 實作 rolling-window 與 single-probe 狀態轉移。
+- `circuit_registry.go`: 依 upstream authority 隔離斷路器狀態。
 - `errors.go`: 定義連線、超時與限流之自訂錯誤型態。
 
 ### 套件設計與運作
 
 - 採用單一共享的 `http.Client` 以最大化重複利用連線（基於 `Keep-Alive` 協議）。Session rotation 已完全移除以簡化狀態管理。
 - 整合了 QPS 速率限制；當 API 回傳 `429` 或偵測到失敗率過高時，利用指數退避 (exponential backoff) 與隨機抖動 (jitter) 進行延遲重試。
-- 當連續請求失敗次數到達閾值，斷路器進入 `open` (開啟) 狀態，立即拒絕後續呼叫以保護用戶端，直到冷卻重置時間結束。
+- 當單一 upstream authority 在 active window 內累積足夠樣本且失敗率到達閾值，該 host 的斷路器進入 `open` (開啟) 狀態，直到冷卻重置時間結束。
 - 透過 `utils/obsv` 上報延遲、成功率與限流命中數。
 
 ---

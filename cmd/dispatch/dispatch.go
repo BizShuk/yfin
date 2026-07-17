@@ -121,16 +121,17 @@ var commandRegistry = map[string]fetchFunc{
 	"history": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
 		return fc.Root.YahooFetchHistory(ctx, s)
 	},
-	// Legacy scrape-based fundamentals/analysis/insights/news — all route
-	// through facade.Scrape* which already wraps svc/scrape.
+	// Annual financial statements use Yahoo fundamentals-timeseries through
+	// facade. The remaining analysis/insights commands retain their scrape
+	// implementation until a stdlib-compatible API replacement is available.
 	"income": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Root.ScrapeFinancials(ctx, s, fc.RunID)
+		return fc.Root.FetchIncomeStatement(ctx, s)
 	},
 	"balance": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Root.ScrapeBalanceSheet(ctx, s, fc.RunID)
+		return fc.Root.FetchBalanceSheet(ctx, s)
 	},
 	"cashflow": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Root.ScrapeCashFlow(ctx, s, fc.RunID)
+		return fc.Root.FetchCashFlowStatement(ctx, s)
 	},
 	"earnings-history": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
 		return fc.Root.ScrapeAnalysisDimension(ctx, "earnings-history", s, fc.RunID)
@@ -154,6 +155,6 @@ var commandRegistry = map[string]fetchFunc{
 		return fc.Root.ScrapeAnalystInsights(ctx, s, fc.RunID)
 	},
 	"news": func(ctx context.Context, fc *FetchContext, s string) (any, error) {
-		return fc.Root.ScrapeNews(ctx, s, fc.RunID)
+		return fc.Root.FetchNews(ctx, s)
 	},
 }

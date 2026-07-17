@@ -102,10 +102,9 @@ func FetchJSON[T any](ctx context.Context, client *Client, path string, query ur
 	}
 	q.Set("response", "json")
 
-	// Compose the absolute URL ourselves and pass it to caller.Get with an
-	// empty Config.BaseURL on the injected caller (see buildTWSEClient) so
-	// caller.Get's `path` argument is used verbatim. The local name
-	// `absURL` documents the boundary contract clearly.
+	// Compose the absolute URL ourselves. Caller.Get preserves absolute targets,
+	// so the injected transport's Config.BaseURL cannot redirect this request.
+	// The local name `absURL` documents the boundary contract clearly.
 	absURL := client.baseURL + path
 	body, _, err := client.caller.Get(ctx, absURL, q)
 	if err != nil {

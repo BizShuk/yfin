@@ -42,7 +42,7 @@ config := &httpx.Config{
 client := facade.NewClientWithConfig(config)
 ```
 
-> **Note (session rotation removed)** — earlier versions of this package exposed `NewClientWithSessionRotation()`. That constructor has been **deleted** in `yfin`; the single shared `http.Client` plus QPS limit + retries + circuit breaker is now the sole production path. Python `yfinance` still has session rotation; `yfin` does not.
+> **Note (session rotation removed)** — earlier versions of this package exposed `NewClientWithSessionRotation()`. That constructor has been **deleted** in `yfin`; the single shared `http.Client` plus QPS limit + retries + authority / optional logical-group circuit breakers is now the sole production path. Python `yfinance` still has session rotation; `yfin` does not.
 
 ## Historical Data Methods
 
@@ -283,6 +283,28 @@ type FundamentalsSnapshot struct {
 - Requires Yahoo Finance paid subscription; a 401-class error surfaces as `fundamentals data requires Yahoo Finance paid subscription`.
 - Limited to quarterly data only.
 - A missing `Value` on a line is surfaced as `0` (Go `float64` cannot represent nil); use `PeriodStart` / `PeriodEnd` to detect genuinely empty rows.
+
+### Annual statement methods
+
+The annual methods use Yahoo's fundamentals-timeseries JSON endpoint and return the latest available annual values. Missing series are omitted rather than emitted as artificial zero values.
+
+```go
+income, err := client.FetchIncomeStatement(ctx, "AAPL")
+balance, err := client.FetchBalanceSheet(ctx, "AAPL")
+cashflow, err := client.FetchCashFlowStatement(ctx, "AAPL")
+```
+
+All three return `*facade.FundamentalsSnapshot, error`.
+
+### `FetchNews()`
+
+Fetch the latest ten ticker news items from Yahoo's `tickerStream` XHR.
+
+```go
+news, err := client.FetchNews(ctx, "AAPL")
+```
+
+Returns `[]facade.NewsItem, error`. Advertisement records and items without both a title and URL are omitted.
 
 ## Scraping Methods (plain SDK output)
 

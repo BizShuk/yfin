@@ -20,9 +20,9 @@ import (
 )
 
 // newTestHttpxClient points the test client at a local httptest server.
-// It builds a real `*httpx.Client` whose BaseURL is empty (so the
-// caller's `c.baseURL+path` is the absolute URL) and wraps it in a
-// `*twse.Client` via NewClientWithURL.
+// It builds a real `*httpx.Client`; FetchJSON passes the absolute
+// `c.baseURL+path` target and wraps the transport in a `*twse.Client` via
+// NewClientWithURL.
 func newTestHttpxClient(t *testing.T, srv *httptest.Server) *Client {
 	t.Helper()
 	hc := httpx.NewClient(&httpx.Config{
@@ -100,18 +100,18 @@ func TestFetchJSON_EmbeddedStructReportsStat(t *testing.T) {
 	require.Equal(t, "20221230", got.Date)
 }
 
-// stubCaller captures the last (path, query) pair fed to it and returns
+// stubCaller captures the last (target, query) pair fed to it and returns
 // a canned body, bypassing the network. It satisfies httpx.Caller.
 type stubCaller struct {
-	lastPath  string
-	lastQuery url.Values
-	body      []byte
-	meta      *httpx.Meta
-	err       error
+	lastTarget string
+	lastQuery  url.Values
+	body       []byte
+	meta       *httpx.Meta
+	err        error
 }
 
-func (s *stubCaller) Get(ctx context.Context, path string, q url.Values) ([]byte, *httpx.Meta, error) {
-	s.lastPath = path
+func (s *stubCaller) Get(ctx context.Context, target string, q url.Values) ([]byte, *httpx.Meta, error) {
+	s.lastTarget = target
 	s.lastQuery = q
 	if s.meta == nil {
 		s.meta = &httpx.Meta{Status: 200, Host: "www.twse.com.tw"}
@@ -121,7 +121,7 @@ func (s *stubCaller) Get(ctx context.Context, path string, q url.Values) ([]byte
 
 // TestFetchJSON_UsesInjectedCaller verifies the new Client-based
 // FetchJSON plumbs through the injected httpx.Caller without going near
-// the network and writes the right (path, query) into it.
+// the network and writes the right (target, query) into it.
 func TestFetchJSON_UsesInjectedCaller(t *testing.T) {
 	stub := &stubCaller{
 		body: []byte(`{"stat":"OK","data":[],"title":"MI_INDEX"}`),
@@ -134,7 +134,7 @@ func TestFetchJSON_UsesInjectedCaller(t *testing.T) {
 		url.Values{"stockNo": {"2330"}},
 	)
 	require.NoError(t, err)
-	assert.Equal(t, "https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY", stub.lastPath)
+	assert.Equal(t, "https://www.twse.com.tw/rwd/zh/afterTrading/STOCK_DAY", stub.lastTarget)
 	assert.Equal(t, "2330", stub.lastQuery.Get("stockNo"))
 	assert.Equal(t, "json", stub.lastQuery.Get("response"))
 }

@@ -1,4 +1,6 @@
-// `Client` is the Yahoo Finance HTTP entry point. Capacity: ~14 methods covering `/v8/finance/chart` (daily/weekly/monthly/intraday bars, quote, actions, metadata) and `/v10/finance/quoteSummary` (holders, insider, upgrades, ESG, recommendations, info, calendar, SEC filings, fundamentals).
+// `Client` is the Yahoo Finance HTTP entry point. It covers chart,
+// quoteSummary, fundamentals-timeseries, news XHR, options, and related Yahoo
+// JSON surfaces.
 package yahoo
 
 import (
@@ -16,9 +18,11 @@ import (
 
 // Client provides methods to fetch and normalize Yahoo Finance data
 type Client struct {
-	httpClient *httpx.Client
-	baseURL    string
-	crumb      *CrumbManager
+	httpClient        *httpx.Client
+	baseURL           string
+	timeseriesBaseURL string
+	newsBaseURL       string
+	crumb             *CrumbManager
 }
 
 // NewClientWithAuth creates a Client wired with a CrumbManager for authenticated endpoints.
@@ -35,9 +39,11 @@ func NewClient(httpClient *httpx.Client, baseURL string) *Client {
 	}
 
 	return &Client{
-		httpClient: httpClient,
-		baseURL:    baseURL,
-		crumb:      NewCrumbManager(httpClient, "", ""),
+		httpClient:        httpClient,
+		baseURL:           baseURL,
+		timeseriesBaseURL: "https://query2.finance.yahoo.com",
+		newsBaseURL:       "https://finance.yahoo.com",
+		crumb:             NewCrumbManager(httpClient, "", ""),
 	}
 }
 
@@ -50,6 +56,7 @@ func (c *Client) FetchDailyBars(ctx context.Context, symbol string, start, end t
 	}
 
 	// Create request
+	ctx = circuitContext(ctx, circuitGroupChart)
 	req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -122,6 +129,7 @@ func (c *Client) fetchChartRaw(ctx context.Context, symbol string, daysBack int)
 	if err != nil {
 		return nil, err
 	}
+	ctx = circuitContext(ctx, circuitGroupChart)
 	req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
 	if err != nil {
 		return nil, err
@@ -234,6 +242,7 @@ func (c *Client) FetchIntradayBars(ctx context.Context, symbol string, start, en
 	}
 
 	// Create request
+	ctx = circuitContext(ctx, circuitGroupChart)
 	req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -270,6 +279,7 @@ func (c *Client) FetchWeeklyBars(ctx context.Context, symbol string, start, end 
 	}
 
 	// Create request
+	ctx = circuitContext(ctx, circuitGroupChart)
 	req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
@@ -306,6 +316,7 @@ func (c *Client) FetchMonthlyBars(ctx context.Context, symbol string, start, end
 	}
 
 	// Create request
+	ctx = circuitContext(ctx, circuitGroupChart)
 	req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)

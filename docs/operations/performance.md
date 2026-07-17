@@ -23,6 +23,8 @@ This guide provides comprehensive information about performance optimization, be
 | **FetchQuote()** | 100-500ms | 10-50 req/s | Fast, API-based |
 | **FetchDailyBars()** | 200-800ms | 5-20 req/s | Depends on date range |
 | **FetchCompanyInfo()** | 100-400ms | 10-50 req/s | Fast, API-based |
+| **FetchIncomeStatement()** | 200-900ms | 5-20 req/s | Annual fundamentals-timeseries |
+| **FetchNews()** | 200ms-1s | 5-20 req/s | JSON XHR POST |
 | **ScrapeFinancials()** | 1-3s | 1-5 req/s | Slower, scraping-based |
 | **ScrapeNews()** | 500ms-2s | 2-10 req/s | Variable, depends on content |
 | **ScrapeKeyStatistics()** | 800ms-2s | 2-8 req/s | Slower, scraping-based |
@@ -253,58 +255,18 @@ func (arl *AdaptiveRateLimiter) GetRate() float64 {
 
 ### 3. Circuit Breaker Pattern
 
-```go
-type CircuitBreaker struct {
-    failureCount   int
-    successCount   int
-    lastFailure    time.Time
-    threshold      int
-    timeout        time.Duration
-    state          string // "closed", "open", "half-open"
-    mutex          sync.RWMutex
-}
-
-func NewCircuitBreaker(threshold int, timeout time.Duration) *CircuitBreaker {
-    return &CircuitBreaker{
-        threshold: threshold,
-        timeout:   timeout,
-        state:     "closed",
-    }
-}
-
-func (cb *CircuitBreaker) Call(fn func() error) error {
-    cb.mutex.Lock()
-    defer cb.mutex.Unlock()
-    
-    if cb.state == "open" {
-        if time.Since(cb.lastFailure) > cb.timeout {
-            cb.state = "half-open"
-        } else {
-            return fmt.Errorf("circuit breaker is open")
-        }
-    }
-    
-    err := fn()
-    if err != nil {
-        cb.failureCount++
-        cb.lastFailure = time.Now()
-        
-        if cb.failureCount >= cb.threshold {
-            cb.state = "open"
-        }
-        return err
-    }
-    
-    // Success
-    cb.successCount++
-    if cb.state == "half-open" {
-        cb.state = "closed"
-        cb.failureCount = 0
-    }
-    
-    return nil
-}
+```yaml
+circuit_breaker:
+  window: 50
+  failure_threshold: 0.30
+  minimum_requests: 10
+  reset_timeout_ms: 30000
 ```
+
+`utils/httpx` 依 upstream authority + optional logical group 維護獨立 breaker；未標記 request
+維持 authority-only identity。每次包含 retry 的完整操作只記錄一個 outcome；active window
+達到 `minimum_requests` 後才計算 failure rate。Open 狀態在
+`reset_timeout_ms` 屆滿後只允許一個 half-open probe。
 
 ## Caching Strategies
 

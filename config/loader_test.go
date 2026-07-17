@@ -3,7 +3,7 @@
 // error, daily-only interval validation, GetEffectiveConfig redaction
 // path, not-loaded guard, and the GetHTTPConfig /
 // GetFXConfig / ValidateInterval / ValidateAdjustmentPolicy adapter
-// sanity. Capacity: 11 test functions + 1 createTestConfigFile helper.
+// sanity. Capacity: 12 test functions + 1 createTestConfigFile helper.
 package config
 
 import (
@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
 
@@ -295,11 +296,30 @@ func TestHTTPAndScrapeHTTPTypeMatch(t *testing.T) {
 	if cfg.Scrape.HTTP.Timeout != 10*time.Second {
 		t.Errorf("Scrape.HTTP.Timeout = %v, want 10s", cfg.Scrape.HTTP.Timeout)
 	}
-	// failure_threshold (float64 0-1) → FailureThreshold (int 0-100).
-	want := int(cfg.CircuitBreaker.FailureThreshold * 100)
-	if cfg.HTTP.FailureThreshold != want {
-		t.Errorf("HTTP.FailureThreshold = %d, want %d", cfg.HTTP.FailureThreshold, want)
+	if cfg.HTTP.FailureThreshold != 0 {
+		t.Errorf("FailureThreshold = %d, want legacy mode disabled", cfg.HTTP.FailureThreshold)
 	}
+	if cfg.HTTP.FailureRateThreshold != 0.30 {
+		t.Errorf("FailureRateThreshold = %v, want 0.30", cfg.HTTP.FailureRateThreshold)
+	}
+	if cfg.HTTP.MinimumRequests != 10 {
+		t.Errorf("MinimumRequests = %d, want 10", cfg.HTTP.MinimumRequests)
+	}
+}
+
+func TestValidateCircuitMinimumRequests(t *testing.T) {
+	path := "test-invalid-circuit-minimum.yaml"
+	defer os.Remove(path)
+	require.NoError(t, CreateEffectiveConfig(path))
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	content := strings.Replace(string(data), "minimum_requests: 10", "minimum_requests: -1", 1)
+	require.NotEqual(t, string(data), content, "default config must contain minimum_requests")
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
+
+	_, err = NewLoader(path).Load()
+	require.ErrorContains(t, err, "circuit_breaker.minimum_requests must be >= 1")
 }
 
 func TestGetFXConfig(t *testing.T) {

@@ -45,6 +45,7 @@ func CreateEffectiveConfig(path string) error {
 		"circuit_breaker": map[string]interface{}{
 			"window":            50,
 			"failure_threshold": 0.30,
+			"minimum_requests":  10,
 			"reset_timeout_ms":  30000,
 		},
 		"markets": map[string]interface{}{

@@ -9,7 +9,7 @@
 >
 > **This project is NOT affiliated with, endorsed by, or sponsored by Yahoo Finance or Yahoo Inc.**
 >
-> This is an **independent, open-source Go client** that accesses publicly available financial data from Yahoo Finance's website. Yahoo Finance does not provide an official API for this data, and this client operates by scraping publicly accessible web pages.
+> This is an **independent, open-source Go client** that accesses publicly available Yahoo Finance HTTP endpoints and web pages. Yahoo Finance does not provide an official supported API contract for this data, so endpoint or page changes can break the client.
 >
 > **Use at your own risk.** Yahoo Finance may change their website structure at any time, which could break this client. We make no guarantees about data accuracy, availability, or compliance with Yahoo Finance's terms of service.
 >
@@ -191,6 +191,15 @@ companyInfo, err := client.FetchCompanyInfo(ctx, "AAPL", runID)
 fundamentals, err := client.FetchFundamentalsQuarterly(ctx, "AAPL", runID)
 ```
 
+Annual statements use the free fundamentals-timeseries endpoint:
+
+```go
+income, err := client.FetchIncomeStatement(ctx, "AAPL")
+balance, err := client.FetchBalanceSheet(ctx, "AAPL")
+cashflow, err := client.FetchCashFlowStatement(ctx, "AAPL")
+news, err := client.FetchNews(ctx, "AAPL")
+```
+
 ---
 
 ## 🗂️ Facade Layer (Reflection-free Plain Go Structs)
@@ -239,7 +248,7 @@ func main() {
 - `*facade.Quote` — `{Symbol, Price float64, Currency, EventTime time.Time}`.
 - `*facade.CompanyInfo` — string pass-through of Security metadata (`Symbol`, `LongName`, `Exchange`, `Currency`, `Timezone`, ...).
 - `*facade.MarketData` — nullable `*float64` price fields + `*int64` volume; `nil` = missing (not zero).
-- `*facade.FundamentalsSnapshot` — quarterly fundamentals (paid subscription required).
+- `*facade.FundamentalsSnapshot` — annual statements via fundamentals-timeseries or quarterly fundamentals via the paid quoteSummary surface.
 - `[]facade.NewsItem` — `{Title, URL, Source, Summary, PublishedAt, Symbols}`.
 
 The raw `FromBarBatch` / `FromQuote` / `FromCompanyInfo` converters are also exported for callers that already hold a `*model.Normalized*` value, but new code should prefer the `facade.Client` methods, which return the plain structs directly.
@@ -250,7 +259,7 @@ Need `ScaledDecimal` precision instead of `float64`? Use the `Norm` variants —
 
 ## 🕸️ Scrape Fallback System
 
-When Yahoo Finance API endpoints are unavailable, rate-limited, or require paid subscriptions, yfin automatically falls back to web scraping with full data consistency guarantees.
+For fields that still lack a stdlib-compatible JSON endpoint, yfin exposes explicit web-scraping methods with the same model types. Callers choose these `Scrape*` methods directly; there is no implicit API-to-scrape switch.
 
 ### Key Features
 
@@ -500,7 +509,7 @@ go run . batch --max-workers 5
 | info                                                                                                     | 5 quoteSummary 模組                               | `(*yahoo.Client).FetchInfo`              | ✅   |
 | history                                                                                                  | chart 30d/daily                                   | `(*facade.Client).FetchDailyBars` 30d    | ✅   |
 | actions                                                                                                  | chart events                                      | `(*yahoo.Client).FetchActions`           | ✅   |
-| income / balance / cashflow                                                                              | scrape HTML                                       | `ScrapeFinancials/BalanceSheet/CashFlow` | ✅   |
+| income / balance / cashflow                                                                              | fundamentals-timeseries annual API                | `FetchIncomeStatement/BalanceSheet/CashFlowStatement` | ✅   |
 | major-holders / institutional-holders / mutualfund-holders                                               | quoteSummary 7 模組(單次 HTTP)                    | `FetchHolders`(同 4 模組)                | ✅   |
 | insider-transactions / insider-roster                                                                    | quoteSummary                                      | `FetchInsider`                           | ✅   |
 | insider-purchases                                                                                        | netSharePurchaseActivity 整形為 label/value table | `InsiderPurchaseSummaryTable`            | ✅   |
@@ -509,7 +518,7 @@ go run . batch --max-workers 5
 | earnings-dates                                                                                           | **HTML scrape** `/calendar/earnings?symbol=`      | `(*yahoo.Client).FetchEarningsDates`     | ✅   |
 | earnings-history / eps-trend / eps-revisions / earnings-estimates / revenue-estimates / growth-estimates | quoteSummary                                      | `ScrapeAnalysisDimension`                | ✅   |
 | price-targets                                                                                            | quoteSummary                                      | `ScrapeAnalystInsights`                  | ✅   |
-| news                                                                                                     | scrape HTML/JSON                                  | `ScrapeNews`                             | ✅   |
+| news                                                                                                     | `POST /xhr/ncp` tickerStream                      | `FetchNews`                              | ✅   |
 | calendar                                                                                                 | quoteSummary `calendarEvents`                     | `FetchCalendar`                          | ✅   |
 | sec-filings                                                                                              | quoteSummary                                      | `FetchSecFilings`                        | ✅   |
 | sustainability                                                                                           | quoteSummary `esgScores`                          | `FetchESG`                               | ✅   |
@@ -699,15 +708,15 @@ Provide a **reliable, consistent, and fast** Yahoo Finance client in Go with one
 - **Market Data** - 52-week ranges, market state, trading hours
 - **Multi-Currency Support** - Automatic currency conversion with FX providers
 
-### ⚠️ Paid on the API — Available via Scraping
+### ⚠️ Mixed API and Explicit Scrape Coverage
 
-These require a paid Yahoo Finance subscription through the API, but the scrape fallback serves them for free via `client.Scrape*`:
+Annual financial statements and news have first-class JSON endpoint methods. Other detailed surfaces remain available through explicit `client.Scrape*` methods:
 
-- **Financial Statements** - Income statement, balance sheet, cash flow
+- **Financial Statements** - `FetchIncomeStatement`, `FetchBalanceSheet`, `FetchCashFlowStatement`
 - **Analyst Recommendations** - Price targets, ratings
 - **Key Statistics** - P/E ratios, market cap, financial metrics
 - **Company Profiles** - Business summary, executives, sector info
-- **News Articles** - Recent news and press releases
+- **News Articles** - `FetchNews`
 
 ### ⚠️ Available via `batch` / `YahooDispatch` only
 
@@ -737,9 +746,9 @@ Reachable through the cookie+crumb `quoteSummary` path — see the [implementati
 ### 🛡️ Production Ready
 
 - **Rate Limiting** - Built-in QPS limits and burst control
-- **Circuit Breakers** - Automatic failure detection and recovery
+- **Circuit Breakers** - Rolling failure detection with explicit Yahoo endpoint-family isolation
 - **Retry Logic** - Exponential backoff with jitter
-- **Scrape Fallback** - Automatic API→scrape fallback with robots.txt compliance
+- **Scrape Surface** - Explicit robots.txt-compliant scrape methods for remaining API gaps
 - **Observability** - Comprehensive metrics, logs, and tracing
 - **Soak Testing** - Built-in load testing and robustness validation
 
@@ -849,7 +858,9 @@ retry:
     backoff_max_ms: 10000
 
 circuit_breaker:
-    failure_threshold: 5
+    window: 50
+    failure_threshold: 0.30
+    minimum_requests: 10
     reset_timeout_ms: 30000
 
 observability:

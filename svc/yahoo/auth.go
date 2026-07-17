@@ -59,6 +59,7 @@ func (m *CrumbManager) Invalidate() {
 }
 
 func (m *CrumbManager) bootstrapCookie(ctx context.Context) error {
+	ctx = circuitContext(ctx, circuitGroupAuth)
 	req, err := http.NewRequestWithContext(ctx, "GET", m.cookieURL+"/", nil)
 	if err != nil {
 		return err
@@ -78,6 +79,7 @@ func (m *CrumbManager) bootstrapCookie(ctx context.Context) error {
 }
 
 func (m *CrumbManager) fetchCrumb(ctx context.Context) (string, error) {
+	ctx = circuitContext(ctx, circuitGroupAuth)
 	req, err := http.NewRequestWithContext(ctx, "GET", m.apiBaseURL+"/v1/test/getcrumb", nil)
 	if err != nil {
 		return "", err

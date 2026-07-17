@@ -1,4 +1,4 @@
-// client.go — Resilient `Client` with token-bucket `RateLimiter` and 3-state `CircuitBreaker`; `Config` knobs + exponential-backoff-with-jitter retry loop. Capacity: 1 client, 1 limiter, 1 breaker, ~14 Config fields.
+// client.go — Resilient `Client` with token-bucket `RateLimiter`; `Config` knobs + exponential-backoff-with-jitter retry loop. Capacity: 1 client, 1 limiter, ~16 Config fields.
 package httpx
 
 import (
@@ -29,8 +29,14 @@ type Config struct {
 	Burst            int
 	CircuitWindow    time.Duration
 	FailureThreshold int
-	ResetTimeout     time.Duration
-	UserAgent        string
+	// FailureRateThreshold selects rolling failure-rate mode when
+	// FailureThreshold is zero. Valid values are in (0, 1].
+	FailureRateThreshold float64
+	// MinimumRequests gates rate-mode opening until the active window has
+	// enough logical request outcomes.
+	MinimumRequests int
+	ResetTimeout    time.Duration
+	UserAgent       string
 	// MaxBodyBytes caps the size of a single response body (after gzip
 	// decompression). 0 means unlimited. When the limit is exceeded
 	// Caller.Get returns ErrBodyTooLarge.
@@ -40,32 +46,34 @@ type Config struct {
 // DefaultConfig returns a sensible default configuration
 func DefaultConfig() *Config {
 	return &Config{
-		BaseURL:          "https://query1.finance.yahoo.com",
-		Timeout:          30 * time.Second,
-		IdleTimeout:      90 * time.Second,
-		MaxConnsPerHost:  10,
-		MaxAttempts:      3,     // Reduced to avoid overwhelming the API
-		BackoffBaseMs:    200,   // Increased base delay
-		BackoffJitterMs:  100,   // Increased jitter
-		MaxDelayMs:       10000, // Increased max delay
-		QPS:              1.0,   // Reduced QPS to be more conservative
-		Burst:            3,     // Reduced burst size
-		CircuitWindow:    60 * time.Second,
-		FailureThreshold: 3, // Reduced failure threshold
-		ResetTimeout:     30 * time.Second,
-		UserAgent:        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+		BaseURL:              "https://query1.finance.yahoo.com",
+		Timeout:              30 * time.Second,
+		IdleTimeout:          90 * time.Second,
+		MaxConnsPerHost:      10,
+		MaxAttempts:          3,     // Reduced to avoid overwhelming the API
+		BackoffBaseMs:        200,   // Increased base delay
+		BackoffJitterMs:      100,   // Increased jitter
+		MaxDelayMs:           10000, // Increased max delay
+		QPS:                  1.0,   // Reduced QPS to be more conservative
+		Burst:                3,     // Reduced burst size
+		CircuitWindow:        60 * time.Second,
+		FailureThreshold:     0,
+		FailureRateThreshold: 0.30,
+		MinimumRequests:      10,
+		ResetTimeout:         30 * time.Second,
+		UserAgent:            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
 	}
 }
 
 // Client provides a robust HTTP client with retry, backoff, rate limiting, and circuit breaker
 type Client struct {
-	config         *Config
-	httpClient     *http.Client
-	jar            *cookiejar.Jar
-	rateLimiter    *RateLimiter
-	circuitBreaker *CircuitBreaker
-	reqMW          []RequestMiddleware
-	respMW         []ResponseMiddleware
+	config          *Config
+	httpClient      *http.Client
+	jar             *cookiejar.Jar
+	rateLimiter     *RateLimiter
+	circuitBreakers *circuitBreakerRegistry
+	reqMW           []RequestMiddleware
+	respMW          []ResponseMiddleware
 }
 
 // NewClient creates a new HTTP client with the given configuration
@@ -92,11 +100,11 @@ func NewClient(config *Config) *Client {
 	}
 
 	return &Client{
-		config:         config,
-		httpClient:     httpClient,
-		jar:            jar,
-		rateLimiter:    NewRateLimiter(int(config.QPS), config.Burst),
-		circuitBreaker: NewCircuitBreaker(config.CircuitWindow, config.FailureThreshold, config.ResetTimeout),
+		config:          config,
+		httpClient:      httpClient,
+		jar:             jar,
+		rateLimiter:     NewRateLimiter(int(config.QPS), config.Burst),
+		circuitBreakers: newCircuitBreakerRegistry(config),
 	}
 }
 
@@ -126,12 +134,17 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 	ctx, span := obsv.StartIngestFetchSpan(ctx, endpoint, "", "", req.URL.String(), 0)
 	defer span.End()
 
-	// Check circuit breaker
-	if !c.circuitBreaker.Allow() {
+	// Circuit state is isolated by upstream authority and optional logical
+	// request group. The request context is the group source.
+	group := circuitGroupFromContext(req.Context())
+	breaker := c.circuitBreakers.forRequest(req.URL.Host, group)
+	if !breaker.Allow() {
 		obsv.RecordRequest(endpoint, "error", "circuit_open")
 		obsv.RecordSpanError(span, ErrCircuitOpen)
 		return nil, ErrCircuitOpen
 	}
+	outcome := circuitOutcomeNeutral
+	defer func() { breaker.record(outcome) }()
 
 	// Rate limiting
 	if err := c.rateLimiter.Wait(ctx); err != nil {
@@ -148,7 +161,6 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 		resp, err := c.httpClient.Do(req.WithContext(ctx))
 		if err != nil {
 			lastErr = err
-			c.circuitBreaker.RecordFailure()
 
 			// Record retry
 			if attempt > 0 {
@@ -156,6 +168,9 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 			}
 
 			if !c.shouldRetry(err, attempt) {
+				if ctx.Err() == nil {
+					outcome = circuitOutcomeFailure
+				}
 				obsv.RecordRequest(endpoint, "error", "network_error")
 				obsv.RecordRequestLatency(endpoint, time.Since(startTime))
 				obsv.RecordSpanError(span, err)
@@ -168,7 +183,6 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 			if c.shouldRetryResponse(resp, attempt) {
 				resp.Body.Close()
 				lastErr = NewHTTPError(resp.StatusCode, http.StatusText(resp.StatusCode), nil)
-				c.circuitBreaker.RecordFailure()
 
 				// Record retry
 				if attempt > 0 {
@@ -180,7 +194,7 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 				// Check if this is actually a success or a failure we can't retry
 				if c.isSuccessResponse(resp) {
 					// Success
-					c.circuitBreaker.RecordSuccess()
+					outcome = circuitOutcomeSuccess
 					obsv.RecordRequest(endpoint, "success", fmt.Sprintf("%d", resp.StatusCode))
 					obsv.RecordRequestLatency(endpoint, time.Since(startTime))
 					obsv.UpdateIngestFetchSpan(span, resp.StatusCode, resp.ContentLength, time.Since(startTime))
@@ -195,10 +209,12 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 					resp.Body.Close()
 					lastErr = NewHTTPError(resp.StatusCode, http.StatusText(resp.StatusCode), nil)
 
-					// Don't count 401 errors as circuit breaker failures
-					// 401 errors are expected for paid endpoints like fundamentals
-					if resp.StatusCode != 401 {
-						c.circuitBreaker.RecordFailure()
+					// A received response proves upstream availability unless it is
+					// a rate-limit or server-side failure.
+					if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode >= 500 {
+						outcome = circuitOutcomeFailure
+					} else {
+						outcome = circuitOutcomeSuccess
 					}
 
 					obsv.RecordRequest(endpoint, "error", fmt.Sprintf("%d", resp.StatusCode))
@@ -233,7 +249,9 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 		}
 	}
 
-	c.circuitBreaker.RecordFailure()
+	if ctx.Err() == nil {
+		outcome = circuitOutcomeFailure
+	}
 	obsv.RecordRequest(endpoint, "error", "max_attempts")
 	obsv.RecordRequestLatency(endpoint, time.Since(startTime))
 	obsv.RecordSpanError(span, fmt.Errorf("max attempts exceeded: %w", lastErr))
@@ -364,105 +382,6 @@ func (r *RateLimiter) Wait(ctx context.Context) error {
 		r.mu.Unlock()
 		return nil
 	}
-}
-
-// CircuitBreaker implements a circuit breaker pattern
-type CircuitBreaker struct {
-	window           time.Duration
-	failureThreshold int
-	resetTimeout     time.Duration
-
-	state       CircuitState
-	failures    int
-	lastFailure time.Time
-	mu          sync.RWMutex
-}
-
-// CircuitState represents the state of the circuit breaker
-type CircuitState int
-
-const (
-	StateClosed CircuitState = iota
-	StateOpen
-	StateHalfOpen
-)
-
-// NewCircuitBreaker creates a new circuit breaker
-func NewCircuitBreaker(window time.Duration, failureThreshold int, resetTimeout time.Duration) *CircuitBreaker {
-	return &CircuitBreaker{
-		window:           window,
-		failureThreshold: failureThreshold,
-		resetTimeout:     resetTimeout,
-		state:            StateClosed,
-	}
-}
-
-// Allow checks if the circuit breaker allows the request
-func (cb *CircuitBreaker) Allow() bool {
-	cb.mu.RLock()
-	defer cb.mu.RUnlock()
-
-	now := time.Now()
-
-	switch cb.state {
-	case StateClosed:
-		return true
-	case StateOpen:
-		// Check if we should transition to half-open
-		if now.Sub(cb.lastFailure) >= cb.resetTimeout {
-			cb.mu.RUnlock()
-			cb.mu.Lock()
-			if cb.state == StateOpen && now.Sub(cb.lastFailure) >= cb.resetTimeout {
-				cb.state = StateHalfOpen
-			}
-			cb.mu.Unlock()
-			cb.mu.RLock()
-			return cb.state == StateHalfOpen
-		}
-		return false
-	case StateHalfOpen:
-		return true
-	default:
-		return false
-	}
-}
-
-// RecordSuccess records a successful request
-func (cb *CircuitBreaker) RecordSuccess() {
-	cb.mu.Lock()
-	defer cb.mu.Unlock()
-
-	if cb.state == StateHalfOpen {
-		cb.state = StateClosed
-		cb.failures = 0
-	}
-}
-
-// RecordFailure records a failed request
-func (cb *CircuitBreaker) RecordFailure() {
-	cb.mu.Lock()
-	defer cb.mu.Unlock()
-
-	cb.failures++
-	cb.lastFailure = time.Now()
-
-	if cb.failures >= cb.failureThreshold {
-		cb.state = StateOpen
-	}
-}
-
-// State returns the current state of the circuit breaker
-func (cb *CircuitBreaker) State() CircuitState {
-	cb.mu.RLock()
-	defer cb.mu.RUnlock()
-	return cb.state
-}
-
-// Failures returns the current failure count (for testing)
-func (cb *CircuitBreaker) Failures() int {
-	cb.mu.RLock()
-	defer cb.mu.RUnlock()
-	return cb.failures
 }
 
 // Jar returns the cookie jar used by this client.

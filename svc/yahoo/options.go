@@ -51,6 +51,7 @@ func DecodeOptions(data []byte) (*OptionsDTO, error) {
 
 func (c *Client) FetchOptions(ctx context.Context, symbol string) (*OptionsDTO, error) {
 	u := c.baseURL + "/v7/finance/options/" + symbol
+	ctx = circuitContext(ctx, circuitGroupOptions)
 	req, err := http.NewRequestWithContext(ctx, "GET", u, nil)
 	if err != nil {
 		return nil, err

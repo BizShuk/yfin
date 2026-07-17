@@ -30,6 +30,7 @@ retry:
 circuit_breaker:
   window: 50
   failure_threshold: 0.30
+  minimum_requests: 10
   reset_timeout_ms: 30000
   # half_open_probes removed: not consumed by utils/httpx (which uses a
   # single-probe half-open transition). To customise, supply a tuned

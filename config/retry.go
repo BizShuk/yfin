@@ -4,6 +4,8 @@
 // `CircuitBreakerConfig`).
 package config
 
+const defaultCircuitMinimumRequests = 10
+
 // RetryConfig represents retry configuration
 type RetryConfig struct {
 	Attempts   int `yaml:"attempts"`
@@ -19,5 +21,6 @@ type RetryConfig struct {
 type CircuitBreakerConfig struct {
 	Window           int     `yaml:"window"`
 	FailureThreshold float64 `yaml:"failure_threshold"`
+	MinimumRequests  int     `yaml:"minimum_requests"`
 	ResetTimeoutMs   int     `yaml:"reset_timeout_ms"`
 }

@@ -11,8 +11,8 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/bizshuk/yfin/utils/httpx"
 	"github.com/bizshuk/yfin/model"
+	"github.com/bizshuk/yfin/utils/httpx"
 )
 
 // Client interface for web scraping operations.
@@ -69,9 +69,9 @@ func NewClient(config *Config, pool *httpx.Client) (Client, error) {
 	return NewClientWithCaller(caller, config)
 }
 
-// Fetch applies the configured robots.txt policy, then delegates the
-// GET to the underlying `httpx.Caller`. The caller is invoked exactly
-// once per Fetch — retries and backoff happen inside httpx.
+// Fetch applies the configured robots.txt policy, then delegates the complete
+// URL to the underlying `httpx.Caller`. The caller is invoked exactly once per
+// Fetch — retries and backoff happen inside httpx.
 func (c *client) Fetch(ctx context.Context, urlStr string) ([]byte, *model.FetchMeta, error) {
 	u, err := url.Parse(urlStr)
 	if err != nil {
@@ -86,7 +86,8 @@ func (c *client) Fetch(ctx context.Context, urlStr string) ([]byte, *model.Fetch
 		return nil, nil, robotsErr
 	}
 
-	body, meta, err := c.caller.Get(ctx, u.Path, u.Query())
+	ctx = yahooWebCircuitContext(ctx)
+	body, meta, err := c.caller.Get(ctx, u.String(), u.Query())
 	if err != nil {
 		return nil, nil, err
 	}
