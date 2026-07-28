@@ -58,6 +58,86 @@ func TestClientRetry(t *testing.T) {
 	}
 }
 
+func TestClient_ProfileRequestDefaultsAndEndpoint(t *testing.T) {
+	config := DefaultConfig()
+	config.MaxAttempts = 1
+	config.QPS = 100
+	config.Burst = 10
+	config.UserAgent = "config-agent"
+
+	client := NewClient(config)
+	client.UseProfile(HostProfile{
+		Host:       "profile.test",
+		EndpointFn: func(path string) string { return "profile:" + CommonEndpointFn(path) },
+		UserAgent:  "profile-agent",
+		Headers: http.Header{
+			"X-Profile": {"from-profile"},
+		},
+	})
+
+	var gotHeader http.Header
+	client.httpClient.Transport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		gotHeader = req.Header.Clone()
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     make(http.Header),
+			Body:       io.NopCloser(bytes.NewReader(nil)),
+			Request:    req,
+		}, nil
+	})
+
+	var gotEndpoint string
+	client.UseAfter(func(_ *http.Response, meta *Meta) {
+		gotEndpoint = meta.Endpoint
+	})
+	client.Use(func(req *http.Request, _ *Meta) error {
+		req.Header.Set("User-Agent", "middleware-agent")
+		return nil
+	})
+
+	req, err := http.NewRequest(http.MethodGet, "https://profile.test/v8/finance/chart/AAPL", nil)
+	require.NoError(t, err)
+	req.Header.Set("X-Caller", "keep")
+	req.Header.Set("X-Profile", "caller-value")
+
+	resp, err := client.Do(context.Background(), req)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	assert.Equal(t, "middleware-agent", gotHeader.Get("User-Agent"))
+	assert.Equal(t, "from-profile", gotHeader.Get("X-Profile"))
+	assert.Equal(t, "keep", gotHeader.Get("X-Caller"))
+	assert.Equal(t, "profile:v8", gotEndpoint)
+}
+
+func TestClient_ProfileUnregisteredHostUsesConfigDefaults(t *testing.T) {
+	config := DefaultConfig()
+	config.MaxAttempts = 1
+	config.QPS = 100
+	config.Burst = 10
+	config.UserAgent = "config-agent"
+
+	client := NewClient(config)
+	var gotHeader http.Header
+	client.httpClient.Transport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		gotHeader = req.Header.Clone()
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     make(http.Header),
+			Body:       io.NopCloser(bytes.NewReader(nil)),
+			Request:    req,
+		}, nil
+	})
+
+	req, err := http.NewRequest(http.MethodGet, "https://unregistered.test/v7/finance/quote", nil)
+	require.NoError(t, err)
+	req.Header.Set("X-Caller", "keep")
+	resp, err := client.Do(context.Background(), req)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	assert.Equal(t, "config-agent", gotHeader.Get("User-Agent"))
+	assert.Equal(t, "keep", gotHeader.Get("X-Caller"))
+}
+
 func TestClientRetryReplaysPOSTBody(t *testing.T) {
 	var bodies []string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

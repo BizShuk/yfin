@@ -28,6 +28,7 @@ type Client struct {
 func NewClient() *Client {
 	config := httpx.DefaultConfig()
 	httpClient := httpx.NewClient(config)
+	registerYahooHostProfiles(httpClient, config)
 	yahooClient := yahoo.NewClient(httpClient, "")
 	scrapeClient, _ := scrape.NewClient(scrape.DefaultConfig(), httpClient)
 
@@ -40,7 +41,11 @@ func NewClient() *Client {
 
 // NewClientWithConfig creates a new Yahoo Finance client with custom configuration
 func NewClientWithConfig(config *httpx.Config) *Client {
+	if config == nil {
+		config = httpx.DefaultConfig()
+	}
 	httpClient := httpx.NewClient(config)
+	registerYahooHostProfiles(httpClient, config)
 	yahooClient := yahoo.NewClient(httpClient, config.BaseURL)
 	scrapeClient, _ := scrape.NewClient(scrape.DefaultConfig(), httpClient)
 

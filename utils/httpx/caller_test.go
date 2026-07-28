@@ -5,6 +5,8 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -35,6 +37,44 @@ func TestCaller_GetInterface(t *testing.T) {
 	var _ Caller = c // compile-time assertion
 	if c == nil {
 		t.Fatal("expected non-nil client")
+	}
+}
+
+func TestGet_ProfileBodyCap(t *testing.T) {
+	config := DefaultConfig()
+	config.MaxAttempts = 1
+	config.QPS = 100
+	config.Burst = 10
+	config.MaxBodyBytes = 4
+
+	client := NewClient(config)
+	client.UseProfile(HostProfile{Host: "unlimited.test", MaxBody: 0})
+	client.UseProfile(HostProfile{Host: "capped.test", MaxBody: 4})
+	client.httpClient.Transport = roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     make(http.Header),
+			Body:       io.NopCloser(bytes.NewBufferString("12345678")),
+			Request:    req,
+		}, nil
+	})
+
+	body, _, err := client.Get(context.Background(), "https://unlimited.test/data", nil)
+	if err != nil {
+		t.Fatalf("registered MaxBody=0 should be unlimited: %v", err)
+	}
+	if got, want := string(body), "12345678"; got != want {
+		t.Fatalf("body = %q, want %q", got, want)
+	}
+
+	_, _, err = client.Get(context.Background(), "https://capped.test/data", nil)
+	if !errors.Is(err, ErrBodyTooLarge) {
+		t.Fatalf("profile cap error = %v, want ErrBodyTooLarge", err)
+	}
+
+	_, _, err = client.Get(context.Background(), "https://fallback.test/data", nil)
+	if !errors.Is(err, ErrBodyTooLarge) {
+		t.Fatalf("config fallback cap error = %v, want ErrBodyTooLarge", err)
 	}
 }
 

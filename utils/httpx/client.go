@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"net/http"
 	"net/http/cookiejar"
-	"strings"
 	"sync"
 	"time"
 
@@ -70,8 +69,10 @@ type Client struct {
 	config          *Config
 	httpClient      *http.Client
 	jar             *cookiejar.Jar
-	rateLimiter     *RateLimiter
+	rateLimiters    *rateLimiterRegistry
 	circuitBreakers *circuitBreakerRegistry
+	profileMu       sync.RWMutex
+	profiles        map[string]HostProfile
 	reqMW           []RequestMiddleware
 	respMW          []ResponseMiddleware
 }
@@ -103,8 +104,9 @@ func NewClient(config *Config) *Client {
 		config:          config,
 		httpClient:      httpClient,
 		jar:             jar,
-		rateLimiter:     NewRateLimiter(int(config.QPS), config.Burst),
+		rateLimiters:    newRateLimiterRegistry(),
 		circuitBreakers: newCircuitBreakerRegistry(config),
+		profiles:        make(map[string]HostProfile),
 	}
 }
 
@@ -121,6 +123,7 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 
 	// Set User-Agent as a baseline; request middleware may override.
 	req.Header.Set("User-Agent", c.config.UserAgent)
+	profile, hasProfile := c.applyProfileDefaults(req, meta)
 
 	// Run request middleware (UA / crumb / browser headers) once per call.
 	if err := c.runRequestMW(req, meta); err != nil {
@@ -146,8 +149,19 @@ func (c *Client) Do(ctx context.Context, req *http.Request) (*http.Response, err
 	outcome := circuitOutcomeNeutral
 	defer func() { breaker.record(outcome) }()
 
-	// Rate limiting
-	if err := c.rateLimiter.Wait(ctx); err != nil {
+	// Rate limiting is isolated per upstream hostname. Registered profiles
+	// override the client fallback without changing breaker identity.
+	qps, burst := c.config.QPS, c.config.Burst
+	if hasProfile {
+		if profile.QPS > 0 {
+			qps = profile.QPS
+		}
+		if profile.Burst > 0 {
+			burst = profile.Burst
+		}
+	}
+	limiter := c.rateLimiters.forHost(req.URL.Hostname(), qps, burst)
+	if err := limiter.Wait(ctx); err != nil {
 		obsv.RecordRequest(endpoint, "error", "rate_limit")
 		obsv.RecordSpanError(span, err)
 		return nil, fmt.Errorf("rate limiter: %w", err)
@@ -330,16 +344,25 @@ type RateLimiter struct {
 	capacity float64
 	rate     float64
 	lastTime time.Time
+	now      func() time.Time
 	mu       sync.Mutex
 }
 
 // NewRateLimiter creates a new rate limiter
-func NewRateLimiter(qps, burst int) *RateLimiter {
+func NewRateLimiter(qps float64, burst int) *RateLimiter {
+	if qps <= 0 {
+		panic("httpx: rate limit qps must be greater than zero")
+	}
+	if burst <= 0 {
+		panic("httpx: rate limit burst must be greater than zero")
+	}
+	now := time.Now
 	return &RateLimiter{
 		tokens:   float64(burst),
 		capacity: float64(burst),
-		rate:     float64(qps),
-		lastTime: time.Now(),
+		rate:     qps,
+		lastTime: now(),
+		now:      now,
 	}
 }
 
@@ -347,16 +370,15 @@ func NewRateLimiter(qps, burst int) *RateLimiter {
 func (r *RateLimiter) Wait(ctx context.Context) error {
 	r.mu.Lock()
 
-	now := time.Now()
-	elapsed := now.Sub(r.lastTime)
-
-	// Add tokens based on elapsed time
-	r.tokens += r.rate * elapsed.Seconds()
-	if r.tokens > r.capacity {
-		r.tokens = r.capacity
+	now := r.now()
+	if now.After(r.lastTime) {
+		elapsed := now.Sub(r.lastTime)
+		r.tokens += r.rate * elapsed.Seconds()
+		if r.tokens > r.capacity {
+			r.tokens = r.capacity
+		}
+		r.lastTime = now
 	}
-
-	r.lastTime = now
 
 	// Check if we have a token available
 	if r.tokens >= 1.0 {
@@ -365,21 +387,31 @@ func (r *RateLimiter) Wait(ctx context.Context) error {
 		return nil
 	}
 
-	// Calculate wait time needed to get a token
-	waitTime := time.Duration((1.0 - r.tokens) / r.rate * float64(time.Second))
+	// Reserve the next token while holding the lock. lastTime may move into
+	// the future so concurrent waiters queue behind this reservation instead
+	// of waking together and exceeding the configured QPS.
+	base := now
+	deficit := 1.0 - r.tokens
+	if r.lastTime.After(now) {
+		base = r.lastTime
+		deficit = 1.0
+	}
+	delay := time.Duration(math.Ceil(deficit / r.rate * float64(time.Second)))
+	readyAt := base.Add(delay)
+	waitTime := readyAt.Sub(now)
+	r.tokens = 0
+	r.lastTime = readyAt
 
 	// Release the lock before waiting
 	r.mu.Unlock()
 
 	// Wait with context cancellation
+	timer := time.NewTimer(waitTime)
+	defer timer.Stop()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case <-time.After(waitTime):
-		// Reacquire lock and consume token
-		r.mu.Lock()
-		r.tokens = 0.0 // Token consumed by waiting
-		r.mu.Unlock()
+	case <-timer.C:
 		return nil
 	}
 }
@@ -387,19 +419,7 @@ func (r *RateLimiter) Wait(ctx context.Context) error {
 // Jar returns the cookie jar used by this client.
 func (c *Client) Jar() *cookiejar.Jar { return c.jar }
 
-// extractEndpoint extracts the endpoint name from a URL path
+// extractEndpoint provides a domain-neutral fallback for unregistered hosts.
 func extractEndpoint(path string) string {
-	// Map common Yahoo Finance paths to endpoint names
-	switch {
-	case strings.Contains(path, "/v8/finance/chart/"):
-		return "bars_1d"
-	case strings.Contains(path, "/v1/finance/quote"):
-		return "quote"
-	case strings.Contains(path, "/v11/finance/quoteSummary/"):
-		return "fundamentals"
-	case strings.Contains(path, "/v1/finance/quoteSummary/"):
-		return "fundamentals"
-	default:
-		return "unknown"
-	}
+	return CommonEndpointFn(path)
 }

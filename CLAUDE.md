@@ -22,6 +22,8 @@
 
 Module path: `github.com/bizshuk/yfin` (曾用名 `yfinance-go`).
 
+文件分流：進行中 implementation plans 位於 [plans/](plans/)；純過期 plan 直接刪除，完成且仍有 durable specification value 的內容移至 [docs/specs/](docs/specs/)；只有需長期遵守的 hard decisions 才寫入 [docs/memory/](docs/memory/)。
+
 ### 依賴圖 (Dependency Graph)
 
 依賴方向嚴格由上往下，無環 (DAG)。`model/` 與 `config/` 是 leaf。
@@ -57,6 +59,7 @@ flowchart TD
 
 - `facade/`: Publicly exported, reflection-free plain Go structs (e.g. `facade.Bar`, `facade.Quote`) for external packages (e.g., `stock`, `data`) to avoid importing `svc/*` internals. Two constructors: `facade.NewClient()` / `facade.NewClientWithConfig(*httpx.Config)`. The `*Client` is the **single handler** for both external SDK consumers AND the in-repo `yfin` CLI — all data fetching routes through it. `facade.*` DTOs are **type aliases** for `model.*` — a back-compat shim only. `Client` 的方法依 surface 分檔，一檔一職責：
     - `client.go`: `Client` struct (MIC cache + `sync.RWMutex`) + 2 constructors + 共用 helper (`inferMICForSymbol` / `isAuthenticationError`)。
+    - `client_profile.go`: facade composition 階段註冊 Yahoo 固定主機 profile；query、web scrape 與 cookie bootstrap 共用一個 connection pool，但各自選用 limiter、body cap、headers 與 endpoint tag。
     - `client_yahoo.go`: 12 個 Yahoo API `Fetch*`：8 個 chart/quoteSummary surface（Daily/Intraday/Weekly/Monthly bars、Quote、FundamentalsQuarterly、CompanyInfo、MarketData）、3 個 annual fundamentals-timeseries statement（Income/Balance/CashFlow）與 news XHR；回傳 plain SDK/model struct。
     - `client_norm.go`: 4 個 `Fetch*Norm` 變體，回傳 `*model.Normalized*`（保留 ScaledDecimal 精度）。
     - `client_scrape.go`: 10 個 `Scrape*`，包含完整 analysis DTO、六維 projection 與既有 model converter。
@@ -67,7 +70,7 @@ flowchart TD
     - `svc/twse/`: Taiwan Stock Exchange open data client + parsers (23 endpoints). Owns HTTP/fetch logic + `Registry`/`Dispatcher`/`Fetcher`/`Endpoint` meta; the 23 `*Response` envelope structs and `*Row` typed rows are re-exported as `model.*` aliases for cross-layer reuse.
 - `model/`: Pure data types + normalization logic — the **lowest layer** of the dependency graph. Houses: 8 facade-aligned SDK DTOs (`Bar`/`BarBatch`/`Quote`/`MarketData`/`CompanyInfo`/`FundamentalsSnapshot`/`FundamentalsLine`/`NewsItem`), `ScaledDecimal` precision type + helpers, `Security` + `InferMIC` + `CreateSecurity` + `ExchangeToMIC`, 9 `Normalized*` types + 4 `Converted*` + `ConvertTo` methods + `FXConverter`/`FXMeta`/`MockFXConverter`, all `Normalize*` functions (`NormalizeBars`/`Quote`/`Fundamentals`/`MarketData`/`CompanyInfo`/`Holders`/`Insider`), `ToUTCDayBoundaries`, scrape DTOs (`FetchMeta`/`ScrapeNewsItem`/`NewsStats`/value types/`Scaled` alias/`Currency` alias/`YahooNum`/`YahooInt`/`YahooString`/all comprehensive DTOs), TWSE `Response` envelope + 22 endpoint `*Response` + `*Row` types, and `scrape_convert.go` (DTO→model direct converters: `ScrapeFinancialsToSnapshot`/`BalanceSheet`/`CashFlow`/`KeyStatistics`/`Analysis`/`AnalystInsights` + `ScrapeNewsToItems`, replacing the former ampy-proto emit hop). **`svc/norm/` was merged into `model/`** in Phase 2; `svc/norm/` no longer exists.
 - `utils/`: Shared infrastructure (`utils/*` may NOT import `svc/*`):
-    - `utils/httpx/`: Resilient HTTP client — QPS rate limiting, exponential backoff, retry logic, and rolling-window circuit breakers. Breakers are keyed by authority plus an optional context-only logical group; ungrouped callers retain host-level behavior. Each logical request records one final outcome after retries. Single shared `http.Client`; session rotation removed.
+    - `utils/httpx/`: Resilient HTTP client — 單一共享 `http.Client` 與 connection pool，依 hostname 選用 immutable `HostProfile` 的 limiter、response body cap、request defaults 與 endpoint tag；未註冊主機沿用 `Config`。Breakers 仍獨立依 authority 加 optional context-only logical group 分組，不與 profile identity 合併。每個含 retries 的 logical request 只記錄一次最終 outcome；session rotation 已移除。
     - `utils/cache/`: Refresh-frequency cache (daily/monthly/quarterly/annually)，以最新有效 artifact 判 freshness。
     - `utils/obsv/`: Structured logging (stdlib `slog`) + OpenTelemetry tracing (no-op tracer) + Prometheus metrics. Stands alone on stdlib + OTel + `prometheus/client_golang` (no external observability wrapper).
 - `config/`: Top-level YAML loader (`os.ReadFile` + `yaml.Unmarshal` into `map[string]interface{}`, then env-var interpolation + struct mapping + validation) — `config.Config` / `config.NewLoader` / `config.CreateEffectiveConfig`。一個 config section 一個檔案（`http.go` / `scrape.go` / `fx.go` / `markets.go` / `retry.go` ...），`loader.go` 只管讀檔與插值，`adapters.go` 只管轉成 HTTP/scrape/FX 的下游型別。leaf 套件，不 import 任何內部套件。runtime 預設設定 `effective.yaml` 同目錄併存（不同環境以 `app.env` 區分）。
@@ -95,7 +98,7 @@ flowchart TD
 
 ## 🔧 Code Conventions & Decisions
 
-1. **No Session Rotation**: Session rotation was removed to simplify HTTP connection reuse and state management. The HTTP client relies on a single shared `http.Client` with robust rate-limiting, retries, and authority + optional logical-group circuit breakers. `--sessions` persistent flag remains for backward compatibility but its effect is vestigial.
+1. **No Session Rotation**: Session rotation was removed to simplify HTTP connection reuse and state management. The HTTP client uses one shared `http.Client`; host profiles independently select rate limits, body caps, headers, and endpoint tags. Circuit breakers remain keyed by authority + optional logical group. `--sessions` persistent flag remains for backward compatibility but its effect is vestigial.
 2. **Facade boundary (legacy)**: External projects (stock, data, ...) may import from `facade/` for the legacy back-compat surface OR from `model/` directly for raw types. The recommended path is `model/` since `facade/` types are now just aliases. **Avoid `ScaledDecimal` in external surfaces** — use float64 via `model.Bar`/`model.Quote`/etc.
 3. **Decimals**: Prices/amounts are internally stored as `ScaledDecimal` for precision in `model.Normalized*` types. External-facing `model.Bar`/`model.Quote`/etc. expose float64. Conversion between the two is `model.FromScaledDecimal(sd)`.
 4. **Timezones**: All timestamps must be handled in UTC. `model.ToUTCDayBoundaries()` is the canonical epoch→day conversion.

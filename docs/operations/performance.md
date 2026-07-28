@@ -131,6 +131,27 @@ func createDevelopmentClient() *facade.Client {
 
 ## Concurrency & Rate Limiting
 
+### Per-host HTTP profiles
+
+`facade.Client` shares one `http.Client` and connection pool across Yahoo
+upstreams, while selecting runtime policy by request hostname:
+
+| Host | Rate limit | Body cap | Request defaults |
+|------|------------|----------|------------------|
+| `query1.finance.yahoo.com` | configured `QPS` / `Burst` | configured `MaxBodyBytes` | configured user agent |
+| `query2.finance.yahoo.com` | configured `QPS` / `Burst` | configured `MaxBodyBytes` | configured user agent |
+| `fc.yahoo.com` | configured `QPS` / `Burst` | configured `MaxBodyBytes` | configured user agent |
+| `finance.yahoo.com` | `0.7 QPS`, burst `1` | `8 MiB` | scrape user agent and browser headers |
+
+Fractional rates are preserved, and each hostname owns independent token-bucket
+state. Hosts without a registered profile retain the `httpx.Config` fallback.
+Request middleware runs after profile defaults and may override them.
+
+Circuit-breaker identity is separate from host profiles: it remains the
+upstream authority plus an optional logical request group, so Yahoo auth,
+chart, quote-summary, news, and web failures do not become one shared profile
+state.
+
 ### 1. Controlled Concurrency
 
 ```go

@@ -39,7 +39,8 @@ type Caller interface {
 
 // Get implements Caller. It resolves a relative target against Config.BaseURL
 // or uses an absolute target verbatim, encodes query, performs a GET, validates
-// the response status, decodes the body via readBody (gzip + MaxBodyBytes), and
+// the response status, decodes the body via readBody (gzip + effective host
+// profile or config MaxBodyBytes), and
 // returns the body along with a populated `*Meta` describing the fetch.
 //
 // On non-2xx responses Get still returns the `*Meta` (with Status, Gzip,
@@ -92,7 +93,11 @@ func (c *Client) Get(ctx context.Context, target string, query url.Values) ([]by
 		return nil, meta, fmt.Errorf("httpx: status %d: %s", resp.StatusCode, string(body))
 	}
 
-	body, err := readBody(resp, c.config.MaxBodyBytes)
+	maxBody := c.config.MaxBodyBytes
+	if profile, ok := c.profileForHost(req.URL.Hostname()); ok {
+		maxBody = profile.MaxBody
+	}
+	body, err := readBody(resp, maxBody)
 	meta.Bytes = len(body)
 	return body, meta, err
 }

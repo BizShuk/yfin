@@ -1,4 +1,6 @@
-# Absolute URL Routing Implementation Plan
+# Absolute URL Routing
+
+`Status: Implemented and retained as the completed routing specification.`
 
 > `For agentic workers:` implement inline with `test-driven-development`; every production change requires a test that was observed failing first.
 
