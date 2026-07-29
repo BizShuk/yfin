@@ -78,6 +78,8 @@ The contract is `cmd → facade → svc → model`. The CLI never reaches into `
 
 Downstream packages should import `facade/` (convenience, `float64` prices) or `model/` (raw types, `ScaledDecimal` precision). Never `svc/*`.
 
+Canonical domain terms are defined in [docs/terminology.md](docs/terminology.md).
+
 ---
 
 ## 📖 Quick Start
@@ -199,6 +201,34 @@ balance, err := client.FetchBalanceSheet(ctx, "AAPL")
 cashflow, err := client.FetchCashFlowStatement(ctx, "AAPL")
 news, err := client.FetchNews(ctx, "AAPL")
 ```
+
+#### Read-through raw cache
+
+Downstream applications choose the app-owned raw root; yfin owns provider
+access, cache identity, refresh policy, path validation, and atomic writes.
+
+```go
+barsClient, err := facade.NewCachedClient(rawRoot)
+twseClient, err := facade.NewCachedTwseClient(rawRoot)
+foundationClient, err := facade.NewCachedFoundationClient(rawRoot)
+
+bars, err := barsClient.FetchDailyBars(ctx, "AAPL", start, end, true, runID)
+artifact, err := foundationClient.Fetch(
+    ctx, "info", "AAPL", runID, false,
+)
+```
+
+The cache layouts are:
+
+```text
+yahoo/bars/<symbol>/<start>_<end>_<adjusted>.json
+twse/<endpoint>/<date>_<query-sha256>.json
+<foundation-command>/<ticker>.<YYYY-MM-DD>.json
+```
+
+`facade.FoundationCommands()` returns the ordered 30-command surface.
+`FetchFoundation` and `CachedFoundationClient.Fetch` keep generic foundation
+dispatch inside the SDK instead of downstream applications.
 
 ---
 
@@ -476,11 +506,17 @@ func main() {
 
 ## 🐍→🦫 Batch Mode (Python yf parity)
 
-`yfin batch` 以 Go 實作 `skills/scripts/all_ticker_yf.py` 的 30-command 批次、分級快取與 artifact lifecycle；Python 版本保留為 live oracle：
+`yfin batch` 以 Go 實作 `skills/scripts/all_ticker_yf.py` 的 30-command 批次、
+分級快取與 artifact lifecycle；Python 版本只保留為明確執行的 live oracle，
+不屬於 Stock runtime：
 
-- `commandOrder` 固定對齊 Python `COMMANDS` 的 30 個名稱與順序。
+- `commandOrder` 取自 `facade.FoundationCommands()`；CLI registry 與 SDK
+  consumer 都呼叫 `FetchFoundation`。
 - 預設 universe 由 binary embedded `cmd/dispatch/ticker_list.csv` 提供，不依賴 current working directory。
-- Go artifacts 寫入 `~/.config/yfin/data/raw/<command>/<ticker>.<YYYY-MM-DD>.json`；Python oracle 保留在 `~/.config/stock/data/raw/`。
+- CLI artifacts 寫入
+  `~/.config/yfin/data/raw/<command>/<ticker>.<YYYY-MM-DD>.json`。Downstream
+  可把自己的 app raw root 傳給 `NewCachedFoundationClient`；artifact 仍由
+  yfin 寫入。
 - JSON 與 error artifacts 皆以同目錄 temporary file + atomic rename 發布；cache 只以最新有效 artifact 判 freshness。
 - HTTP `404/422` 記為 `not_found`；任何 `failed` command 會保留已成功 artifacts，並令 batch exit non-zero。
 
@@ -718,9 +754,11 @@ Annual financial statements and news have first-class JSON endpoint methods. Oth
 - **Company Profiles** - Business summary, executives, sector info
 - **News Articles** - `FetchNews`
 
-### ⚠️ Available via `batch` / `YahooDispatch` only
+### ⚠️ Generic foundation surfaces
 
-Reachable through the cookie+crumb `quoteSummary` path — see the [implementation matrix](#30-command-implementation-matrix) — but not exposed as first-class `facade.Client.Fetch*` methods. Use `yfin batch --ticker X` or call `facade.YahooDispatch`:
+These surfaces do not each have a first-class `Fetch*` method. Use
+`yfin batch --ticker X`, `client.FetchFoundation(...)`, or the cache-backed
+`CachedFoundationClient.Fetch(...)`:
 
 - **Options Data** - Options chains and pricing
 - **Insider Trading** - Transactions, roster, purchase summary

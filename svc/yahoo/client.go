@@ -74,6 +74,9 @@ func (c *Client) FetchDailyBars(ctx context.Context, symbol string, start, end t
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode bars response: %w", err)
 	}
+	if err := ValidateBars(barsResp); err != nil {
+		return nil, fmt.Errorf("invalid bars response: %w", err)
+	}
 
 	// Validate response has data
 	meta := barsResp.GetMetadata()

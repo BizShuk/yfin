@@ -20,7 +20,8 @@ type Bar struct {
 
 // BarBatch is a series of Bars for one symbol, plus identifying metadata.
 type BarBatch struct {
-	Symbol string `json:"symbol"`
-	MIC    string `json:"mic,omitempty"`
-	Bars   []Bar  `json:"bars"`
+	Symbol         string `json:"symbol"`
+	MIC            string `json:"mic,omitempty"`
+	FirstTradeDate string `json:"first_trade_date,omitempty"`
+	Bars           []Bar  `json:"bars"`
 }

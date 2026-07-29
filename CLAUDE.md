@@ -22,7 +22,7 @@
 
 Module path: `github.com/bizshuk/yfin` (曾用名 `yfinance-go`).
 
-文件分流：進行中 implementation plans 位於 [plans/](plans/)；純過期 plan 直接刪除，完成且仍有 durable specification value 的內容移至 [docs/specs/](docs/specs/)；只有需長期遵守的 hard decisions 才寫入 [docs/memory/](docs/memory/)。
+文件分流：進行中 implementation plans 位於 [plans/](plans/)；純過期 plan 直接刪除，完成且仍有 durable specification value 的內容移至 [docs/specs/](docs/specs/)；只有需長期遵守的 hard decisions 才寫入 [docs/memory/](docs/memory/)。領域名詞以 [docs/terminology.md](docs/terminology.md) 為準。
 
 ### 依賴圖 (Dependency Graph)
 
@@ -63,21 +63,32 @@ flowchart TD
     - `client_yahoo.go`: 12 個 Yahoo API `Fetch*`：8 個 chart/quoteSummary surface（Daily/Intraday/Weekly/Monthly bars、Quote、FundamentalsQuarterly、CompanyInfo、MarketData）、3 個 annual fundamentals-timeseries statement（Income/Balance/CashFlow）與 news XHR；回傳 plain SDK/model struct。
     - `client_norm.go`: 4 個 `Fetch*Norm` 變體，回傳 `*model.Normalized*`（保留 ScaledDecimal 精度）。
     - `client_scrape.go`: 10 個 `Scrape*`，包含完整 analysis DTO、六維 projection 與既有 model converter。
+    - `foundation.go`: 30-command ordered manifest 與 `FetchFoundation` generic
+      dispatch；`cmd/dispatch` 與 downstream SDK consumer 共用，不再各自複製
+      command-to-provider mapping。
+    - `cached_client.go` / `cached_twse.go` / `cached_foundation.go` /
+      `raw_cache.go`: downstream 傳入 raw root；yfin 擁有 read-through policy、
+      request identity、atomic JSON persistence 與 legacy artifact reads。
     - `twse.go` / `twse_dispatch.go`: `TwseClient` 不透明 handle（含建構、`Dispatch`、no-data 判定）/ endpoint registry + 23 個 fetcher map。
 - `svc/`: SDK-first business services (HTTP fetch + decode + validation only):
     - `svc/yahoo/`: Yahoo Finance raw HTTP API client（Crumb auth、chart API、quoteSummary、annual fundamentals-timeseries、news XHR）。`timeseries.go` 將最新 annual point 映射為 `model.FundamentalsSnapshot`；`news.go` 將 `tickerStream` 映射為 `[]model.NewsItem`。Endpoint envelope 留在 service 內，不穿越 facade boundary。
     - `svc/scrape/`: Web scraping engine (robots.txt compliant, fills API gaps). Owns HTTP/parse logic + scrape-config types (`Config`/`RetryConfig`/`EndpointConfig`/`RobotsPolicy`/`RegexConfig`); DTOs (ComprehensiveFinancialsDTO, KeyStatisticsDTO, etc.) are now re-exported as `model.*` aliases for cross-layer reuse. News 抽取依職責分 5 檔：`extract_news.go`（`ParseNews` 編排 + HTML-regex 策略）、`extract_news_json.go`（內嵌 tickerStream JSON 策略，優先路徑）、`news_normalize.go`（URL/相對時間/ticker 正規化 + 去重）、`news_regex_config.go`（YAML-driven regex pattern 設定）、`news_metrics.go`（Prometheus 指標）。
     - `svc/twse/`: Taiwan Stock Exchange open data client + parsers (23 endpoints). Owns HTTP/fetch logic + `Registry`/`Dispatcher`/`Fetcher`/`Endpoint` meta; the 23 `*Response` envelope structs and `*Row` typed rows are re-exported as `model.*` aliases for cross-layer reuse.
-- `model/`: Pure data types + normalization logic — the **lowest layer** of the dependency graph. Houses: 8 facade-aligned SDK DTOs (`Bar`/`BarBatch`/`Quote`/`MarketData`/`CompanyInfo`/`FundamentalsSnapshot`/`FundamentalsLine`/`NewsItem`), `ScaledDecimal` precision type + helpers, `Security` + `InferMIC` + `CreateSecurity` + `ExchangeToMIC`, 9 `Normalized*` types + 4 `Converted*` + `ConvertTo` methods + `FXConverter`/`FXMeta`/`MockFXConverter`, all `Normalize*` functions (`NormalizeBars`/`Quote`/`Fundamentals`/`MarketData`/`CompanyInfo`/`Holders`/`Insider`), `ToUTCDayBoundaries`, scrape DTOs (`FetchMeta`/`ScrapeNewsItem`/`NewsStats`/value types/`Scaled` alias/`Currency` alias/`YahooNum`/`YahooInt`/`YahooString`/all comprehensive DTOs), TWSE `Response` envelope + 22 endpoint `*Response` + `*Row` types, and `scrape_convert.go` (DTO→model direct converters: `ScrapeFinancialsToSnapshot`/`BalanceSheet`/`CashFlow`/`KeyStatistics`/`Analysis`/`AnalystInsights` + `ScrapeNewsToItems`, replacing the former ampy-proto emit hop). **`svc/norm/` was merged into `model/`** in Phase 2; `svc/norm/` no longer exists.
+- `model/`: Pure data types + normalization logic — the **lowest layer** of the dependency graph. Houses: 8 facade-aligned SDK DTOs (`Bar`/`BarBatch`/`Quote`/`MarketData`/`CompanyInfo`/`FundamentalsSnapshot`/`FundamentalsLine`/`NewsItem`), `ScaledDecimal` precision type + helpers, `Security` + `InferMIC` + `CreateSecurity` + `ExchangeToMIC`, 9 `Normalized*` types + 4 `Converted*` + `ConvertTo` methods + `FXConverter`/`FXMeta`/`MockFXConverter`, all `Normalize*` functions (`NormalizeBars`/`Quote`/`Fundamentals`/`MarketData`/`CompanyInfo`/`Holders`/`Insider`), exchange-local `ToTradingDay` plus the deprecated UTC-only compatibility helper, scrape DTOs (`FetchMeta`/`ScrapeNewsItem`/`NewsStats`/value types/`Scaled` alias/`Currency` alias/`YahooNum`/`YahooInt`/`YahooString`/all comprehensive DTOs), TWSE `Response` envelope + 22 endpoint `*Response` + `*Row` types, and `scrape_convert.go` (DTO→model direct converters: `ScrapeFinancialsToSnapshot`/`BalanceSheet`/`CashFlow`/`KeyStatistics`/`Analysis`/`AnalystInsights` + `ScrapeNewsToItems`, replacing the former ampy-proto emit hop). **`svc/norm/` was merged into `model/`** in Phase 2; `svc/norm/` no longer exists.
 - `utils/`: Shared infrastructure (`utils/*` may NOT import `svc/*`):
     - `utils/httpx/`: Resilient HTTP client — 單一共享 `http.Client` 與 connection pool，依 hostname 選用 immutable `HostProfile` 的 limiter、response body cap、request defaults 與 endpoint tag；未註冊主機沿用 `Config`。Breakers 仍獨立依 authority 加 optional context-only logical group 分組，不與 profile identity 合併。每個含 retries 的 logical request 只記錄一次最終 outcome；session rotation 已移除。
-    - `utils/cache/`: Refresh-frequency cache (daily/monthly/quarterly/annually)，以最新有效 artifact 判 freshness。
+    - `utils/cache/`: Root-confined atomic JSON store 與 refresh-frequency cache
+      (daily/monthly/quarterly/annually)，以最新有效 artifact 判 freshness。
     - `utils/obsv/`: Structured logging (stdlib `slog`) + OpenTelemetry tracing (no-op tracer) + Prometheus metrics. Stands alone on stdlib + OTel + `prometheus/client_golang` (no external observability wrapper).
 - `config/`: Top-level YAML loader (`os.ReadFile` + `yaml.Unmarshal` into `map[string]interface{}`, then env-var interpolation + struct mapping + validation) — `config.Config` / `config.NewLoader` / `config.CreateEffectiveConfig`。一個 config section 一個檔案（`http.go` / `scrape.go` / `fx.go` / `markets.go` / `retry.go` ...），`loader.go` 只管讀檔與插值，`adapters.go` 只管轉成 HTTP/scrape/FX 的下游型別。leaf 套件，不 import 任何內部套件。runtime 預設設定 `effective.yaml` 同目錄併存（不同環境以 `app.env` 區分）。
 - `cmd/`: CLI composition root. `main.go` calls each sub-package's `Register(RootCmd)`:
     - `cmd/{root,client,global,build,exitcodes}.go`: helpers + persistent flags + shared client builder (`CreateClient()` returns `*facade.Client`).
     - `cmd/admin/`: `config-effective`, `version`.
-    - `cmd/dispatch/`: `batch` (sub-package name is `dispatch` but no top-level `yfin dispatch` command exists)。依固定 30-command manifest 執行；income/balance/cashflow 走 fundamentals-timeseries，news 走 XHR，其餘依 registry 分派。Embedded universe 位於 `cmd/dispatch/ticker_list.csv`，atomic artifacts 寫入 `~/.config/yfin/data/raw/`；任一 `failed` command 令 CLI 回 non-zero。
+    - `cmd/dispatch/`: `batch` (sub-package name is `dispatch` but no top-level
+      `yfin dispatch` command exists)。命令順序取自
+      `facade.FoundationCommands()`，全部呼叫 `FetchFoundation`；embedded
+      universe 位於 `cmd/dispatch/ticker_list.csv`，atomic artifacts 寫入
+      `~/.config/yfin/data/raw/`；任一 `failed` command 令 CLI 回 non-zero。
     - `cmd/format/`: **共用** 的 comprehensive-\* DTO → stdout formatter（`ComprehensiveStatistics` / `ComprehensiveProfile` / `ComprehensiveFinancials`），一個 DTO 一個檔案。`cmd/fundamentals` 與 `cmd/scrape` 都由此取用；此套件只 import `model/`，是 leaf。
     - `cmd/fundamentals/`: `fundamentals`, `comprehensive-stats`, `comprehensive-profile`.
     - `cmd/market/`: `pull`, `quote`.
@@ -91,6 +102,12 @@ flowchart TD
 > **Architecture contract: `cmd → facade → svc → model`** (model is the lowest layer; svc depends on model; facade depends on svc + model; cmd depends on facade + model). The yfin CLI's runtime code never calls `svc/*` directly — every fetch goes through `cmd.CreateClient()` (returns `*facade.Client`) which wraps `facade.NewClientWithConfig()`. The CLI flag overrides (`--qps` / `--retry-max` / `--timeout`) are applied in `cmd.CreateClient()` on top of the YAML HTTP settings. Cmd sub-packages (`market` / `fundamentals` / `scrape` / `dispatch` / `twse`) only interact with `svc/yahoo` / `svc/scrape` / `svc/twse` through facade's plain-SDK methods or facade-level wrappers (`(*facade.Client).ScrapeFetch` / `(*facade.TwseClient).Dispatch` / `facade.YahooDispatch` etc.). `model/*` imports in cmd ARE allowed (DTOs as formatter parameters). Scrape DTOs convert to model directly via `model.Scrape*ToSnapshot` / `model.ScrapeNewsToItems` (in `model/scrape_convert.go`) — there is no ampy-proto emit hop. External packages (stock, data) call `facade.NewClient()` directly or import `model/` for raw types.
 >
 > **facade 不得在簽名上洩漏 `svc/*` 的具體型別。** 若 facade 回傳裸的 `*svc/twse.Client`，cmd 光是為了宣告變數就被迫 import `svc/twse`，契約當場破功（此事發生過）。跨越 facade 邊界的 handle 一律包成 facade 自有的不透明型別（如 `facade.TwseClient`），並把操作掛成它的 method。純資料的 re-export（`type TwseEndpoint = twse.Endpoint`、`var TwseRegistry`）可以，因為 alias 讓 cmd 不必 import svc 就能指名該型別。
+>
+> **Downstream cache ownership contract:** Stock 等 consumer 可提供自己的
+> app raw root，但不得自行實作 Yahoo/TWSE transport 或 raw persistence。
+> `NewCachedClient`、`NewCachedTwseClient`、`NewCachedFoundationClient` 與
+> `NewRawCache` 是唯一支援的 cache boundary。決策記錄見
+> [downstream cache ownership](docs/memory/2026-07-29-downstream-cache-ownership.md)。
 
 > **Why yahoo raw shapes are now in `model/`** — yahoo raw-shape structs (`ChartBar`/`RawQuote`/`ChartMeta`/`Fundamentals`/`IncomeStatement`/etc.) live in `model/yahoo_raw.go`. svc/yahoo imports `model/` (one-way only), decoders return `*model.ChartResponse`/`*model.QuoteResponse`/`*model.FundamentalsResponse` directly, and `yahoo.X` aliases in `svc/yahoo/*.go` keep callers compiling unchanged. There is no cycle because `model/` does not import `svc/yahoo`.
 
@@ -101,7 +118,7 @@ flowchart TD
 1. **No Session Rotation**: Session rotation was removed to simplify HTTP connection reuse and state management. The HTTP client uses one shared `http.Client`; host profiles independently select rate limits, body caps, headers, and endpoint tags. Circuit breakers remain keyed by authority + optional logical group. `--sessions` persistent flag remains for backward compatibility but its effect is vestigial.
 2. **Facade boundary (legacy)**: External projects (stock, data, ...) may import from `facade/` for the legacy back-compat surface OR from `model/` directly for raw types. The recommended path is `model/` since `facade/` types are now just aliases. **Avoid `ScaledDecimal` in external surfaces** — use float64 via `model.Bar`/`model.Quote`/etc.
 3. **Decimals**: Prices/amounts are internally stored as `ScaledDecimal` for precision in `model.Normalized*` types. External-facing `model.Bar`/`model.Quote`/etc. expose float64. Conversion between the two is `model.FromScaledDecimal(sd)`.
-4. **Timezones**: All timestamps must be handled in UTC. `model.ToUTCDayBoundaries()` is the canonical epoch→day conversion.
+4. **Timezones**: Store boundaries and event times in UTC, but derive a daily bar's calendar date from the Yahoo exchange timezone via `model.ToTradingDay()`. `model.ToUTCDayBoundaries()` remains only as a deprecated UTC compatibility helper.
 5. **`cmd → facade → svc → model` strict path**: The yfin CLI's runtime code (`cmd/**/*.go`) MUST NOT call any `svc/*` package directly. All data fetching goes through `cmd.CreateClient() → *facade.Client`; all dispatch (YahooDispatch / ScrapeFetch / `(*TwseClient).Dispatch` / Parse*) goes through `facade/`. `model/*` imports in cmd ARE allowed (DTOs as formatter parameters; scrape DTO→model conversion lives in `model/scrape_convert.go`). New code in `cmd/` that needs a `svc/*` capability should expose a facade wrapper first rather than importing `svc/*`. 驗證指令：`go list -f '{{.ImportPath}} {{join .Imports " "}}' ./cmd/... | grep svc/` 必須無輸出。
 6. **model/ lowest-layer rule**: `model/` does NOT import `svc/*`, `facade/`, or `cmd/`. All raw-shape structs consumed by `Normalize*` (ChartBar, RawQuote, ChartMeta, Fundamentals, IncomeStatement, etc.) live in `model/yahoo_raw.go`. svc/yahoo decoders return `*model.ChartResponse`/`*model.QuoteResponse`/`*model.FundamentalsResponse` directly, so the cycle is broken.
 7. **External SDK objects decode at upper layer**: When integrating a third-party SDK whose data shapes don't naturally fit `model/`, the decode/translate step happens in `facade/` (or a dedicated handler), NOT in `model/`. `model/` only owns shapes that result from such decode. The rationale: `model/` should stay import-cycle-free at the bottom of the stack; pushing decode upstream keeps the layer rule simple.

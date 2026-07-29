@@ -4,20 +4,46 @@
 
 package model
 
-import "time"
+import (
+	"fmt"
+	"strings"
+	"time"
+)
 
-// ToUTCDayBoundaries converts a Unix timestamp to UTC day boundaries for daily bars.
-// For daily bars: start = 00:00:00Z of the day, end = next day 00:00:00Z,
-// event_time = end. The timestamp represents the end of the trading day, so
-// we map it to the trading day by subtracting two days (Yahoo's epoch is
-// offset 2 days from the actual trading session in UTC).
+// ToTradingDay derives the exchange-local calendar date represented by a
+// Yahoo daily-bar timestamp and returns that local day's UTC boundaries.
+func ToTradingDay(
+	timestamp int64,
+	exchangeTimezone string,
+) (date string, start, end, eventTime time.Time, err error) {
+	exchangeTimezone = strings.TrimSpace(exchangeTimezone)
+	if exchangeTimezone == "" {
+		return "", time.Time{}, time.Time{}, time.Time{},
+			fmt.Errorf("exchange timezone is required")
+	}
+	location, err := time.LoadLocation(exchangeTimezone)
+	if err != nil {
+		return "", time.Time{}, time.Time{}, time.Time{},
+			fmt.Errorf("load exchange timezone %q: %w", exchangeTimezone, err)
+	}
+
+	local := time.Unix(timestamp, 0).In(location)
+	localStart := time.Date(
+		local.Year(), local.Month(), local.Day(),
+		0, 0, 0, 0, location,
+	)
+	localEnd := localStart.AddDate(0, 0, 1)
+	return localStart.Format("2006-01-02"),
+		localStart.UTC(),
+		localEnd.UTC(),
+		localEnd.UTC(),
+		nil
+}
+
+// ToUTCDayBoundaries returns UTC boundaries for the timestamp's UTC day.
+// Deprecated: daily market bars should use ToTradingDay with the exchange
+// timezone so their calendar date remains tied to the trading venue.
 func ToUTCDayBoundaries(timestamp int64) (start, end, eventTime time.Time) {
-	t := time.Unix(timestamp, 0).UTC()
-	tradingDay := t.AddDate(0, 0, -2)
-
-	start = time.Date(tradingDay.Year(), tradingDay.Month(), tradingDay.Day(), 0, 0, 0, 0, time.UTC)
-	end = start.Add(24 * time.Hour)
-	eventTime = end
-
+	_, start, end, eventTime, _ = ToTradingDay(timestamp, "UTC")
 	return start, end, eventTime
 }

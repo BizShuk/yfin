@@ -52,11 +52,11 @@ func ValidateBars(r *model.ChartResponse) error {
 		if result.Meta.Symbol == "" {
 			return fmt.Errorf("result[%d]: missing symbol", i)
 		}
-		if result.Meta.Currency == "" {
-			return fmt.Errorf("result[%d]: missing currency", i)
-		}
 		if len(result.Timestamp) == 0 {
 			continue
+		}
+		if len(result.Indicators.Quote) == 0 {
+			return fmt.Errorf("result[%d]: missing quote indicators", i)
 		}
 		quote := result.Indicators.Quote[0]
 		expectedLen := len(result.Timestamp)

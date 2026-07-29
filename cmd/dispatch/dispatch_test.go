@@ -17,27 +17,14 @@ func TestCommandRegistry_CoversAllCommands(t *testing.T) {
 	}
 }
 
-func TestMigratedCommandsUseYahooEndpoints(t *testing.T) {
+func TestCommandRegistryUsesFoundationFacade(t *testing.T) {
 	source, err := os.ReadFile("dispatch.go")
 	require.NoError(t, err)
 	text := string(source)
 
-	for _, call := range []string{
-		"fc.Root.FetchIncomeStatement(ctx, s)",
-		"fc.Root.FetchBalanceSheet(ctx, s)",
-		"fc.Root.FetchCashFlowStatement(ctx, s)",
-		"fc.Root.FetchNews(ctx, s)",
-	} {
-		require.Contains(t, text, call)
-	}
-	for _, legacyCall := range []string{
-		"fc.Root.ScrapeFinancials(ctx, s, fc.RunID)",
-		"fc.Root.ScrapeBalanceSheet(ctx, s, fc.RunID)",
-		"fc.Root.ScrapeCashFlow(ctx, s, fc.RunID)",
-		"fc.Root.ScrapeNews(ctx, s, fc.RunID)",
-	} {
-		require.NotContains(t, text, legacyCall)
-	}
+	require.Contains(t, text, "fetchContext.Root.FetchFoundation(")
+	require.NotContains(t, text, "fetchContext.Root.YahooDispatch(")
+	require.NotContains(t, text, "fetchContext.Root.Scrape")
 }
 
 func TestCommandRegistryMatchesPythonManifest(t *testing.T) {

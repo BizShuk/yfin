@@ -10,6 +10,7 @@ import "time"
 
 // NormalizedBar represents a normalized bar with UTC times and scaled decimals
 type NormalizedBar struct {
+	TradingDate        string        `json:"trading_date"`
 	Start              time.Time     `json:"start"`
 	End                time.Time     `json:"end"`
 	Open               ScaledDecimal `json:"open"`
@@ -27,9 +28,10 @@ type NormalizedBar struct {
 
 // NormalizedBarBatch represents a batch of normalized bars
 type NormalizedBarBatch struct {
-	Security Security        `json:"security"`
-	Bars     []NormalizedBar `json:"bars"`
-	Meta     Meta            `json:"meta"`
+	Security       Security        `json:"security"`
+	FirstTradeDate string          `json:"first_trade_date,omitempty"`
+	Bars           []NormalizedBar `json:"bars"`
+	Meta           Meta            `json:"meta"`
 }
 
 // NormalizedQuote represents a normalized quote

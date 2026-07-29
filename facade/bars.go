@@ -35,13 +35,18 @@ func FromBarBatch(b *model.NormalizedBarBatch) *BarBatch {
 		return nil
 	}
 	out := &BarBatch{
-		Symbol: b.Security.Symbol,
-		MIC:    b.Security.MIC,
-		Bars:   make([]Bar, 0, len(b.Bars)),
+		Symbol:         b.Security.Symbol,
+		MIC:            b.Security.MIC,
+		FirstTradeDate: b.FirstTradeDate,
+		Bars:           make([]Bar, 0, len(b.Bars)),
 	}
 	for _, nb := range b.Bars {
+		date := nb.TradingDate
+		if date == "" {
+			date = nb.EventTime.UTC().Format("2006-01-02")
+		}
 		out.Bars = append(out.Bars, Bar{
-			Date:         nb.EventTime.UTC().Format("2006-01-02"),
+			Date:         date,
 			Open:         model.FromScaledDecimal(nb.Open),
 			High:         model.FromScaledDecimal(nb.High),
 			Low:          model.FromScaledDecimal(nb.Low),

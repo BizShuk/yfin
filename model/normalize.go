@@ -14,6 +14,7 @@ package model
 
 import (
 	"fmt"
+	"math"
 	"time"
 )
 
@@ -43,9 +44,20 @@ func NormalizeBars(bars []ChartBar, meta *ChartMeta, runID string) (*NormalizedB
 
 	normalizedBars := make([]NormalizedBar, 0, len(bars))
 	ingestTime := time.Now().UTC()
+	exchangeTimezone := meta.ExchangeTimezoneName
+	if exchangeTimezone == "" {
+		exchangeTimezone = "UTC"
+	}
 
 	for _, bar := range bars {
-		normalizedBar, err := normalizeBar(bar, meta.Currency, isAdjusted, adjustmentPolicyID, ingestTime)
+		normalizedBar, err := normalizeBar(
+			bar,
+			meta.Currency,
+			exchangeTimezone,
+			isAdjusted,
+			adjustmentPolicyID,
+			ingestTime,
+		)
 		if err != nil {
 			continue
 		}
@@ -63,30 +75,73 @@ func NormalizeBars(bars []ChartBar, meta *ChartMeta, runID string) (*NormalizedB
 		SchemaVersion: "ampy.bars.v1:1.0.0",
 	}
 
+	firstTradeDate := ""
+	if meta.FirstTradeDate > 0 {
+		date, _, _, _, err := ToTradingDay(meta.FirstTradeDate, exchangeTimezone)
+		if err != nil {
+			return nil, fmt.Errorf("normalize first trade date: %w", err)
+		}
+		firstTradeDate = date
+	}
+
 	return &NormalizedBarBatch{
-		Security: security,
-		Bars:     normalizedBars,
-		Meta:     metaData,
+		Security:       security,
+		FirstTradeDate: firstTradeDate,
+		Bars:           normalizedBars,
+		Meta:           metaData,
 	}, nil
 }
 
-func normalizeBar(bar ChartBar, currency string, isAdjusted bool, adjustmentPolicyID string, now time.Time) (NormalizedBar, error) {
-	start, end, eventTime := ToUTCDayBoundaries(bar.Timestamp)
+func normalizeBar(
+	bar ChartBar,
+	currency string,
+	exchangeTimezone string,
+	isAdjusted bool,
+	adjustmentPolicyID string,
+	now time.Time,
+) (NormalizedBar, error) {
+	date, start, end, eventTime, err := ToTradingDay(
+		bar.Timestamp,
+		exchangeTimezone,
+	)
+	if err != nil {
+		return NormalizedBar{}, err
+	}
 
+	openPrice := bar.Open
+	highPrice := bar.High
+	lowPrice := bar.Low
 	closePrice := bar.Close
 	if isAdjusted && bar.AdjClose != nil {
+		if bar.Close == 0 {
+			return NormalizedBar{}, fmt.Errorf(
+				"cannot adjust OHLC with zero raw close",
+			)
+		}
+		adjustmentFactor := *bar.AdjClose / bar.Close
+		if adjustmentFactor <= 0 ||
+			math.IsNaN(adjustmentFactor) ||
+			math.IsInf(adjustmentFactor, 0) {
+			return NormalizedBar{}, fmt.Errorf(
+				"invalid OHLC adjustment factor %v",
+				adjustmentFactor,
+			)
+		}
+		openPrice *= adjustmentFactor
+		highPrice *= adjustmentFactor
+		lowPrice *= adjustmentFactor
 		closePrice = *bar.AdjClose
 	}
 
-	open, err := ToScaledDecimalWithCurrency(bar.Open, currency)
+	open, err := ToScaledDecimalWithCurrency(openPrice, currency)
 	if err != nil {
 		return NormalizedBar{}, fmt.Errorf("invalid open price: %w", err)
 	}
-	high, err := ToScaledDecimalWithCurrency(bar.High, currency)
+	high, err := ToScaledDecimalWithCurrency(highPrice, currency)
 	if err != nil {
 		return NormalizedBar{}, fmt.Errorf("invalid high price: %w", err)
 	}
-	low, err := ToScaledDecimalWithCurrency(bar.Low, currency)
+	low, err := ToScaledDecimalWithCurrency(lowPrice, currency)
 	if err != nil {
 		return NormalizedBar{}, fmt.Errorf("invalid low price: %w", err)
 	}
@@ -96,6 +151,7 @@ func normalizeBar(bar ChartBar, currency string, isAdjusted bool, adjustmentPoli
 	}
 
 	return NormalizedBar{
+		TradingDate:        date,
 		Start:              start,
 		End:                end,
 		Open:               open,

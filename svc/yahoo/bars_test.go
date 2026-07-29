@@ -2,12 +2,18 @@
 package yahoo
 
 import (
+	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/bizshuk/yfin/model"
+	"github.com/bizshuk/yfin/utils/httpx"
+	"github.com/stretchr/testify/require"
 )
 
 func TestDecodeBarsResponse(t *testing.T) {
@@ -213,7 +219,7 @@ func TestBarsResponseValidation(t *testing.T) {
 					"error": null
 				}
 			}`,
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name: "invalid volume",
@@ -257,4 +263,107 @@ func TestBarsResponseValidation(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFetchDailyBarsAppliesProviderOHLCIntegrityPolicy(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(
+		writer http.ResponseWriter,
+		_ *http.Request,
+	) {
+		_, err := writer.Write([]byte(`{
+			"chart": {
+				"result": [{
+					"meta": {
+						"currency": "USD",
+						"symbol": "AA",
+						"exchangeName": "NYQ",
+						"exchangeTimezoneName": "America/New_York"
+					},
+					"timestamp": [1785245400],
+					"indicators": {
+						"quote": [{
+							"open": [43.59],
+							"high": [44.62],
+							"low": [43.72],
+							"close": [44.36],
+							"volume": [4595283]
+						}],
+						"adjclose": [{
+							"adjclose": [44.36]
+						}]
+					}
+				}],
+				"error": null
+			}
+		}`))
+		require.NoError(t, err)
+	}))
+	defer server.Close()
+	client := NewClient(
+		httpx.NewClient(httpx.DefaultConfig()),
+		server.URL,
+	)
+
+	response, err := client.FetchDailyBars(
+		context.Background(),
+		"AA",
+		time.Date(2026, 7, 28, 0, 0, 0, 0, time.UTC),
+		time.Date(2026, 7, 29, 0, 0, 0, 0, time.UTC),
+		true,
+	)
+	require.NoError(t, err)
+	bars, err := response.GetBars()
+	require.NoError(t, err)
+	require.Len(t, bars, 1)
+	require.Equal(t, bars[0].Open, bars[0].Low)
+	require.GreaterOrEqual(t, bars[0].High, bars[0].Close)
+}
+
+func TestFetchDailyBarsAllowsMissingCurrencyMetadata(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(
+		writer http.ResponseWriter,
+		_ *http.Request,
+	) {
+		_, err := writer.Write([]byte(`{
+			"chart": {
+				"result": [{
+					"meta": {
+						"symbol": "FBYDP",
+						"exchangeName": "NGM",
+						"exchangeTimezoneName": "America/New_York"
+					},
+					"timestamp": [1785245400],
+					"indicators": {
+						"quote": [{
+							"open": [19.9],
+							"high": [20.0],
+							"low": [19.9],
+							"close": [20.0],
+							"volume": [100]
+						}],
+						"adjclose": [{
+							"adjclose": [20.0]
+						}]
+					}
+				}],
+				"error": null
+			}
+		}`))
+		require.NoError(t, err)
+	}))
+	defer server.Close()
+	client := NewClient(
+		httpx.NewClient(httpx.DefaultConfig()),
+		server.URL,
+	)
+
+	response, err := client.FetchDailyBars(
+		context.Background(),
+		"FBYDP",
+		time.Date(2026, 7, 28, 0, 0, 0, 0, time.UTC),
+		time.Date(2026, 7, 29, 0, 0, 0, 0, time.UTC),
+		true,
+	)
+	require.NoError(t, err)
+	require.Equal(t, "", response.GetMetadata().Currency)
 }
