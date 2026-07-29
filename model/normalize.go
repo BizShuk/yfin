@@ -20,9 +20,6 @@ import (
 
 // NormalizeBars converts Yahoo Finance bars to normalized bars.
 func NormalizeBars(bars []ChartBar, meta *ChartMeta, runID string) (*NormalizedBarBatch, error) {
-	if len(bars) == 0 {
-		return nil, fmt.Errorf("no bars to normalize")
-	}
 	if meta == nil {
 		return nil, fmt.Errorf("missing metadata")
 	}
@@ -64,7 +61,7 @@ func NormalizeBars(bars []ChartBar, meta *ChartMeta, runID string) (*NormalizedB
 		normalizedBars = append(normalizedBars, normalizedBar)
 	}
 
-	if len(normalizedBars) == 0 {
+	if len(bars) > 0 && len(normalizedBars) == 0 {
 		return nil, fmt.Errorf("no valid bars after normalization")
 	}
 

@@ -124,6 +124,7 @@ flowchart TD
 7. **External SDK objects decode at upper layer**: When integrating a third-party SDK whose data shapes don't naturally fit `model/`, the decode/translate step happens in `facade/` (or a dedicated handler), NOT in `model/`. `model/` only owns shapes that result from such decode. The rationale: `model/` should stay import-cycle-free at the bottom of the stack; pushing decode upstream keeps the layer rule simple.
 8. **一檔一職責 (one file, one responsibility)**: 一個檔案只回答一個問題。判準不是行數，是「這檔在做幾件事」——`model/twse.go`(412 行、45 個 type) 是單一型別目錄，合格；而 744 行的舊 `extract_news.go` 同時管 regex 設定、Prometheus 指標、HTML 解析、JSON 解析與去重，就該拆。設定載入、觀測性接線、解析策略、值正規化屬於**不同**職責，不得混在同一檔。大型 `Client` 的方法依 surface 分檔（見 `facade/client_*.go`）。
 9. **禁止跨套件複製貼上 (no copy-paste across packages)**: 兩個 `cmd/*` 子套件需要同一段邏輯時，把它下沉成共用 leaf 套件（如 `cmd/format/`），不要為了「避免 cross-package dependency」而複製。複製過的程式碼一定會 drift——`cmd/scrape` 與 `cmd/fundamentals` 的 formatter 曾有 264 行逐字重複並已開始分歧。
+10. **Chart absence semantics**: A structurally valid Yahoo chart response may omit currency metadata or contain zero observations. Daily-bar validation still requires symbol/OHLCV integrity when rows exist, but it does not invent currency and does not turn an empty series into a transport error. `NormalizeBars` preserves symbol/MIC/provider-first-trade metadata in an empty `BarBatch`; downstream applications with official market context own any currency fallback and no-data evidence.
 
 ### Exit Codes (cmd/exitcodes.go)
 

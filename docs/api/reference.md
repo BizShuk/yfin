@@ -101,6 +101,11 @@ for _, bar := range bars.Bars {
 
 - Limited by Yahoo Finance's historical data availability.
 - Some symbols may have incomplete data for certain date ranges.
+- A valid response can contain zero bars; the returned batch still preserves
+  symbol/MIC/first-trade metadata so callers can record an explicit no-data
+  outcome.
+- `CurrencyCode` can be empty when Yahoo omits chart currency metadata. The SDK
+  preserves that absence instead of guessing a currency.
 - Intraday data not available through this method — use `FetchIntradayBars`.
 
 ### `FetchIntradayBars()`

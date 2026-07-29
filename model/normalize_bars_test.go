@@ -44,7 +44,7 @@ func TestNormalizeBarsValidation(t *testing.T) {
 				Currency: "USD",
 			},
 			runID:   "test_run",
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name: "nil metadata",
@@ -90,6 +90,30 @@ func TestNormalizeBarsValidation(t *testing.T) {
 				t.Errorf("NormalizeBars() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func TestNormalizeBarsPreservesMetadataForEmptySeries(t *testing.T) {
+	batch, err := NormalizeBars(nil, &ChartMeta{
+		Symbol:               "SVA",
+		ExchangeName:         "NMS",
+		ExchangeTimezoneName: "America/New_York",
+		FirstTradeDate:       1155513600,
+	}, "market-test")
+	if err != nil {
+		t.Fatalf("NormalizeBars() error = %v", err)
+	}
+	if batch.Security.Symbol != "SVA" {
+		t.Fatalf("symbol = %q, want SVA", batch.Security.Symbol)
+	}
+	if batch.FirstTradeDate != "2006-08-13" {
+		t.Fatalf(
+			"first trade date = %q, want 2006-08-13",
+			batch.FirstTradeDate,
+		)
+	}
+	if len(batch.Bars) != 0 {
+		t.Fatalf("bars = %d, want 0", len(batch.Bars))
 	}
 }
 

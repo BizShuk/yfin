@@ -504,6 +504,11 @@ func main() {
 }
 ```
 
+`FetchDailyBars` 可成功回傳 metadata 完整但 `Bars` 為空的 batch，表示 Yahoo
+已處理該 symbol/window、期間內沒有 observation；呼叫端不得將它改寫成虛構
+價格。Yahoo 偶爾也會在有效 chart response 省略 currency，此時 bar 的
+`CurrencyCode` 保持空字串，應由擁有官方 market context 的下游補值。
+
 ## 🐍→🦫 Batch Mode (Python yf parity)
 
 `yfin batch` 以 Go 實作 `skills/scripts/all_ticker_yf.py` 的 30-command 批次、
