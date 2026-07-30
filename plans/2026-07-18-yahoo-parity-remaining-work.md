@@ -1,270 +1,270 @@
-# Yahoo 30-command Parity Remaining Work Implementation Plan
+# Yahoo 30-command Parity 剩餘工作實作計畫 (Implementation Plan)
 
-> For agentic workers: use `test-driven-development` and execute this plan task by task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> 給 Agentic Workers：請使用 `test-driven-development` 並逐一任務執行本計畫。各步驟使用核取方塊 (`- [ ]`) 語法進行追蹤。
 
 `Status: Active`
 
-`Goal:` Make batch artifacts truthful, replace the remaining avoidable HTML paths with stable Yahoo JSON surfaces, and pass the fixed 30-command semantic parity gate for both `AAPL` and `2330.TW` without overstating upstream anti-bot limitations.
+`Goal:` 確保 Batch Artifacts 的真實性，將剩餘可避免的 HTML 路徑替換為穩定的 Yahoo JSON Surface，並讓 `AAPL` 與 `2330.TW` 皆通過固定的 30-command Semantic Parity Gate，同時不誇大上游 Anti-bot 的限制。
 
-`Architecture:` Preserve `cmd → facade → svc → model`. Batch owns artifact lifecycle; `svc/yahoo` owns HTTP request and decode contracts; facade exposes only model/facade types; parity scripts remain an external acceptance oracle. No production Python, `curl_cffi`, TLS-impersonation library, or browser runtime is introduced.
+`Architecture:` 維持 `cmd → facade → svc → model` 架構。Batch 擁有 Artifact Lifecycle；`svc/yahoo` 擁有 HTTP Request 與 Decode 契約；Facade 僅暴露 Model/Facade 型別；Parity 腳本維持作為外部 Acceptance Oracle。不引進任何 Production Python、`curl_cffi`、TLS 偽裝函式庫或 Browser Runtime。
 
-`Current live baseline:` The last formal run recorded on 2026-07-17 produced `8 success / 22 failed` for AAPL. The eight healthy commands were `history`, `actions`, `income`, `balance`, `cashflow`, `news`, `isin`, and `metadata`. The 22 remaining results were 13 quoteSummary/auth-family failures, 7 analysis/analyst HTML `503` failures, `options` `401`, and `earnings-dates` with no rows. This is historical evidence and must be refreshed before claiming current parity.
+`Current live baseline:` 2026-07-17 記錄的最後一次正式運行結果為 AAPL 的 `8 success / 22 failed`。八個正常的 Command 為 `history`、`actions`、`income`、`balance`、`cashflow`、`news`、`isin` 與 `metadata`。其餘 22 個結果包含 13 個 quoteSummary/auth-family 失敗、7 個 analysis/analyst HTML `503` 失敗、`options` `401` 以及無資料列的 `earnings-dates`。這是歷史數據，在宣告當前 Parity 之前必須先重新整理。
 
-`Tech stack:` Go 1.26.0, Cobra, stdlib HTTP/JSON/filesystem packages, existing `utils/httpx`, Python yfinance oracle scripts, Bash, and `testify`.
+`Tech stack:` Go 1.26.0, Cobra, stdlib HTTP/JSON/filesystem 套件, 現有 `utils/httpx`, Python yfinance oracle 腳本, Bash, 與 `testify`。
 
-## Global Constraints
+## 全局限制 (Global Constraints)
 
-- Do not add production Python, `curl_cffi`, TLS impersonation, Playwright, or a new HTTP transport dependency.
-- Keep `facade.Client` as the only fetch handle used by `cmd/dispatch`.
-- Keep `model` as the lowest layer.
-- Keep runtime artifacts under `~/.config/yfin/data/raw/`.
-- Preserve the fixed 30-command manifest and command-specific JSON semantics.
-- Treat deterministic tests and live Yahoo parity as separate gates.
-- A live command is successful only when its current JSON artifact exists and its stale `_failed` artifact does not.
-- Do not run `2330.TW` acceptance until the AAPL gate exits zero.
-- If Yahoo still requires a browser-equivalent fingerprint for a command, record it as an explicit blocker; do not weaken the gate or mark it complete.
+- 請勿引進 Production Python、`curl_cffi`、TLS 偽裝、Playwright 或新的 HTTP Transport 依賴。
+- 保持 `facade.Client` 為 `cmd/dispatch` 所使用的唯一 Fetch Handle。
+- 保持 `model` 為最底層 (Lowest Layer)。
+- 保持 Runtime Artifacts 儲存在 `~/.config/yfin/data/raw/` 下。
+- 保留固定的 30-command Manifest 與特定的 JSON 語義。
+- 將 Deterministic Tests 與 Live Yahoo Parity 視為獨立的 Gate。
+- 只有當當前 JSON Artifact 存在且過期的 `_failed` Artifact 不存在時，Live Command 才算成功。
+- 在 AAPL Gate 回傳 0 之前，請勿執行 `2330.TW` Acceptance。
+- 如果 Yahoo 對某個 Command 仍需要 Browser 等價的 Fingerprint，請將其記錄為明確的 Blocker；切勿放寬 Gate 或將其標記為完成。
 
-## Failure Inventory
+## 失敗清單 (Failure Inventory)
 
-| Family | Commands | Last observed failure |
+| Family | Commands | 上次觀察到的失敗 (Last observed failure) |
 | --- | --- | --- |
-| quoteSummary/auth | `info`, three holder commands, three insider commands, `recommendations`, `recommendations-summary`, `upgrades`, `calendar`, `sec-filings`, `sustainability` | crumb `429` or auth-family circuit-open |
+| quoteSummary/auth | `info`, 三個 holder commands, 三個 insider commands, `recommendations`, `recommendations-summary`, `upgrades`, `calendar`, `sec-filings`, `sustainability` | crumb `429` 或 auth-family circuit-open |
 | analysis JSON candidates | `earnings-history`, `eps-trend`, `eps-revisions`, `earnings-estimates`, `revenue-estimates`, `growth-estimates`, `price-targets` | Yahoo HTML `503` |
 | options | `options` | `401 Unauthorized` |
-| earnings calendar | `earnings-dates` | HTML parser returned no rows |
+| earnings calendar | `earnings-dates` | HTML Parser 回傳無資料列 (no rows) |
 
-## File Structure
+## 檔案結構 (File Structure)
 
-- Modify `cmd/dispatch/batch.go`: remove stale error artifacts after non-failure terminal states.
-- Modify `cmd/dispatch/batch_test.go` and `batch_integration_test.go`: artifact-lifecycle tests.
-- Modify `scripts/verify-yf-parity.sh`: always run classification and comparison even when Go exits non-zero.
-- Create `skills/scripts/classify_yfin_failures.py`: current-run family summary.
-- Create `skills/scripts/test_classify_yfin_failures.py`: deterministic classifier tests.
-- Create `svc/yahoo/analysis_quotesummary.go` and tests: quoteSummary analysis modules and projections.
-- Modify `facade/client_yahoo.go` and tests: plain analysis surfaces.
-- Modify `cmd/dispatch/dispatch.go` and tests: cut over seven analysis commands.
-- Create `svc/yahoo/earnings_calendar.go` and tests: visualization JSON probe/decoder kept separate from the active HTML path until freshness is proven.
-- Modify `svc/yahoo/options.go` and tests: authenticated option-chain request contract if the live probe proves it works.
-- Update `plans/2026-07-18-yahoo-parity-remaining-work.md`: append exact live evidence after each formal run.
-- Update `README.md`, `CLAUDE.md`, `docs/cli/commands.md`, and `docs/operations/error-handling.md` only after behavior changes.
+- 修改 `cmd/dispatch/batch.go`：在 Non-failure Terminal States 後清除過期的 Error Artifacts。
+- 修改 `cmd/dispatch/batch_test.go` 與 `batch_integration_test.go`：Artifact-lifecycle 測試。
+- 修改 `scripts/verify-yf-parity.sh`：即使 Go 離開時非零，也總是執行 Classification 與 Comparison。
+- 建立 `skills/scripts/classify_yfin_failures.py`：Current-run Family Summary。
+- 建立 `skills/scripts/test_classify_yfin_failures.py`：Deterministic Classifier 測試。
+- 建立 `svc/yahoo/analysis_quotesummary.go` 與測試：quoteSummary Analysis 模組與 Projections。
+- 修改 `facade/client_yahoo.go` 與測試：Plain Analysis Surfaces。
+- 修改 `cmd/dispatch/dispatch.go` 與測試：切換 (Cut over) 七個 Analysis Commands。
+- 建立 `svc/yahoo/earnings_calendar.go` 與測試：Visualization JSON Probe/Decoder，在驗證 Freshness 前與 Active HTML Path 保持分離。
+- 修改 `svc/yahoo/options.go` 與測試：若 Live Probe 證明有效，則更新 Authenticated Option-chain Request 契約。
+- 更新 `plans/2026-07-18-yahoo-parity-remaining-work.md`：在每次正式運行後附加確切的 Live Evidence。
+- 僅在行為變更後更新 `README.md`、`CLAUDE.md`、`docs/cli/commands.md` 及 `docs/operations/error-handling.md`。
 
 ---
 
-### Task 1: Truthful `_failed` artifact lifecycle
+### Task 1: 真實的 `_failed` Artifact Lifecycle
 
 `Files:`
 
-- Modify `cmd/dispatch/batch.go`.
-- Modify `cmd/dispatch/batch_test.go`.
-- Modify `cmd/dispatch/batch_integration_test.go`.
+- 修改 `cmd/dispatch/batch.go`。
+- 修改 `cmd/dispatch/batch_test.go`。
+- 修改 `cmd/dispatch/batch_integration_test.go`。
 
 `Interfaces:`
 
-- Produces `func clearCommandFailure(rawDir, ticker, command string) error`.
-- A `success`, `skipped`, or `not_found` result removes `_failed/<ticker>.<command>.err`.
-- `os.ErrNotExist` is success; every other removal error is surfaced in `tickerResult.Errors`.
+- 產出 `func clearCommandFailure(rawDir, ticker, command string) error`。
+- `success`、`skipped` 或 `not_found` 的結果會移除 `_failed/<ticker>.<command>.err`。
+- `os.ErrNotExist` 視為成功；其他任何移除錯誤皆會顯現於 `tickerResult.Errors` 中。
 
-- [ ] `Step 1: Write failing stale-error tests`
+- [ ] `Step 1: 撰寫 Failing Stale-error 測試`
 
-Pre-create `_failed/AAPL.good.err`, run a successful fetch, and assert the JSON artifact exists while the stale error does not. Repeat for `skipped` and `not_found`. For the removal-error case, replace the error path with a non-empty directory so `os.Remove` deterministically returns an error on every supported platform.
+預先建立 `_failed/AAPL.good.err`，執行成功的 Fetch，並斷言 (Assert) JSON Artifact 存在而過期的 Error 不存在。針對 `skipped` 與 `not_found` 重複此流程。對於移除錯誤的情境，將 Error Path 替換為非空目錄，使 `os.Remove` 在所有支援的平台上皆確定性地回傳錯誤。
 
-- [ ] `Step 2: Run focused tests and verify RED`
+- [ ] `Step 2: 執行單獨測試並驗證 RED`
 
 ```bash
 go test ./cmd/dispatch -run 'TestRunBatchForTicker_(ClearsStaleFailure|SkipClearsStaleFailure|NotFoundClearsStaleFailure|FailureCleanupError)' -count=1
 ```
 
-Expected: stale error assertions fail because `runBatchForTicker` never removes them.
+預期結果：Stale Error 斷言失敗，因為 `runBatchForTicker` 從未移除它們。
 
-- [ ] `Step 3: Implement cleanup at terminal-state boundaries`
+- [ ] `Step 3: 在 Terminal-state 邊界實作清理`
 
-Call `clearCommandFailure` only after a successful JSON rename, after a cache skip is confirmed, or after a current not-found classification. Do not clear the error before a fetch begins; an interrupted request must not erase the last known failure. A cleanup error changes the command status to `failed` and is stored in `tickerResult.Errors`.
+僅在成功的 JSON 重命名後、確認 Cache Skip 後，或在當前 Not-found 分類後呼叫 `clearCommandFailure`。請勿在 Fetch 開始前清理 Error；被中斷的 Request 不得擦除最後已知的 Failure。清理錯誤會將 Command 狀態改為 `failed` 並記錄於 `tickerResult.Errors` 中。
 
-- [ ] `Step 4: Run dispatch and lifecycle integration tests`
+- [ ] `Step 4: 執行 Dispatch 與 Lifecycle 整合測試`
 
 ```bash
 go test ./cmd/dispatch -count=1
 ```
 
-Expected: all tests pass, including existing failure-artifact behavior.
+預期結果：所有測試通過，包含現有的 Failure-artifact 行為。
 
-### Task 2: Current-run parity classification
+### Task 2: Current-run Parity 分類 (Classification)
 
 `Files:`
 
-- Create `skills/scripts/classify_yfin_failures.py`.
-- Create `skills/scripts/test_classify_yfin_failures.py`.
-- Modify `scripts/verify-yf-parity.sh`.
+- 建立 `skills/scripts/classify_yfin_failures.py`。
+- 建立 `skills/scripts/test_classify_yfin_failures.py`。
+- 修改 `scripts/verify-yf-parity.sh`。
 
 `Interfaces:`
 
-- Classifier consumes `--go-root`, `--ticker`, `--day`, and the fixed commands from `skills/scripts/config.py`.
-- Classifier prints exact `success`, `failed`, `missing`, and family counts and exits non-zero unless all 30 commands have valid JSON with no matching error.
-- The shell runner captures Python, Go, classifier, and semantic-comparator statuses independently, then returns non-zero if any stage fails.
+- Classifier 讀取 `--go-root`、`--ticker`、`--day` 以及來自 `skills/scripts/config.py` 的固定 Commands。
+- Classifier 印出確切的 `success`、`failed`、`missing` 及 Family 計數，且除非所有 30 個 Commands 皆有合法的 JSON 且無對應的 Error，否則離開時返回非零值。
+- Shell Runner 分別擷取 Python、Go、Classifier 與 Semantic-comparator 狀態，若有任何階段失敗則回傳非零值。
 
-- [ ] `Step 1: Write classifier fixture tests`
+- [ ] `Step 1: 撰寫 Classifier Fixture 測試`
 
-Create temporary fixtures for the recorded `8/22` split, a stale-error-plus-success conflict, invalid JSON, and full `30/30`. Assert stable family counts and exit codes.
+為記錄的 `8/22` 分拆、Stale-error-plus-success 衝突、無效 JSON 及完整的 `30/30` 建立臨時 Fixtures。斷言穩定的 Family Counts 與 Exit Codes。
 
-- [ ] `Step 2: Run tests and verify RED`
+- [ ] `Step 2: 執行測試並驗證 RED`
 
 ```bash
 python3 skills/scripts/test_classify_yfin_failures.py
 ```
 
-Expected: import failure because the classifier does not exist.
+預期結果：因為 Classifier 還不存在而 Import 失敗。
 
-- [ ] `Step 3: Implement the classifier`
+- [ ] `Step 3: 實作 Classifier`
 
-Classify by the four fixed families in this plan. A success artifact plus `_failed` file is `conflict`, not success. Read only the requested UTC date.
+依本計畫中的四個固定 Family 進行分類。Success Artifact 加上 `_failed` 檔案視為 `conflict` 而非 Success。僅讀取請求的 UTC 日期。
 
-- [ ] `Step 4: Make the shell gate run every diagnostic stage`
+- [ ] `Step 4: 使 Shell Gate 執行每個診斷階段`
 
-Temporarily disable immediate exit only around the Go batch and comparison commands, capture statuses, restore `set -e`, print the four stage codes, and exit `1` if any is non-zero.
+僅在 Go Batch 與 Comparison Commands 周圍暫時停用立即退出 (`set -e`)，擷取狀態，恢復 `set -e`，印出四個階段代碼，若任一非零則離開並回傳 `1`。
 
-- [ ] `Step 5: Run deterministic script tests`
+- [ ] `Step 5: 執行 Deterministic 腳本測試`
 
 ```bash
 python3 skills/scripts/test_classify_yfin_failures.py
 bash -n scripts/verify-yf-parity.sh
 ```
 
-Expected: both pass.
+預期結果：兩者皆通過。
 
-### Task 3: Replace seven analysis HTML commands
+### Task 3: 替換七個 Analysis HTML Commands
 
 `Files:`
 
-- Create `svc/yahoo/analysis_quotesummary.go`.
-- Create `svc/yahoo/analysis_quotesummary_test.go`.
-- Modify `facade/client_yahoo.go`.
-- Modify `facade/client_yahoo_test.go`.
-- Modify `cmd/dispatch/dispatch.go`.
-- Modify `cmd/dispatch/dispatch_test.go`.
+- 建立 `svc/yahoo/analysis_quotesummary.go`。
+- 建立 `svc/yahoo/analysis_quotesummary_test.go`。
+- 修改 `facade/client_yahoo.go`。
+- 修改 `facade/client_yahoo_test.go`。
+- 修改 `cmd/dispatch/dispatch.go`。
+- 修改 `cmd/dispatch/dispatch_test.go`。
 
 `Interfaces:`
 
-- `earnings-history` decodes quoteSummary module `earningsHistory`.
-- `earnings-estimates`, `revenue-estimates`, `eps-trend`, and `eps-revisions` project their matching nested fields from `earningsTrend`.
-- `growth-estimates` combines the stock growth field from `earningsTrend` with `industryTrend`, `sectorTrend`, and `indexTrend` estimates.
-- `price-targets` projects `financialData` target-price fields.
-- Facade methods return `model` or facade-owned DTOs only.
+- `earnings-history` 解碼 quoteSummary 模組 `earningsHistory`。
+- `earnings-estimates`、`revenue-estimates`、`eps-trend` 與 `eps-revisions` 從 `earningsTrend` 投影 (Project) 其對應的巢狀欄位。
+- `growth-estimates` 將來自 `earningsTrend` 的個股成長欄位與 `industryTrend`、`sectorTrend` 及 `indexTrend` 的估算結合。
+- `price-targets` 投影 `financialData` 的 Target-price 欄位。
+- Facade 方法僅回傳 `model` 或 Facade 自有的 DTOs。
 
-- [ ] `Step 1: Add fixture-based decoder and projection tests`
+- [ ] `Step 1: 新增基於 Fixture 的 Decoder 與 Projection 測試`
 
-Cover missing modules, explicit zero values, nullable raw fields, deterministic row order, and distinct payloads for the six analysis dimensions sharing upstream modules.
+涵蓋遺失的模組、明確的零值 (Zero values)、可為 Null 的 Raw 欄位、確定性的資料列順序 (Row order)，以及跨上游模組共享的六個 Analysis 維度的獨立 Payload。
 
-- [ ] `Step 2: Run service tests and verify RED`
+- [ ] `Step 2: 執行 Service 測試並驗證 RED`
 
 ```bash
 go test ./svc/yahoo -run 'TestDecode(Analysis|EarningsTrend|PriceTargets)' -count=1
 ```
 
-Expected: build failure because the decoders do not exist.
+預期結果：因為 Decoder 還不存在而 Build 失敗。
 
-- [ ] `Step 3: Implement request and decode contracts`
+- [ ] `Step 3: 實作 Request 與 Decode 契約`
 
-Use existing quoteSummary request construction, crumb handling, and `yahoo-auth` circuit group. Do not parse HTML or reuse scrape DTOs across the service boundary.
+使用現有的 quoteSummary Request 構建、Crumb 處理與 `yahoo-auth` Circuit Group。請勿解析 HTML，也不要在 Service 邊界跨界重用 Scrape DTOs。
 
-- [ ] `Step 4: Add facade methods and dispatch cutover`
+- [ ] `Step 4: 新增 Facade 方法並進行 Dispatch 切換 (Cutover)`
 
-Move only the seven listed registry entries. Add a source-contract test rejecting `ScrapeAnalysisDimension` and `ScrapeAnalystInsights` in `cmd/dispatch/dispatch.go`.
+僅搬移列出的七個 Registry 項目。新增一個 Source-contract 測試，拒絕在 `cmd/dispatch/dispatch.go` 中使用 `ScrapeAnalysisDimension` 與 `ScrapeAnalystInsights`。
 
-- [ ] `Step 5: Run focused and complete deterministic tests`
+- [ ] `Step 5: 執行單獨與完整的 Deterministic 測試`
 
 ```bash
 go test ./svc/yahoo ./facade ./cmd/dispatch -count=1
 go test ./... -count=1
 ```
 
-Expected: all tests pass. Live success is not claimed until Task 6.
+預期結果：所有測試通過。在 Task 6 之前不宣稱 Live 成功。
 
-### Task 4: Earnings-calendar capability gate
+### Task 4: Earnings-calendar 能力 Gate
 
 `Files:`
 
-- Create `svc/yahoo/earnings_calendar.go`.
-- Create `svc/yahoo/earnings_calendar_test.go`.
-- Create `scripts/probe-yahoo-earnings-calendar.sh`.
-- Modify `svc/yahoo/earnings_dates.go`, `facade/yahoo.go`, and `cmd/dispatch/dispatch_test.go` only if the live freshness gate passes.
+- 建立 `svc/yahoo/earnings_calendar.go`。
+- 建立 `svc/yahoo/earnings_calendar_test.go`。
+- 建立 `scripts/probe-yahoo-earnings-calendar.sh`。
+- 僅在 Live Freshness Gate 通過時，修改 `svc/yahoo/earnings_dates.go`、`facade/yahoo.go` 與 `cmd/dispatch/dispatch_test.go`。
 
 `Interfaces:`
 
-- Add a side-by-side decoder for Yahoo's `POST /v1/finance/visualization` JSON surface using `entityIdType=earnings`, a ticker equality filter, `startdatetime` descending sort, and the six yfinance fields.
-- The current Python yfinance source states that this surface stopped updating in 2025; it cannot replace HTML unless AAPL and 2330.TW freshness matches the Python oracle during the same run.
-- POST request bodies must remain replayable through retries.
+- 為 Yahoo 的 `POST /v1/finance/visualization` JSON Surface 新增一個並行的 (Side-by-side) Decoder，使用 `entityIdType=earnings`、Ticker 相等性過濾器、`startdatetime` 降序排序，以及六個 yfinance 欄位。
+- 當前 Python yfinance 源碼指出此 Surface 已於 2025 年停止更新；除非 AAPL 與 2330.TW 的 Freshness 在同一次運行中匹配 Python Oracle，否則無法替換 HTML。
+- POST Request Bodies 必須在 Retries 期間保持可重放 (Replayable)。
 
-- [ ] `Step 1: Write request-contract and decoder tests`
+- [ ] `Step 1: 撰寫 Request-contract 與 Decoder 測試`
 
-Assert method, endpoint, exact JSON filter/sort/fields, content type, response mapping, empty result, nullable EPS fields, and retry body replay.
+斷言 Method、Endpoint、確切的 JSON Filter/Sort/Fields、Content Type、Response Mapping、Empty Result、Nullable EPS 欄位以及 Retry Body Replay。
 
-- [ ] `Step 2: Run focused tests and verify RED`
+- [ ] `Step 2: 執行單獨測試並驗證 RED`
 
 ```bash
 go test ./svc/yahoo -run 'Test(Fetch|Decode)EarningsCalendar' -count=1
 ```
 
-Expected: build failure because the visualization client does not exist.
+預期結果：因為 Visualization Client 還不存在而 Build 失敗。
 
-- [ ] `Step 3: Implement the isolated visualization probe`
+- [ ] `Step 3: 實作隔離的 Visualization Probe`
 
-Use the existing `httpx.Client.Do` transport and `yahoo-web` group. Keep the production `FetchEarningsDates` path unchanged at this checkpoint.
+使用現有的 `httpx.Client.Do` Transport 與 `yahoo-web` Group。在此檢查點保持 Production `FetchEarningsDates` 路徑不變。
 
-- [ ] `Step 4: Compare live freshness before cutover`
+- [ ] `Step 4: 在切換前比較 Live Freshness`
 
-The probe prints the newest and oldest event timestamps from visualization and the Python oracle for both tickers without printing cookies. Cut over only when both datasets cover the same current event window. If visualization is stale or HTML remains fingerprint-blocked, record `earnings-dates` as blocked and make no production cutover.
+Probe 印出來自 Visualization 與 Python Oracle 的最新與最舊 Event Timestamps（針對兩個 Tickers），且不印出 Cookies。僅當兩個資料集涵蓋相同的當前 Event Window 時才進行切換。若 Visualization 過期或 HTML 仍被 Fingerprint 封鎖，將 `earnings-dates` 記錄為 Blocked，且不進行 Production 切換。
 
-- [ ] `Step 5: Run focused and complete Yahoo tests`
+- [ ] `Step 5: 執行單獨與完整的 Yahoo 測試`
 
 ```bash
 go test ./svc/yahoo ./facade ./cmd/dispatch -count=1
 ```
 
-Expected: all tests pass.
+預期結果：所有測試通過。
 
-### Task 5: Auth and options capability gate
+### Task 5: Auth 與 Options 能力 Gate
 
 `Files:`
 
-- Create `scripts/probe-yahoo-auth.sh`.
-- Create `svc/yahoo/auth_live_test.go` with `//go:build integration`.
-- Modify `svc/yahoo/options.go` and tests only if the authenticated stdlib request succeeds.
-- Append probe evidence to this plan.
+- 建立 `scripts/probe-yahoo-auth.sh`。
+- 建立包含 `//go:build integration` 的 `svc/yahoo/auth_live_test.go`。
+- 僅在 Authenticated stdlib Request 成功時，修改 `svc/yahoo/options.go` 與測試。
+- 將 Probe Evidence 附加至此計畫中。
 
 `Interfaces:`
 
-- Probe `quoteSummary`, `options`, and crumb/cookie bootstrap with the same configured stdlib transport used by production.
-- Record HTTP status, authority, family, and whether Python yfinance succeeds for the same ticker and time window.
-- Never print cookie or crumb values.
+- 使用與 Production 相同的已設定 stdlib Transport 探測 `quoteSummary`、`options` 以及 Crumb/Cookie Bootstrap。
+- 記錄 HTTP Status、Authority、Family，以及 Python yfinance 在相同 Ticker 與時間視窗下是否成功。
+- 切勿印出 Cookie 或 Crumb 數值。
 
-- [ ] `Step 1: Add an opt-in integration probe`
+- [ ] `Step 1: 新增選擇性 (Opt-in) 整合 Probe`
 
-Require `YFIN_LIVE_YAHOO=1`; otherwise skip. Test AAPL sequentially with retry max `1` so breaker amplification does not hide root statuses.
+需要 `YFIN_LIVE_YAHOO=1`；否則跳過。以 Retry Max `1` 順序測試 AAPL，使 Circuit Breaker 放大不會隱藏根狀態。
 
-- [ ] `Step 2: Run the formal stdlib probe`
+- [ ] `Step 2: 執行正式的 stdlib Probe`
 
 ```bash
 YFIN_LIVE_YAHOO=1 go test -tags=integration ./svc/yahoo -run TestLiveYahooAuthCapability -count=1 -v
 ```
 
-Expected: exact statuses are printed without secrets.
+預期結果：印出確切的 Statuses 且不洩漏 Secrets。
 
-- [ ] `Step 3: Apply only evidence-supported options changes`
+- [ ] `Step 3: 僅套用有證據支持的 Options 變更`
 
-If the same cookie/crumb contract makes options return `2xx`, add it with fixture tests and retain `yahoo-options` isolation. If it remains `401` while Python succeeds, record `options` as fingerprint-blocked and make no speculative production change.
+若相同的 Cookie/Crumb 契約使 Options 回傳 `2xx`，則新增它及 Fixture 測試，並維持 `yahoo-options` 隔離。若其在 Python 成功的情況下仍為 `401`，將 `options` 記錄為 Fingerprint-blocked，且不進行推測性的 Production 變更。
 
-- [ ] `Step 4: Record the quoteSummary boundary`
+- [ ] `Step 4: 記錄 quoteSummary 邊界`
 
-If stdlib quoteSummary remains `429` while Python yfinance succeeds, leave all 13 auth commands explicitly blocked. Resolving that condition requires a separately approved transport-policy change because this plan prohibits fingerprint impersonation dependencies.
+若 stdlib quoteSummary 在 Python yfinance 成功時仍保持 `429`，請保留所有 13 個 Auth Commands 為明確 Blocked。解決該狀況需要單獨獲批的 Transport-policy 變更，因為本計畫禁止 Fingerprint Impersonation 依賴。
 
-### Task 6: Formal AAPL then 2330.TW acceptance
+### Task 6: 正式 AAPL 隨後 2330.TW 驗收 (Acceptance)
 
 `Files:`
 
-- Modify `README.md`, `CLAUDE.md`, `docs/cli/commands.md`, and `docs/operations/error-handling.md`.
-- Append exact results to this plan.
+- 修改 `README.md`、`CLAUDE.md`、`docs/cli/commands.md` 與 `docs/operations/error-handling.md`。
+- 將確切結果附加至此計畫中。
 
-- [ ] `Step 1: Run deterministic gates`
+- [ ] `Step 1: 執行 Deterministic Gates`
 
 ```bash
 go test ./... -count=1
@@ -275,35 +275,35 @@ go list -f '{{.ImportPath}} {{join .Imports " "}}' ./cmd/... | grep 'github.com/
 git diff --check
 ```
 
-Expected: test, race, build, vet, and diff checks pass; import grep emits no output.
+預期結果：Test, race, build, vet, 及 diff 檢查通過；Import Grep 不輸出任何內容。
 
-- [ ] `Step 2: Run AAPL parity`
+- [ ] `Step 2: 執行 AAPL Parity`
 
 ```bash
 ./scripts/verify-yf-parity.sh AAPL
 ```
 
-Expected for completion: `30 success`, zero failed/missing/conflict, semantic comparator exit `0`.
+預期完成結果：`30 success`，零 failed/missing/conflict，Semantic Comparator 離開時返回 `0`。
 
-- [ ] `Step 3: Run 2330.TW parity only after AAPL passes`
+- [ ] `Step 3: 僅在 AAPL 通過後執行 2330.TW Parity`
 
 ```bash
 ./scripts/verify-yf-parity.sh 2330.TW
 ```
 
-Expected for completion: `30 success`, zero failed/missing/conflict, semantic comparator exit `0`.
+預期完成結果：`30 success`，零 failed/missing/conflict，Semantic Comparator 離開時返回 `0`。
 
-- [ ] `Step 4: Synchronize active documentation`
+- [ ] `Step 4: 同步 Active Documentation`
 
-Document only the endpoints and live support proven by both runs. If Task 5 remains fingerprint-blocked, keep this plan active and do not claim full parity.
+僅記錄兩個運行皆證明的 Endpoints 與 Live Support。若 Task 5 仍處於 Fingerprint-blocked 狀態，保持此計畫為 Active 狀態且不宣稱完整 Parity。
 
-## Final Acceptance Criteria
+## 最終驗收標準 (Final Acceptance Criteria)
 
-- [ ] Current success, skipped, and not-found results cannot coexist with stale error artifacts.
-- [ ] The runner always reports all stage statuses.
-- [ ] Seven analysis commands no longer use Yahoo HTML scrape paths.
-- [ ] Earnings dates use JSON and treat an empty result consistently.
-- [ ] Options behavior is evidence-backed.
-- [ ] AAPL 30-command semantic parity exits `0`.
-- [ ] 2330.TW 30-command semantic parity exits `0`.
-- [ ] Deterministic gates pass with zero `cmd → svc` direct imports.
+- [ ] 當前 success、skipped 及 not-found 的結果不能與過期的 Error Artifacts 共存。
+- [ ] Runner 總是回報所有階段的狀態。
+- [ ] 七個 Analysis Commands 不再使用 Yahoo HTML Scrape 路徑。
+- [ ] Earnings Dates 使用 JSON 且一致地處理空結果。
+- [ ] Options 行為有證據支持。
+- [ ] AAPL 30-command Semantic Parity 離開時返回 `0`。
+- [ ] 2330.TW 30-command Semantic Parity 離開時返回 `0`。
+- [ ] Deterministic Gates 通過且 `cmd → svc` 直接 Import 為零。
