@@ -30,18 +30,18 @@ type configConfig struct {
 }
 
 // newConfigCmd returns the `config` cobra command. It dumps the resolved
-// ampy-config (flattened to dot-notation key=value, or JSON) to stdout.
+// YAML config (flattened to dot-notation key=value, or JSON) to stdout.
 func newConfigCmd() *cobra.Command {
 	cfg := &configConfig{}
 	cmd := &cobra.Command{
 		Use:   "config",
 		Short: "組態管理 (Configuration management)",
-		Long: `yfin CLI 組態管理：載入並驗證 ampy-config 檔。
+		Long: `yfin CLI 組態管理：載入並驗證 YAML 設定檔。
 (Configuration management for yfinance-go.
-Loads and validates configuration from ampy-config files.)
+Loads and validates configuration from YAML files.)
 
 範例 (Examples):
-  yfin config --file ./config/effective.yaml --print-effective
+  yfin --config ./config/effective.yaml config --print-effective
   yfin config --print-effective --json`,
 		RunE: func(c *cobra.Command, args []string) error { return runConfig(cfg) },
 	}
@@ -56,15 +56,7 @@ func runConfig(cfg *configConfig) error {
 		return fmt.Errorf("--print-effective flag is required")
 	}
 
-	// Determine effective config path
-	effectivePath := cmd.Global.ConfigFile
-	if effectivePath == "" {
-		// Default to a standard effective config path
-		effectivePath = "config/effective.yaml"
-	}
-
-	// Load configuration using ampy-config
-	loader := config.NewLoader(effectivePath)
+	loader := config.NewLoader(cmd.Global.ConfigFile)
 	_, err := loader.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to load configuration: %v\n", err)

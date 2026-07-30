@@ -1,4 +1,4 @@
-# ampy-config (yfinance-go) - Development Environment
+# yfin - Development Environment
 # This is an example configuration file for development
 
 app:
@@ -10,7 +10,7 @@ yahoo:
   timeout_ms: 6000
   idle_timeout_ms: 30000
   max_conns_per_host: 64
-  user_agent: "AmpyFin-yfinance-go/1.x"
+  user_agent: "yfin/1.x"
 
 concurrency:
   global_workers: 64
@@ -62,8 +62,8 @@ scrape:
   enabled: true
   # scrape HTTP knobs (user_agent / timeout_ms / qps / burst / retry.*)
   # removed: defaults now live in svc/scrape.DefaultConfig().HTTP and can
-  # be overridden via Go code (facade.NewScrapeClientFromConfig takes a
-  # *config.ScrapeConfig whose HTTP field is settable).
+  # be overridden via Go code. The CLI applies this section through
+  # facade.Client.ConfigureScrape on the shared connection pool.
   robots_policy: "enforce"
   cache_ttl_ms: 60000
   endpoints:
@@ -79,15 +79,16 @@ observability:
   metrics:
     prometheus:
       enabled: true
-      addr: ":9090"                   # exporter bind address (Step 10 wiring)
+      addr: ":9090"                   # local Prometheus exposition bind address
   tracing:
     otlp:
-      enabled: true
+      enabled: true                   # schema compatibility; tracer is currently no-op
       endpoint: "${OTEL_EXPORTER_OTLP_ENDPOINT:-http://localhost:4317}"
       sample_ratio: 0.05
 
 secrets:
-  # Reference secrets by URI; resolution handled by ampy-config (e.g., env:, file:, gcp-sm:, aws-sm:)
+  # URI references are retained as metadata and redacted by `yfin config`;
+  # this loader does not resolve env:, file:, or cloud-secret URIs.
   # Examples:
   # - name: "api_token"
   #   ref: "env:API_TOKEN"

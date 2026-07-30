@@ -5,7 +5,7 @@
 ## 重點摘要
 
 - 與 `yfin` CLI 完全解耦：執行方式為 `go run ./cmd/soak ...` 或先 `go build -o soak ./cmd/soak` 後 `./soak ...`
-- 覆蓋 API → fallback → 規範化 → 發佈 的端到端流程
+- 覆蓋 API → fallback → normalization 的端到端流程
 - 內建失敗注入、robots.txt 守查與正確性探測
 - Session 輪替功能已移除，HTTP client 改為共用 `http.Client` 搭配 rate-limit / retry / circuit breaker
 
@@ -21,8 +21,7 @@ go run ./cmd/soak \
   --fallback auto \
   --duration 10m \
   --concurrency 8 \
-  --qps 5 \
-  --preview
+  --qps 5
 ```
 
 ### 完整 production soak（2 小時）
@@ -35,8 +34,7 @@ go run ./cmd/soak \
   --fallback auto \
   --duration 2h \
   --concurrency 12 \
-  --qps 5 \
-  --preview
+  --qps 5
 ```
 
 ### 長時段測試
@@ -56,22 +54,13 @@ go run ./cmd/soak \
 
 旗標以 `cmd/soak/main.go` 的 `rootCmd.PersistentFlags()` 與 `rootCmd.Flags()` 為準。
 
-### 全域旗標（Persistent）
+### Runtime 旗標
 
 | 旗標 | 預設值 | 說明 |
 | --- | --- | --- |
-| `--config` | `""` | YAML 設定檔路徑（選填） |
+| `--config` | `""` | YAML 設定檔路徑；空白時載入 `config/effective.yaml` |
 | `--log-level` | `info` | info \| debug \| warn \| error |
 | `--run-id` | `""` | 識別本次 run 的 ID；留空自動產生 |
-| `--concurrency` | `0` | worker pool 大小（留空由 config 決定） |
-| `--qps` | `0` | per-host QPS（留空由 config 決定） |
-| `--retry-max` | `0` | HTTP 重試次數（留空由 config 決定） |
-| `--timeout` | `0` | HTTP timeout（例：`6s`） |
-
-### Soak 旗標
-
-| 旗標 | 預設值 | 說明 |
-| --- | --- | --- |
 | `--universe-file` | *必填* | 包含 ticker 清單的檔案路徑 |
 | `--endpoints` | `key-statistics,financials,analysis,profile,news` | 逗號分隔的 endpoint 清單 |
 | `--fallback` | `auto` | `auto` \| `api-only` \| `scrape-only` |
@@ -81,6 +70,8 @@ go run ./cmd/soak \
 | `--probe-interval` | `1h` | 正確性探測週期間隔 |
 | `--failure-rate` | `0.1` | 模擬失敗率（0.0–1.0） |
 | `--memory-check` | `true` | 啟用記憶體與 goroutine 洩漏偵測 |
+| `--retry-max` | `0` | HTTP 重試次數 |
+| `--timeout` | `0` | HTTP timeout（例：`6s`） |
 
 > 注意：CLI 的 `--qps` / `--retry-max` / `--timeout` 與 nested config 結構尚未在 orchestrator override hook 串接，未來會以 `cfg.HTTP()` / `cfg.RateLimit.PerHostQPS` / `cfg.Retry.Attempts` 等 setter 套用。
 
@@ -188,7 +179,6 @@ news:           1,454 requests, 1,444 successes, 10 failures, avg latency: 1.5s
 - `Rate Limit Safety`：429/503 持續 < 1%
 - `Robots Adherence`：enforce 模式下無 disallowed fetch
 - `Correctness`：API vs scrape 容差內一致
-- `No DLQ`：發佈乾淨且順序正確
 
 ## 疑難排解
 
@@ -212,7 +202,7 @@ news:           1,454 requests, 1,444 successes, 10 failures, avg latency: 1.5s
 
 ### Rate limiting
 - 調降 `--qps`
-- 提高 `--concurrency` 分散流量
+- 調降 `--concurrency`，避免同時在 limiter 前堆積過多工作
 - 確認 backoff 行為出現在 log 中
 
 ## CI/CD 整合
@@ -226,8 +216,7 @@ go run ./cmd/soak \
   --endpoints key-statistics,news \
   --duration 30m \
   --concurrency 4 \
-  --qps 2 \
-  --preview
+  --qps 2
 ```
 
 ### 上線前完整驗證（1 小時）
@@ -240,7 +229,6 @@ go run ./cmd/soak \
   --duration 1h \
   --concurrency 8 \
   --qps 3 \
-  --preview \
   --memory-check
 ```
 
@@ -250,7 +238,7 @@ go run ./cmd/soak \
 2. `Monitor Resources`：留意 memory / goroutine 成長
 3. `Validate Correctness`：定期審視探測結果
 4. `Respect Rate Limits`：QPS 維持 < 10
-5. `Use Preview Mode`：先無發佈測試
+5. `Use Short Runs`：先用短 duration 驗證設定
 6. `Check Logs`：監看 robots.txt 違規
 7. `Gradual Scaling`：循序漸進加壓
 
@@ -266,4 +254,4 @@ go run ./cmd/soak \
 - `FailureServer` (`failure.go`)：失敗注入
 - 共用 `rate.Limiter`：QPS 控制與 backoff
 
-輸入 config 來自 `config/` 套件；執行期透過 `facade.Client` 與 `utils/bus` 對接匯流排。
+輸入 config 來自 `config/` 套件；provider request 透過 `facade.Client`，測試結果直接輸出到 stdout 並更新 Prometheus collectors。

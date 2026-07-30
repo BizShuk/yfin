@@ -8,7 +8,7 @@
 
 ```tree
 yfin
-├── config-effective    (cmd/admin)
+├── config              (cmd/admin)
 ├── version             (cmd/admin)
 ├── batch               (cmd/dispatch)
 ├── fundamentals        (cmd/fundamentals)
@@ -28,20 +28,20 @@ yfin
 
 | 旗標 | 型別 | 預設值 | 用途 |
 | --- | --- | --- | --- |
-| `--config` | string | `""` | YAML 設定檔路徑 |
-| `--log-level` | string | `"info"` | Log level (`info` / `debug` / `warn` / `error`) |
+| `--config` | string | `""` | YAML 設定檔路徑；空白時載入 `config/effective.yaml` |
+| `--log-level` | string | `"info"` | `slog` / observability 最低 level；明確傳入時覆寫 env / YAML |
 | `--run-id` | string | `""` | Run ID（空白則自動產生） |
-| `--concurrency` | int | `0` | Worker pool 大小（覆寫 YAML 預設；`0` 採用 YAML 值） |
+| `--concurrency` | int | `0` | `pull` universe / multi-ticker `quote` worker limit；`0` 採用 YAML，仍受 per-host limit |
 | `--qps` | float64 | `0` | Per-host QPS（覆寫 YAML 預設；`0` 採用 YAML 值） |
 | `--retry-max` | int | `0` | HTTP retry 嘗試次數 |
 | `--sessions` | int | `0` | **Vestigial**：session rotation 已從 HTTP client 移除，旗標保留為向後相容，無實際效果 |
 | `--timeout` | duration | `0` | HTTP timeout（如 `6s`） |
-| `--observability-disable-tracing` | bool | `false` | 關閉 OpenTelemetry tracing |
+| `--observability-disable-tracing` | bool | `false` | Compatibility flag；目前 tracer 固定為 no-op |
 | `--observability-disable-metrics` | bool | `false` | 關閉 Prometheus metrics |
 
 ## 命令參考 (Command Reference)
 
-### `config-effective`
+### `config`
 
 列印 CLI 解析後的 effective configuration（扁平 `key=value` 或 JSON）。
 
@@ -51,8 +51,9 @@ yfin
 | `--json` | bool | 以 JSON 格式輸出（預設為 `key=value`） |
 
 ```bash
-yfin config-effective --print-effective
-yfin config-effective --print-effective --json
+yfin config --print-effective
+yfin config --print-effective --json
+yfin --config ./config/effective.yaml config --print-effective
 ```
 
 ### `version`
@@ -131,13 +132,12 @@ yfin comprehensive-profile --ticker MSFT --preview
 | `--adjusted` | string | `"split_dividend"` | 調整策略（`raw` / `split_dividend`）；可由 YAML `markets.default_adjustment_policy` 覆寫 |
 | `--market` | string | `""` | Market MIC（MIC inference 提示，可選） |
 | `--fx-target` | string | `""` | FX 轉換目標幣別（如 `EUR`、`JPY`） |
-| `--preview` | bool | `false` | 顯示 preview，不實際寫檔 |
 | `--out` | string | `""` | 輸出格式（`json` / `parquet`，parquet 尚未實作） |
 | `--out-dir` | string | `""` | 輸出目錄 |
 
 ```bash
-yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --preview
-yfin pull --universe-file nasdaq100.txt --start 2024-01-01 --end 2024-12-31 --out json --out-dir ./data --preview
+yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31
+yfin pull --universe-file nasdaq100.txt --start 2024-01-01 --end 2024-12-31 --out json --out-dir ./data
 ```
 
 ### `quote`
@@ -147,13 +147,12 @@ yfin pull --universe-file nasdaq100.txt --start 2024-01-01 --end 2024-12-31 --ou
 | 旗標 | 型別 | 預設值 | 說明 |
 | --- | --- | --- | --- |
 | `--tickers` | string | `""` | 必填。CSV ticker 列表（如 `AAPL,MSFT,TSLA`） |
-| `--preview` | bool | `false` | 顯示 preview，不實際寫檔 |
 | `--out` | string | `""` | 輸出格式（僅支援 `json`） |
 | `--out-dir` | string | `""` | 輸出目錄 |
 
 ```bash
-yfin quote --tickers AAPL,MSFT,TSLA --preview
-yfin quote --tickers AAPL --out json --out-dir ./quotes --preview
+yfin quote --tickers AAPL,MSFT,TSLA
+yfin quote --tickers AAPL --out json --out-dir ./quotes
 ```
 
 ### `scrape`
@@ -177,7 +176,7 @@ Yahoo Finance 網頁爬蟲，提供 3 種互斥 mode（必填其一）。HTTP �
 | `--endpoint` | string | `""` | 單一 endpoint，搭配 `--check`；可選值：`profile` / `key-statistics` / `financials` / `balance-sheet` / `cash-flow` / `analysis` / `analyst-insights` / `news` |
 | `--endpoints` | string | `""` | CSV 多 endpoint，搭配 `--preview-json` |
 | `--preview` | bool | `false` | 顯示 preview |
-| `--force` | bool | `false` | 忽略 API 可用性檢查，強制走爬蟲（僅測試用） |
+| `--force` | bool | `false` | Deprecated compatibility flag；目前無額外效果 |
 
 ```bash
 yfin scrape --check --ticker AAPL --endpoint profile --preview
@@ -226,7 +225,7 @@ yfin twse --endpoint MI_WEEK --date 20221230 --pretty
 go run ./cmd/soak
 ```
 
-詳細使用見 [soak-testing.md](../soak-testing.md)。
+詳細使用見 [soak-testing.md](soak-testing.md)。
 
 ## 參見 (See Also)
 
@@ -234,4 +233,4 @@ go run ./cmd/soak
 - [operations/configuration.md](../operations/configuration.md) — YAML config 結構
 - [operations/error-handling.md](../operations/error-handling.md) — 退出碼語義與錯誤處理
 - [scrape/cli.md](../scrape/cli.md) — `scrape` 子命令深度指南
-- [soak-testing.md](../soak-testing.md) — `cmd/soak` 獨立 binary
+- [soak-testing.md](soak-testing.md) — `cmd/soak` 獨立 binary

@@ -38,6 +38,18 @@ func TestInit(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestInitRejectsInvalidLogLevel(t *testing.T) {
+	Reset()
+	t.Cleanup(Reset)
+
+	err := Init(context.Background(), &Config{
+		ServiceName: "test-service",
+		Environment: "test",
+		LogLevel:    "verbose",
+	})
+	require.ErrorContains(t, err, "invalid log level")
+}
+
 func TestLogger(t *testing.T) {
 	// Test fallback logger when not initialized
 	logger := Logger()

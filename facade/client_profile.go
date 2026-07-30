@@ -21,8 +21,15 @@ func registerYahooHostProfiles(registrar hostProfileRegistrar, config *httpx.Con
 }
 
 func yahooHostProfiles(config *httpx.Config) []httpx.HostProfile {
+	return yahooHostProfilesWithScrape(config, nil)
+}
+
+func yahooHostProfilesWithScrape(config, scrapeHTTP *httpx.Config) []httpx.HostProfile {
 	if config == nil {
 		config = httpx.DefaultConfig()
+	}
+	if scrapeHTTP == nil {
+		scrapeHTTP = scrape.DefaultConfig().HTTP
 	}
 
 	queryProfile := func(host string) httpx.HostProfile {
@@ -36,23 +43,29 @@ func yahooHostProfiles(config *httpx.Config) []httpx.HostProfile {
 		}
 	}
 
-	scrapeHTTP := scrape.DefaultConfig().HTTP
 	return []httpx.HostProfile{
 		queryProfile("query1.finance.yahoo.com"),
 		queryProfile("query2.finance.yahoo.com"),
-		{
-			Host:       "finance.yahoo.com",
-			EndpointFn: yahooEndpoint,
-			QPS:        scrapeHTTP.QPS,
-			Burst:      scrapeHTTP.Burst,
-			MaxBody:    scrapeHTTP.MaxBodyBytes,
-			UserAgent:  scrapeHTTP.UserAgent,
-			Headers: http.Header{
-				"Accept":          {"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"},
-				"Accept-Language": {"en-US,en;q=0.9"},
-			},
-		},
+		yahooWebHostProfile(scrapeHTTP),
 		queryProfile("fc.yahoo.com"),
+	}
+}
+
+func yahooWebHostProfile(config *httpx.Config) httpx.HostProfile {
+	if config == nil {
+		config = scrape.DefaultConfig().HTTP
+	}
+	return httpx.HostProfile{
+		Host:       "finance.yahoo.com",
+		EndpointFn: yahooEndpoint,
+		QPS:        config.QPS,
+		Burst:      config.Burst,
+		MaxBody:    config.MaxBodyBytes,
+		UserAgent:  config.UserAgent,
+		Headers: http.Header{
+			"Accept":          {"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8"},
+			"Accept-Language": {"en-US,en;q=0.9"},
+		},
 	}
 }
 

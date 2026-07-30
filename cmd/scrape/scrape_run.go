@@ -15,6 +15,7 @@ import (
 	"github.com/bizshuk/yfin/cmd/format"
 	"github.com/bizshuk/yfin/config"
 	"github.com/bizshuk/yfin/facade"
+	"github.com/bizshuk/yfin/model"
 	"github.com/bizshuk/yfin/utils/obsv"
 	"github.com/spf13/cobra"
 )
@@ -37,10 +38,10 @@ func newScrapeCmd() *cobra.Command {
 	c := &cobra.Command{
 		Use:   "scrape",
 		Short: "Yahoo Finance 網頁爬蟲 (Web scraping operations)",
-		Long: `當 API endpoints 無法使用時，改走 Yahoo Finance 網頁爬蟲取得資料。
+		Long: `明確選擇 Yahoo Finance 網頁爬蟲 surface 取得 API 未提供的資料；不會由其他 command 隱式切換。
 提供三種模式：--check（連線測試）/ --preview-json（extractor 乾跑）/ --preview-news（news parser 乾跑）。
 (Web scraping operations for Yahoo Finance data.
-This command provides access to scraping functionality when API endpoints are unavailable.)
+This explicit command does not act as an automatic fallback for API commands.)
 
 範例 (Examples):
   yfin scrape --check --ticker AAPL --endpoint profile --preview
@@ -56,7 +57,7 @@ This command provides access to scraping functionality when API endpoints are un
 	c.Flags().BoolVar(&cfg.Preview, "preview", false, "Show preview without parsing")
 	c.Flags().BoolVar(&cfg.PreviewJSON, "preview-json", false, "Preview JSON extraction")
 	c.Flags().BoolVar(&cfg.PreviewNews, "preview-news", false, "Preview news articles")
-	c.Flags().BoolVar(&cfg.Force, "force", false, "Force scraping even if API is available")
+	c.Flags().BoolVar(&cfg.Force, "force", false, "Deprecated compatibility flag; scrape is already explicit")
 	return c
 }
 
@@ -96,7 +97,7 @@ func runScrape(cobraCmd *cobra.Command, cfg *scrapeConfig) error {
 		CollectorEndpoint: ycfg.Observability.Tracing.OTLP.Endpoint,
 		TraceProtocol:     "grpc",
 		SampleRatio:       ycfg.Observability.Tracing.OTLP.SampleRatio,
-		LogLevel:          ycfg.Observability.Logs.Level,
+		LogLevel:          cmd.ResolveLogLevel(cobraCmd, ycfg.Observability.Logs.Level),
 		MetricsAddr:       ycfg.Observability.Metrics.Prometheus.Addr,
 		MetricsEnabled:    ycfg.Observability.Metrics.Prometheus.Enabled && !disableMetrics,
 		TracingEnabled:    ycfg.Observability.Tracing.OTLP.Enabled && !disableTracing,
@@ -111,16 +112,14 @@ func runScrape(cobraCmd *cobra.Command, cfg *scrapeConfig) error {
 	// Build a facade.Client that wraps both the yahoo and scrape HTTP
 	// clients. facade is the single handler between cmd → svc; the CLI flag
 	// overrides (--qps / --retry-max / --timeout) are applied in
-	// cmd.CreateClient() on top of the ampy-config scrape settings.
-	client, err := cmd.CreateClient()
+	// the shared cmd client builder on top of the YAML + Go scrape settings.
+	client, err := cmd.CreateClientFromConfig(ycfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to create client: %v\n", err)
 		os.Exit(cmd.ExitGeneral)
 	}
-	_ = scrapeCfg // scrapeCfg.Enabled already validated above; facade handles client construction.
-
 	if cfg.Check {
-		return runScrapeCheck(ctx, client, cfg.Ticker, cfg.Endpoint, runID)
+		return runScrapeCheck(ctx, client, cfg.Ticker, cfg.Endpoint, cfg.Preview)
 	}
 	if cfg.PreviewJSON {
 		return runScrapePreviewJSON(ctx, client, cfg.Ticker, cfg.Endpoints, runID)
@@ -129,15 +128,21 @@ func runScrape(cobraCmd *cobra.Command, cfg *scrapeConfig) error {
 		return runScrapePreviewNews(ctx, client, cfg.Ticker, runID)
 	}
 
-	fmt.Fprintf(os.Stderr, "ERROR: Either --check, --preview-json, or --preview-news mode is required\n")
+	fmt.Fprintln(os.Stderr, "ERROR: Exactly one of --check, --preview-json, or --preview-news modes is required")
 	os.Exit(cmd.ExitGeneral)
 	return nil
 }
 
 // validateScrapeFlags validates scrape command flags
 func validateScrapeFlags(cfg *scrapeConfig) error {
-	if !cfg.Check && !cfg.PreviewJSON && !cfg.PreviewNews {
-		return fmt.Errorf("either --check, --preview-json, or --preview-news flag is required")
+	modeCount := 0
+	for _, enabled := range []bool{cfg.Check, cfg.PreviewJSON, cfg.PreviewNews} {
+		if enabled {
+			modeCount++
+		}
+	}
+	if modeCount != 1 {
+		return fmt.Errorf("exactly one of --check, --preview-json, or --preview-news is required")
 	}
 	if cfg.Ticker == "" {
 		return fmt.Errorf("--ticker is required")
@@ -188,16 +193,24 @@ func validateScrapeFlags(cfg *scrapeConfig) error {
 }
 
 // runScrapeCheck runs a scrape connectivity check
-func runScrapeCheck(ctx context.Context, client *facade.Client, ticker, endpoint, runID string) error {
+func runScrapeCheck(ctx context.Context, client *facade.Client, ticker, endpoint string, preview bool) error {
 	body, meta, err := client.ScrapeFetch(ctx, ticker, endpoint)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("SCRAPE CHECK host=%s url=%s status=%d bytes=%d gzip=%t redirects=%d latency_p50≈%dms\n",
-		meta.Host, meta.URL, meta.Status, meta.Bytes, meta.Gzip, meta.Redirects, meta.Duration.Milliseconds())
-	fmt.Printf("CONTENT PREVIEW: %s\n", string(body))
+	fmt.Print(formatScrapeCheck(body, meta, preview))
 	return nil
+}
+
+func formatScrapeCheck(body []byte, meta *model.FetchMeta, preview bool) string {
+	var output strings.Builder
+	fmt.Fprintf(&output, "SCRAPE CHECK host=%s url=%s status=%d bytes=%d gzip=%t redirects=%d latency_p50≈%dms\n",
+		meta.Host, meta.URL, meta.Status, meta.Bytes, meta.Gzip, meta.Redirects, meta.Duration.Milliseconds())
+	if preview {
+		fmt.Fprintf(&output, "CONTENT PREVIEW: %s\n", string(body))
+	}
+	return output.String()
 }
 
 // runScrapePreviewNews executes the preview-news mode for testing news parser

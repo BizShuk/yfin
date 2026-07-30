@@ -22,14 +22,13 @@ yfin scrape [flags]
 
 ### Modes（互斥，一次只能指定一個）
 
-`scrape` 命令提供四種互斥的執行模式，必須擇一指定：
+`scrape` 命令提供三種執行模式，必須擇一指定：
 
 | Mode | 用途 | 必要搭配旗標 |
 | --- | --- | --- |
-| `--check` | 連線測試（不下載、不解析） | `--ticker` + `--endpoint` |
-| `--preview-json` | extractor 乾跑（解析但不送 proto） | `--ticker` + `--endpoints` |
+| `--check` | 連線測試（下載 response、不解析 DTO） | `--ticker` + `--endpoint` |
+| `--preview-json` | extractor 乾跑（解析並輸出 JSON） | `--ticker` + `--endpoints` |
 | `--preview-news` | news parser 乾跑 | `--ticker` |
-| `--preview-proto` | proto 完整輸出乾跑（含 counts/periods/metadata） | `--ticker` + `--endpoints` |
 
 > 模式旗標不可同時指定；若一個都沒給，`runScrape` 會回錯並退出。
 
@@ -39,13 +38,12 @@ yfin scrape [flags]
 | --- | --- | --- |
 | `--ticker` | string | 必填。股票代號（例如 `AAPL`） |
 | `--endpoint` | string | 單一 endpoint，搭配 `--check` 使用。可選值：`profile`、`key-statistics`、`financials`、`balance-sheet`、`cash-flow`、`analysis`、`analyst-insights`、`news` |
-| `--endpoints` | string | 多個 endpoint（逗號分隔），搭配 `--preview-json` 或 `--preview-proto` 使用。可選值同上 |
-| `--preview` | bool | 顯示 preview |
+| `--endpoints` | string | 多個 endpoint（逗號分隔），搭配 `--preview-json` 使用。可選值同上 |
+| `--preview` | bool | 搭配 `--check` 顯示 response preview |
 | `--preview-json` | bool | extractor 乾跑（mutually exclusive with other modes） |
 | `--preview-news` | bool | news parser 乾跑（mutually exclusive） |
-| `--preview-proto` | bool | proto 完整輸出乾跑（mutually exclusive） |
 | `--check` | bool | 連線測試（mutually exclusive） |
-| `--force` | bool | 覆寫 robots.txt 限制（僅供測試） |
+| `--force` | bool | Deprecated compatibility flag；scrape 已是 explicit surface，目前無額外效果 |
 
 > 註：CLI 不再提供任何 session-pool 旗標；HTTP client 由 `utils/httpx` 統一管理連線、限速與重試。
 
@@ -55,7 +53,7 @@ yfin scrape [flags]
 
 ```bash
 # 測試 Apple 的 key-statistics 頁面連線狀態
-yfin scrape --ticker AAPL --endpoint key-statistics --check
+yfin scrape --ticker AAPL --endpoint key-statistics --check --preview
 
 # 預期輸出：
 # SCRAPE CHECK host=finance.yahoo.com url=https://finance.yahoo.com/quote/AAPL/key-statistics status=200 bytes=xxx gzip=true redirects=0 latency_p50≈xxxms
@@ -72,7 +70,7 @@ yfin scrape --ticker AAPL --endpoint key-statistics --check
 ### 範例 2：多 endpoint JSON preview
 
 ```bash
-# 一次預覽多個 endpoint 的 extractor 結果（不下 proto）
+# 一次預覽多個 endpoint 的 extractor 結果
 yfin scrape --ticker MSFT --endpoints key-statistics,financials,analysis,profile --preview-json
 ```
 
@@ -81,7 +79,7 @@ yfin scrape --ticker MSFT --endpoints key-statistics,financials,analysis,profile
 **When to use**：
 - 開發新 extractor 時確認 parsing 結果
 - 排查 schema drift
-- 不需送 bus message 的測試情境
+- 不需寫入下游 storage 的測試情境
 
 ### 範例 3：News parser preview
 
@@ -105,27 +103,7 @@ yfin scrape --ticker TSLA --preview-news
 - 監控 news 解析行為
 - 評估 sentiment analysis pipeline
 
-### 範例 4：Proto 完整輸出 preview
-
-```bash
-# 預覽完整 proto 輸出（含 counts、periods、metadata）
-yfin scrape --ticker AAPL --endpoints financials,analysis,profile,news --preview-proto
-```
-
-**Why this example**：確認 emit 階段（`svc/emit`）的 mapper 與下游 proto 結構一致。
-
-**When to use**：
-- 修改 emit mapper 後的驗證
-- 比對不同 endpoint 的 proto schema
-
-### 範例 5：Force 模式（僅測試）
-
-```bash
-# 覆寫 robots.txt（測試用）
-yfin scrape --ticker AAPL --endpoint profile --check --force
-```
-
-> 警告：`--force` 僅供測試環境使用，違規使用可能違反 Yahoo 使用條款並導致 IP 被封鎖。
+`--force` 僅為 compatibility flag，不會停用 robots.txt enforcement；robots 行為仍由 `scrape.robots_policy` 決定。
 
 ## 進階使用模式 (Advanced Usage Patterns)
 
@@ -147,13 +125,15 @@ done
 
 ### Rate limit 與 backoff 調整
 
-`--qps`、`--concurrency`、`--timeout` 等為 global flags，需在 `yfin` 根命令指定：
+`--qps`、`--retry-max`、`--timeout` 等為 HTTP global flags，需在 `yfin` 根命令指定：
 
 ```bash
-yfin --qps 1.0 --concurrency 4 --timeout 45s scrape --ticker AAPL --endpoint key-statistics --check
+yfin --qps 1.0 --timeout 45s scrape --ticker AAPL --endpoint key-statistics --check
 ```
 
-> CLI 旗標優先於 YAML config；若要調整 scrape 細部行為，建議編輯 YAML。
+> CLI 旗標優先於 Yahoo HTTP YAML config。Scrape-specific HTTP defaults 位於 Go config；Library caller 可傳入自訂 `*httpx.Config`。
+>
+> `--concurrency` 雖為 inherited persistent flag，但 `scrape` 沒有 multi-ticker worker pool，因此不 consume；它只控制 `pull` universe / multi-ticker `quote`。
 
 ## 錯誤排除與除錯 (Error Handling & Debugging)
 
@@ -219,7 +199,7 @@ for ticker in $TICKERS; do
   yfin --config config/prod.yaml --run-id "$RUN_ID" \
     scrape --ticker "$ticker" \
     --endpoints key-statistics,financials,analysis,profile,news \
-    --preview-proto
+    --preview-json
 
   if [ $? -eq 0 ]; then
     echo "✓ $ticker completed"

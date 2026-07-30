@@ -6,9 +6,8 @@
 // HTTP-layer knobs (timeout, qps, retry, user_agent, body cap) are NOT
 // declared here — they live in `utils/httpx.Config` and the loader
 // populates `HTTP *httpx.Config` from `svc/scrape.DefaultConfig().HTTP`.
-// To customise, callers pass a tuned `*httpx.Config` via Go code
-// (e.g., `facade.NewScrapeClientWithHTTP` or by mutating
-// `cfg.Scrape.HTTP` before `scrape.NewClient`).
+// To customise, callers mutate `cfg.Scrape.HTTP` after loading and apply
+// the resulting config through `(*facade.Client).ConfigureScrape`.
 //
 // Capacity: 2 structs (`ScrapeConfig`, `ScrapeEndpointConfig`).
 package config

@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/bizshuk/yfin/cmd"
-	"github.com/bizshuk/yfin/facade"
+	"github.com/bizshuk/yfin/config"
 	"github.com/bizshuk/yfin/model"
 	"github.com/spf13/cobra"
 )
@@ -22,6 +22,11 @@ type quoteConfig struct {
 	Tickers string
 	Out     string
 	OutDir  string
+}
+
+type quoteFetchResult struct {
+	quote *model.NormalizedQuote
+	err   error
 }
 
 // newQuoteCmd returns the `quote` cobra command.
@@ -65,20 +70,46 @@ func runQuote(cfg *quoteConfig) error {
 		tickers[i] = strings.TrimSpace(ticker)
 	}
 
-	// Create client
-	client, err := cmd.CreateClient()
+	ycfg, err := config.NewLoader(cmd.Global.ConfigFile).Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: Failed to load configuration: %v\n", err)
+		os.Exit(cmd.ExitConfigError)
+	}
+
+	// Create client from the same config snapshot that owns worker policy.
+	client, err := cmd.CreateClientFromConfig(ycfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to create client: %v\n", err)
 		os.Exit(cmd.ExitGeneral)
 	}
 
-	// Process quotes
+	workerLimit, err := resolveWorkerLimit(
+		cmd.Global.Concurrency,
+		ycfg.Concurrency.GlobalWorkers,
+		ycfg.Concurrency.PerHostWorkers,
+		len(tickers),
+	)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: Invalid concurrency: %v\n", err)
+		os.Exit(cmd.ExitConfigError)
+	}
+
+	// Fetch concurrently, then process output in the original ticker order.
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	fetchResults := mapBounded(tickers, workerLimit, func(ticker string) quoteFetchResult {
+		quote, fetchErr := client.FetchQuoteNorm(ctx, ticker, runID)
+		return quoteFetchResult{quote: quote, err: fetchErr}
+	})
 
 	successCount := 0
-	for _, ticker := range tickers {
-		if err := processQuote(ctx, client, ticker, runID, cfg); err != nil {
+	for index, ticker := range tickers {
+		result := fetchResults[index]
+		if result.err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: Failed to process quote for %s: %v\n", ticker, result.err)
+			continue
+		}
+		if err := processFetchedQuote(result.quote, ticker, cfg); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: Failed to process quote for %s: %v\n", ticker, err)
 			continue
 		}
@@ -105,14 +136,8 @@ func validateQuoteFlags(cfg *quoteConfig) error {
 	return nil
 }
 
-// processQuote processes a single quote
-func processQuote(ctx context.Context, client *facade.Client, ticker string, runID string, cfg *quoteConfig) error {
-	// Fetch quote via facade (Norm-returning variant for local JSON export).
-	quote, err := client.FetchQuoteNorm(ctx, ticker, runID)
-	if err != nil {
-		return err
-	}
-
+// processFetchedQuote renders and exports one already-fetched quote.
+func processFetchedQuote(quote *model.NormalizedQuote, ticker string, cfg *quoteConfig) error {
 	// Print preview
 	printQuotePreview(quote)
 

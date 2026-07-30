@@ -1,16 +1,15 @@
 // scrape.go — facade-level wrapper over `svc/scrape` so the yfin CLI can
-// run scrape preview modes (`--check`, `--preview-json`, `--preview-news`,
-// `--preview-proto`) without importing svc/scrape directly.
+// run scrape preview modes (`--check`, `--preview-json`, `--preview-news`)
+// without importing svc/scrape directly.
 //
 // All exported entry points take a *Client receiver except the package-level
 // parser wrappers, which are pure (no state) and so don't need one. Each
 // parser is a thin pass-through to svc/scrape — the point isn't to add
 // logic, it's to keep cmd → svc at one remove via facade.
 //
-// The return types now use model.* DTOs (ComprehensiveFinancialsDTO,
-// etc.) because cmd/scrape/format*.go printers take them. Type imports from
-// svc/scrape are allowed (these are pure data declarations, not runtime
-// calls); cmd cannot directly call svc/scrape.Fetch / Parse* / etc.
+// Return types use model.* DTOs because cmd/scrape formatters take them.
+// facade owns the public ScrapeClient contract; cmd cannot directly call
+// svc/scrape.Fetch / Parse* / etc.
 package facade
 
 import (
@@ -19,16 +18,23 @@ import (
 	"time"
 
 	"github.com/bizshuk/yfin/config"
-	"github.com/bizshuk/yfin/svc/scrape"
 	"github.com/bizshuk/yfin/model"
+	"github.com/bizshuk/yfin/svc/scrape"
 )
+
+// ScrapeClient is the facade-owned transport contract for raw scrape fetches.
+// svc/scrape.Client satisfies it without leaking that service type through
+// facade signatures.
+type ScrapeClient interface {
+	Fetch(ctx context.Context, url string) ([]byte, *model.FetchMeta, error)
+}
 
 // ScrapeFetch issues a single page fetch against the Yahoo Finance scrape
 // client. Wraps svc/scrape.Client.Fetch so cmd never touches it directly.
 // Returns the raw response body plus the fetch metadata (host, status,
 // bytes, redirects, etc.).
 func (c *Client) ScrapeFetch(ctx context.Context, ticker, endpoint string) ([]byte, *model.FetchMeta, error) {
-	scraper, err := c.scrapeClientForCmd()
+	scraper, err := c.configuredScrapeClient()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -40,33 +46,57 @@ func (c *Client) ScrapeFetch(ctx context.Context, ticker, endpoint string) ([]by
 	return body, meta, nil
 }
 
-// ScrapeFetchWithClient is a variant of ScrapeFetch that accepts an explicit
-// scrape.Client (used by cmd/scrape preview modes that wire a custom client
-// via `cmd.CreateScrapeClient` today; after Phase C, callers can use either
-// the facade-bound client or a locally-built one).
-func ScrapeFetchWithClient(ctx context.Context, scraper scrape.Client, ticker, endpoint string) ([]byte, *model.FetchMeta, error) {
+// ScrapeFetchWithClient is a variant for callers that provide an explicit
+// facade-owned ScrapeClient.
+func ScrapeFetchWithClient(ctx context.Context, scraper ScrapeClient, ticker, endpoint string) ([]byte, *model.FetchMeta, error) {
 	url := BuildScrapeURL(ticker, endpoint)
 	return scraper.Fetch(ctx, url)
 }
 
-// scrapeClientForCmd returns the scrape.Client owned by this facade.Client.
-// It exists as a thin accessor so callers needing raw fetch access (rare;
-// preview modes mostly use ScrapeFetch above) can drive it without re-
-// importing svc/scrape.
-func (c *Client) scrapeClientForCmd() (scrape.Client, error) {
+// configuredScrapeClient returns the ScrapeClient owned by this facade.Client.
+func (c *Client) configuredScrapeClient() (ScrapeClient, error) {
 	if c.scrapeClient == nil {
 		return nil, fmt.Errorf("scrape client not initialised on facade.Client")
 	}
 	return c.scrapeClient, nil
 }
 
-// NewScrapeClientFromConfig builds a svc/scrape.Client from ampy-config's
-// ScrapeConfig. The HTTP-layer config is taken from the post-load
-// `cfg.HTTP` (assembled once by the config loader); scrape-only knobs
-// are passed through directly. No field-by-field mapping.
-func NewScrapeClientFromConfig(cfg *config.ScrapeConfig) (scrape.Client, error) {
-	return scrape.NewClient(&scrape.Config{
-		HTTP:         cfg.HTTP,
+// NewScrapeClientFromConfig builds a facade-owned ScrapeClient from the YAML
+// ScrapeConfig. ConfigureScrape is preferred when an existing facade Client
+// should retain one shared connection pool.
+func NewScrapeClientFromConfig(cfg *config.ScrapeConfig) (ScrapeClient, error) {
+	return scrape.NewClient(scrapeConfigFromConfig(cfg), nil)
+}
+
+// ConfigureScrape applies the loaded scrape policy to a facade Client while
+// preserving its shared HTTP connection pool.
+func (c *Client) ConfigureScrape(cfg *config.ScrapeConfig) error {
+	if c == nil || c.httpClient == nil {
+		return fmt.Errorf("facade client HTTP transport is not initialised")
+	}
+
+	scrapeConfig := scrapeConfigFromConfig(cfg)
+	c.httpClient.UseProfile(yahooWebHostProfile(scrapeConfig.HTTP))
+	client, err := scrape.NewClient(scrapeConfig, c.httpClient)
+	if err != nil {
+		return fmt.Errorf("configure scrape client: %w", err)
+	}
+	c.scrapeClient = client
+	return nil
+}
+
+func scrapeConfigFromConfig(cfg *config.ScrapeConfig) *scrape.Config {
+	if cfg == nil {
+		return scrape.DefaultConfig()
+	}
+
+	httpConfig := cfg.HTTP
+	if httpConfig == nil {
+		httpConfig = scrape.DefaultConfig().HTTP
+	}
+
+	return &scrape.Config{
+		HTTP:         httpConfig,
 		Enabled:      cfg.Enabled,
 		RobotsPolicy: cfg.RobotsPolicy,
 		CacheTTLMs:   cfg.CacheTTLMs,
@@ -77,7 +107,7 @@ func NewScrapeClientFromConfig(cfg *config.ScrapeConfig) (scrape.Client, error) 
 			Profile:       cfg.Endpoints.Profile,
 			News:          cfg.Endpoints.News,
 		},
-	}, nil)
+	}
 }
 
 // BuildScrapeURL builds the canonical Yahoo Finance scrape URL for a given

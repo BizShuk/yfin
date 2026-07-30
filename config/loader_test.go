@@ -3,11 +3,12 @@
 // error, daily-only interval validation, GetEffectiveConfig redaction
 // path, not-loaded guard, and the GetHTTPConfig /
 // GetFXConfig / ValidateInterval / ValidateAdjustmentPolicy adapter
-// sanity. Capacity: 12 test functions + 1 createTestConfigFile helper.
+// sanity.
 package config
 
 import (
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -24,6 +25,11 @@ func TestNewLoader(t *testing.T) {
 	if loader.effectivePath != "test.yaml" {
 		t.Errorf("Expected effectivePath to be 'test.yaml', got '%s'", loader.effectivePath)
 	}
+}
+
+func TestNewLoaderUsesDefaultPathWhenEmpty(t *testing.T) {
+	loader := NewLoader("")
+	require.Equal(t, "config/effective.yaml", loader.effectivePath)
 }
 
 func TestLoadFromFile(t *testing.T) {
@@ -117,6 +123,21 @@ func TestInterpolateEnvVars(t *testing.T) {
 	}
 }
 
+func TestLoadEffectiveMapInterpolatesEnvironmentVariables(t *testing.T) {
+	t.Setenv("TEST_EFFECTIVE_HOST", "https://test.example.com")
+
+	path := filepath.Join(t.TempDir(), "effective.yaml")
+	content := []byte("yahoo:\n  base_url: ${TEST_EFFECTIVE_HOST}\n")
+	require.NoError(t, os.WriteFile(path, content, 0o600))
+
+	configMap, err := NewLoader(path).loadEffectiveMap()
+	require.NoError(t, err)
+
+	yahoo, ok := configMap["yahoo"].(map[string]interface{})
+	require.True(t, ok)
+	require.Equal(t, "https://test.example.com", yahoo["base_url"])
+}
+
 func TestValidateDailyOnlyIntervals(t *testing.T) {
 	// Create a config with invalid intervals
 	configContent := map[string]interface{}{
@@ -186,6 +207,59 @@ func TestGetEffectiveConfig(t *testing.T) {
 		// Secrets array should be present but empty or redacted
 		_ = secrets // Just check it exists
 	}
+}
+
+func TestGetEffectiveConfigPreservesNonSecretKeyNames(t *testing.T) {
+	tempFile := filepath.Join(t.TempDir(), "effective.yaml")
+	require.NoError(t, CreateEffectiveConfig(tempFile))
+
+	loader := NewLoader(tempFile)
+	_, err := loader.Load()
+	require.NoError(t, err)
+
+	effectiveConfig, err := loader.GetEffectiveConfig()
+	require.NoError(t, err)
+
+	scrape, ok := effectiveConfig["scrape"].(map[string]interface{})
+	require.True(t, ok)
+	endpoints, ok := scrape["endpoints"].(map[string]interface{})
+	require.True(t, ok)
+	require.Equal(t, true, endpoints["key_statistics"])
+}
+
+func TestIsSecretConfigKeyUsesNameBoundaries(t *testing.T) {
+	for _, key := range []string{
+		"password",
+		"database_password_hash",
+		"api_token_expires_at",
+		"client_secret_version",
+		"private_key_id",
+		"access_key_id",
+	} {
+		require.Truef(t, isSecretConfigKey(key), "%s should be treated as secret", key)
+	}
+
+	for _, key := range []string{
+		"key_statistics",
+		"monkey",
+		"secretary",
+		"tokenizer",
+	} {
+		require.Falsef(t, isSecretConfigKey(key), "%s should not be treated as secret", key)
+	}
+}
+
+func TestCreateEffectiveConfigContainsOnlyOwnedSections(t *testing.T) {
+	tempFile := filepath.Join(t.TempDir(), "effective.yaml")
+	require.NoError(t, CreateEffectiveConfig(tempFile))
+
+	effectiveConfig, err := loadYAMLFile(tempFile)
+	require.NoError(t, err)
+	require.NotContains(t, effectiveConfig, "bus")
+
+	yahoo, ok := effectiveConfig["yahoo"].(map[string]interface{})
+	require.True(t, ok)
+	require.Equal(t, "yfin/1.x", yahoo["user_agent"])
 }
 
 func TestGetEffectiveConfigNotLoaded(t *testing.T) {
@@ -320,6 +394,58 @@ func TestValidateCircuitMinimumRequests(t *testing.T) {
 
 	_, err = NewLoader(path).Load()
 	require.ErrorContains(t, err, "circuit_breaker.minimum_requests must be >= 1")
+}
+
+func TestValidateConcurrencyWorkers(t *testing.T) {
+	tests := []struct {
+		name        string
+		oldValue    string
+		newValue    string
+		wantMessage string
+	}{
+		{
+			name:        "global workers must be positive",
+			oldValue:    "global_workers: 64",
+			newValue:    "global_workers: 0",
+			wantMessage: "concurrency.global_workers must be >= 1",
+		},
+		{
+			name:        "per-host workers must be positive",
+			oldValue:    "per_host_workers: 32",
+			newValue:    "per_host_workers: 0",
+			wantMessage: "concurrency.per_host_workers must be >= 1",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "effective.yaml")
+			require.NoError(t, CreateEffectiveConfig(path))
+
+			data, err := os.ReadFile(path)
+			require.NoError(t, err)
+			content := strings.Replace(string(data), test.oldValue, test.newValue, 1)
+			require.NotEqual(t, string(data), content, "default config must contain target value")
+			require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+
+			_, err = NewLoader(path).Load()
+			require.ErrorContains(t, err, test.wantMessage)
+		})
+	}
+}
+
+func TestValidateObservabilityLogLevel(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "effective.yaml")
+	require.NoError(t, CreateEffectiveConfig(path))
+
+	data, err := os.ReadFile(path)
+	require.NoError(t, err)
+	content := strings.Replace(string(data), "level: info", "level: verbose", 1)
+	require.NotEqual(t, string(data), content, "default config must contain observability log level")
+	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
+
+	_, err = NewLoader(path).Load()
+	require.ErrorContains(t, err, "observability.logs.level must be one of")
 }
 
 func TestGetFXConfig(t *testing.T) {

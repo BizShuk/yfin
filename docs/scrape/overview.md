@@ -138,9 +138,9 @@ Raw Data → Parser → Validator → Normalized Struct
 
 ### Rate Limiting
 
-- **Per-host QPS limit**：可設定請求速率（`scrape.qps`、`scrape.burst`）
+- **Per-host QPS limit**：由 `utils/httpx.Config` 的 `QPS` / `Burst` 控制
 - **Burst allowance**：處理瞬間流量
-- **Exponential backoff**：智慧型重試時機（透過 `scrape.retry.{attempts,base_ms,max_delay_ms}`）
+- **Exponential backoff**：由同一 HTTP config 的 retry 欄位控制
 
 ### Error Recovery
 
@@ -151,41 +151,17 @@ Raw Data → Parser → Validator → Normalized Struct
 
 ## 效能特性 (Performance Characteristics)
 
-### Throughput Benchmarks
-
-| Endpoint | API (req/s) | Scrape (req/s) | Fallback 額外成本 |
-| --- | --- | --- | --- |
-| Quotes | 10-15 | 2-3 | ~200ms |
-| Key Stats | N/A | 1-2 | N/A |
-| Financials | 5-8 | 1-2 | ~500ms |
-| News | N/A | 0.5-1 | N/A |
-
-### Latency Profiles
-
-- API 請求：典型 100-500ms
-- Scrape 請求：典型 800-2000ms
-- Fallback 決策：<10ms
-- 資料正規化：10-50ms
+實際 throughput 與 latency 取決於 Yahoo response、網路與 rate-limit 設定。請使用 Prometheus metrics 或 `cmd/soak` 在目標環境量測，不在文件中固定易失真的數值。
 
 ## 整合介面 (Integration Points)
 
 ### Library 用法
 
 ```go
-import "github.com/bizshuk/yfin/svc/scrape"
+import "github.com/bizshuk/yfin/facade"
 
-client := scrape.NewClient(&scrape.Config{
-    Enabled:   true,
-    UserAgent: "yfin/1.x",
-    TimeoutMs: 10000,
-    QPS:       0.7,
-    Burst:     1,
-    Retry:     scrape.RetryConfig{Attempts: 4, BaseMs: 300, MaxDelayMs: 4000},
-    RobotsPolicy: "enforce",
-    CacheTTLMs:   60000,
-}, nil)
-
-body, meta, err := client.Fetch(ctx, "https://finance.yahoo.com/quote/AAPL/key-statistics")
+client := facade.NewClient()
+body, meta, err := client.ScrapeFetch(ctx, "AAPL", "key-statistics")
 ```
 
 ### CLI 用法
@@ -197,8 +173,8 @@ yfin scrape --ticker AAPL --endpoint key-statistics --check
 # extractor 乾跑
 yfin scrape --ticker AAPL --endpoints key-statistics,financials,analysis,profile --preview-json
 
-# 完整 DTO 輸出乾跑
-yfin scrape --ticker AAPL --endpoints financials,analysis,profile,news --preview-proto
+# News parser 乾跑
+yfin scrape --ticker AAPL --preview-news
 ```
 
 ## 監控與可觀測性 (Monitoring & Observability)

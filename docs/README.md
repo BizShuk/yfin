@@ -23,7 +23,7 @@
 ## Operations (維運 / SRE)
 
 - [`operations/configuration.md`](operations/configuration.md) — YAML 設定檔結構、`~/.config/yfin/` 路徑、env 變數
-- [`operations/observability.md`](operations/observability.md) — 指標 (metrics) 與日誌 (logs) 串接 `inf` (VictoriaMetrics / Loki)
+- [`operations/observability.md`](operations/observability.md) — `slog`、Prometheus `/metrics` 與目前的 no-op tracing boundary
 - [`operations/performance.md`](operations/performance.md) — QPS rate limiting、重試、circuit breaker 參數調校
 - [`operations/error-handling.md`](operations/error-handling.md) — 錯誤分類、暫時性錯誤處理、退避 (backoff) 策略
 - [`operations/data-quality.md`](operations/data-quality.md) — 資料品質監控、缺值偵測、異常告警

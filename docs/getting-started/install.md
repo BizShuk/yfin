@@ -69,7 +69,7 @@ git clone https://github.com/bizshuk/yfin.git
 cd yfin
 
 # 編譯 binary (build the binary)
-go build -o yfin ./cmd/yfin
+go build -o yfin .
 
 # 安裝至系統 (install to system)
 sudo mv yfin /usr/local/bin/
@@ -82,7 +82,7 @@ yfin version
 
 ```bash
 # 注入版本資訊 (build with version details)
-go build -ldflags="-X main.version=v1.0.0 -X main.commit=$(git rev-parse --short HEAD) -X main.date=$(date -u +%Y-%m-%d)" -o yfin ./cmd/yfin
+go build -ldflags="-X github.com/bizshuk/yfin/cmd.Version=v1.0.0 -X github.com/bizshuk/yfin/cmd.Commit=$(git rev-parse --short HEAD) -X github.com/bizshuk/yfin/cmd.Date=$(date -u +%Y-%m-%d)" -o yfin .
 ```
 
 ## Go Module Installation
@@ -96,7 +96,7 @@ go get github.com/bizshuk/yfin@v1.0.0
 於 Go 程式碼中 import (Then import in your Go code)：
 
 ```go
-import "github.com/bizshuk/yfin"
+import "github.com/bizshuk/yfin/facade"
 ```
 
 > **Facade boundary 提醒 (Facade boundary reminder)**：對外 import 請走 `github.com/bizshuk/yfin/facade`，避免直接 import `internal/` 或 `svc/` 的型別。
@@ -110,7 +110,7 @@ FROM golang:1.26-alpine AS builder
 
 WORKDIR /app
 COPY . .
-RUN go build -o yfin ./cmd/yfin
+RUN go build -o yfin .
 
 FROM alpine:latest
 RUN apk --no-cache add ca-certificates
@@ -130,19 +130,19 @@ docker run --rm yfin yfin version
 
 ### Default Configuration
 
-`yfin` 透過 `gosdk/config` 載入 YAML 設定；慣例 (convention) 路徑為：
+`yfin` 的 CLI YAML loader 預設載入 `config/effective.yaml`；`gosdk/config` 另負責 `~/.config/yfin/` 的應用 metadata：
 
 - 應用設定根目錄：`~/.config/yfin/`
 - 設定檔：`config/effective.yaml`（相對於執行目錄）
 - 環境覆寫：`APP_*` 環境變數（由 `gosdk/config` 預設處理）
 
-> `gosdk/config` 不接受自訂 config path；如需切換環境，請使用 `APP_*` 環境變數或切換工作目錄。
+> 如需切換 YAML 設定檔，使用 Global Flag `--config <path>`。
 
 ### Custom Configuration
 
 ```bash
 # 指定 config 檔 (use custom config file)
-yfin pull --config ./my-config.yaml --ticker AAPL --start 2024-01-01 --end 2024-12-31 --preview
+yfin --config ./my-config.yaml pull --ticker AAPL --start 2024-01-01 --end 2024-12-31
 ```
 
 ### Environment Variables (via gosdk)
@@ -152,10 +152,10 @@ yfin pull --config ./my-config.yaml --ticker AAPL --start 2024-01-01 --end 2024-
 ```bash
 export APP_LOG_LEVEL=debug
 export APP_ENV=dev
-yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --preview
+yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31
 ```
 
-CLI flag (`--log-level`, `--concurrency`, `--qps`, `--retry-max`, `--timeout`) 為執行期主要覆寫手段，env vars 僅在 `gosdk` 啟動時讀取 log level。
+CLI flag (`--log-level`, `--qps`, `--retry-max`, `--timeout`) 為通用 runtime overrides；`--concurrency` 只控制 `pull` universe / multi-ticker `quote`，且受 YAML per-host limit 約束。Log precedence 為 explicit `--log-level` > `APP_LOG_LEVEL` > YAML > `info`。
 
 ## Verification
 
@@ -166,7 +166,7 @@ CLI flag (`--log-level`, `--concurrency`, `--qps`, `--retry-max`, `--timeout`) �
 yfin version
 
 # 測試基本功能 (test basic functionality)
-yfin pull --ticker AAPL --start 2024-01-01 --end 2024-01-02 --preview
+yfin pull --ticker AAPL --start 2024-01-01 --end 2024-01-02
 
 # 印出 effective config (view effective configuration)
 yfin config --print-effective
@@ -180,7 +180,7 @@ yfin version v1.0.0
 commit: abc123
 build date: 2024-01-15
 
-$ yfin pull --ticker AAPL --start 2024-01-01 --end 2024-01-02 --preview
+$ yfin pull --ticker AAPL --start 2024-01-01 --end 2024-01-02
 RUN yfin_1704067200  (env=dev)
 SYMBOL AAPL (MIC=XNAS, CCY=USD)  range=2024-01-01..2024-01-02  bars=1  adjusted=split_dividend
 first=2024-01-01T00:00:00Z  last=2024-01-02T00:00:00Z  last_close=192.5300 USD
@@ -242,10 +242,10 @@ yfin version --help
 
 ```bash
 # 啟用 debug logging (enable debug logging)
-yfin --log-level debug pull --ticker AAPL --start 2024-01-01 --end 2024-01-02 --preview
+yfin --log-level debug pull --ticker AAPL --start 2024-01-01 --end 2024-01-02
 
 # 關閉 observability（測試用）(disable observability for testing)
-yfin --observability-disable-tracing --observability-disable-metrics pull --ticker AAPL --start 2024-01-01 --end 2024-01-02 --preview
+yfin --observability-disable-tracing --observability-disable-metrics pull --ticker AAPL --start 2024-01-01 --end 2024-01-02
 ```
 
 ## Uninstallation

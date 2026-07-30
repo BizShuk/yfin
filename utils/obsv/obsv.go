@@ -69,10 +69,11 @@ func Init(ctx context.Context, config *Config) error {
 		return fmt.Errorf("observability already initialized")
 	}
 
-	// Build a slog logger with the configured level. Falls back to Info on
-	// parse failure so a bad level string never blocks startup.
+	// Build a slog logger with the validated effective level.
 	var lvl slog.Level
-	_ = lvl.UnmarshalText([]byte(config.LogLevel))
+	if err := lvl.UnmarshalText([]byte(config.LogLevel)); err != nil {
+		return fmt.Errorf("invalid log level %q: %w", config.LogLevel, err)
+	}
 	handler := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: lvl})
 	logger := slog.New(handler).With("service", config.ServiceName, "env", config.Environment)
 

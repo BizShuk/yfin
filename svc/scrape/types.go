@@ -68,7 +68,7 @@ func DefaultConfig() *Config {
 			FailureRateThreshold: 0.30,
 			MinimumRequests:      10,
 			ResetTimeout:         30 * time.Second,
-			UserAgent:            "Mozilla/5.0 (Ampy yfinance-go scraper)",
+			UserAgent:            "Mozilla/5.0 (compatible; yfin/1.x)",
 			MaxBodyBytes:         8 << 20, // 8 MiB — scrape body cap.
 		},
 		Enabled:      true,

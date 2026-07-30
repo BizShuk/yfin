@@ -13,7 +13,6 @@ import (
 
 	"github.com/bizshuk/yfin/cmd"
 	"github.com/bizshuk/yfin/config"
-	"github.com/bizshuk/yfin/facade"
 	"github.com/bizshuk/yfin/model"
 	"github.com/bizshuk/yfin/utils/obsv"
 	"github.com/spf13/cobra"
@@ -30,6 +29,11 @@ type pullConfig struct {
 	FXTarget     string
 	Out          string
 	OutDir       string
+}
+
+type pullFetchResult struct {
+	bars *model.NormalizedBarBatch
+	err  error
 }
 
 // newPullCmd returns the `pull` cobra command.
@@ -116,7 +120,7 @@ func runPull(cobraCmd *cobra.Command, cfg *pullConfig) error {
 		CollectorEndpoint: ycfg.Observability.Tracing.OTLP.Endpoint,
 		TraceProtocol:     "grpc",
 		SampleRatio:       ycfg.Observability.Tracing.OTLP.SampleRatio,
-		LogLevel:          ycfg.Observability.Logs.Level,
+		LogLevel:          cmd.ResolveLogLevel(cobraCmd, ycfg.Observability.Logs.Level),
 		MetricsAddr:       ycfg.Observability.Metrics.Prometheus.Addr,
 		MetricsEnabled:    ycfg.Observability.Metrics.Prometheus.Enabled && !disableMetrics,
 		TracingEnabled:    ycfg.Observability.Tracing.OTLP.Enabled && !disableTracing,
@@ -136,19 +140,39 @@ func runPull(cobraCmd *cobra.Command, cfg *pullConfig) error {
 	}
 
 	// Create client
-	client, err := cmd.CreateClient()
+	client, err := cmd.CreateClientFromConfig(ycfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to create client: %v\n", err)
 		os.Exit(cmd.ExitGeneral)
 	}
 
-	// Process symbols
+	workerLimit, err := resolveWorkerLimit(
+		cmd.Global.Concurrency,
+		ycfg.Concurrency.GlobalWorkers,
+		ycfg.Concurrency.PerHostWorkers,
+		len(symbols),
+	)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "ERROR: Invalid concurrency: %v\n", err)
+		os.Exit(cmd.ExitConfigError)
+	}
+
+	// Fetch concurrently, then process output in the original symbol order.
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	fetchResults := mapBounded(symbols, workerLimit, func(symbol string) pullFetchResult {
+		bars, fetchErr := client.FetchDailyBarsNorm(ctx, symbol, startTime, endTime, adjusted, runID)
+		return pullFetchResult{bars: bars, err: fetchErr}
+	})
 
 	successCount := 0
-	for _, symbol := range symbols {
-		if err := processSymbol(ctx, client, symbol, startTime, endTime, adjusted, runID, cfg); err != nil {
+	for index, symbol := range symbols {
+		result := fetchResults[index]
+		if result.err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: Failed to process %s: %v\n", symbol, result.err)
+			continue
+		}
+		if err := processPulledSymbol(ctx, result.bars, symbol, startTime, endTime, adjusted, runID, cfg); err != nil {
 			fmt.Fprintf(os.Stderr, "ERROR: Failed to process %s: %v\n", symbol, err)
 			continue
 		}
@@ -237,15 +261,8 @@ func getSymbols(ticker, universeFile string) ([]string, error) {
 	return symbols, nil
 }
 
-// processSymbol processes a single symbol for bars
-func processSymbol(ctx context.Context, client *facade.Client, symbol string, start, end time.Time, adjusted bool, runID string, cfg *pullConfig) error {
-	// Fetch bars via facade. The Norm-returning variant preserves
-	// ScaledDecimal precision for the local JSON export.
-	bars, err := client.FetchDailyBarsNorm(ctx, symbol, start, end, adjusted, runID)
-	if err != nil {
-		return err
-	}
-
+// processPulledSymbol renders and exports one already-fetched bar batch.
+func processPulledSymbol(ctx context.Context, bars *model.NormalizedBarBatch, symbol string, start, end time.Time, adjusted bool, runID string, cfg *pullConfig) error {
 	if len(bars.Bars) == 0 {
 		fmt.Printf("No bars found for %s in the specified period\n", symbol)
 		return nil

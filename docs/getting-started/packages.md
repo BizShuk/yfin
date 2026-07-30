@@ -22,8 +22,7 @@ flowchart TD
     SC -->|"HTTP 傳輸"| HX
     HX -->|"指標 / 追蹤"| OB["utils/obsv"]
 
-    SOAK["cmd/soak (壓測 binary)"] --> YS
-    SOAK --> SC
+    SOAK["cmd/soak (壓測 binary)"] --> FAC
 
     CMD["cmd/ (CLI composition root)"] -->|"讀取"| CFG["config/ (YAML)"]
     CMD -->|"只經 facade"| FAC
@@ -35,22 +34,22 @@ flowchart TD
 
 ### 職責說明
 
-`facade` 是專案對外的唯一契約邊界 (public contract boundary)，暴露反射免除 (reflection-free) 的純 Go 結構 (plain Go structs)，供外部專案（`stock`、`data` 等）直接 import 使用。
+`facade` 是 client operation boundary，提供 `Client`、`TwseClient` 與 cache wrappers。資料 DTO 以 `model/` 為 canonical owner；`facade.*` aliases 是 legacy compatibility surface。
 
 ### 關鍵檔案
 
-- `client.go`: 公開的 `Client` 結構與建構子 `NewClient` / `NewClientWithConfig`，實作核心 fetch 方法與備援 (fallback) 機制。
-- `bars.go`: 轉換並包裝 K 線 (bar) 資料；定義 `Bar` 與 `BarBatch`。
-- `quote.go`: 轉換並包裝即時報價 (quote) 資料。
-- `company_info.go`: 轉換並包裝公司基本資訊 (company info)。
-- `fundamentals.go`: 定義 `FundamentalsLine` 與 `FundamentalsSnapshot`。
-- `market_data.go`: 定義市場資料聚合型別。
-- `news.go`: 定義 `NewsItem`。
+- `client.go`: `Client` handle、shared HTTP transport、MIC cache 與兩個 constructors。
+- `client_yahoo.go`: Yahoo API `Fetch*` methods。
+- `client_norm.go`: 保留 `ScaledDecimal` 的 normalized variants。
+- `client_scrape.go` / `scrape.go`: explicit scrape methods、CLI wrappers 與 `ConfigureScrape`。
+- `twse.go` / `twse_dispatch.go`: opaque TWSE handle 與 dispatch boundary。
+- `cached_*.go` / `raw_cache.go`: downstream-owned raw root 上的 read-through cache policy。
+- `bars.go`、`quote.go`、`company_info.go`、`fundamentals.go`、`market_data.go`、`news.go`: `model.*` aliases 與 conversion helpers。
 - `samples/`: 可執行的最小範例（`go run ./facade/samples/...`）。
 
 ### 套件設計與運作
 
-- 外部套件在匯入本專案時，應以此套件作為邊界，避免直接存取 `svc/` 或 `utils/`。
+- 外部套件使用 `model/` 取得 canonical DTO，或使用 `facade/` 的 client methods 與 compatibility aliases；不可直接存取 `svc/` 或 `utils/`。
 - 將內部的定點十進位 `ScaledDecimal` 轉化為標準的 `float64` 浮點數，便於資料序列化 (serialization) 與一般數值計算。
 - 整合 `svc/yahoo` 的 JSON API/XHR 與 `svc/scrape` 的顯式爬蟲 surface；呼叫端依需求選擇 `Fetch*` 或 `Scrape*`，不進行隱式 fallback。
 - 所有取回的資料會經由 `model/` 的 `Normalize*` 函式正規化後，以統一格式回傳給呼叫端。
@@ -89,7 +88,7 @@ flowchart TD
 - `client.go`: 網頁抓取的核心控制流程。
 - `robots.go`: 解析與嚴格遵守遠端網站 `robots.txt` 爬蟲協定的模組。
 - `financials.go`, `analysis.go`, `statistics.go`: 解析特定 HTML/JSON 網頁節點。
-- `extract_news.go`: 新聞 JSON 擷取模組。
+- `extract_news.go`: 新聞 parsing orchestration；JSON、normalization、regex config 與 metrics 各自位於同責任檔案。
 
 ### 套件設計與運作
 
@@ -107,10 +106,10 @@ flowchart TD
 
 ### 關鍵檔案
 
-- `normalize.go`: 9 個 `Normalize*` 函式（`NormalizeBars` / `NormalizedQuote` / `NormalizeFundamentals` / `NormalizeMarketData` / `NormalizeCompanyInfo` / `NormalizeHolders` / `NormalizeInsider`）。
+- `normalize.go`: 5 個 raw Yahoo → normalized functions（`NormalizeBars` / `NormalizeQuote` / `NormalizeFundamentals` / `NormalizeMarketData` / `NormalizeCompanyInfo`）。
 - `security.go`: `Security` + `InferMIC` + `CreateSecurity` + `ExchangeToMIC`。
 - `scaled.go`: `ScaledDecimal` 與 `FromScaledDecimal` 等定點十進位輔助。
-- `time.go`: `ToUTCDayBoundaries` epoch→day 轉換。
+- `time.go`: exchange-local `ToTradingDay` 與 deprecated UTC compatibility helper。
 - `fx.go`: `FXConverter` / `FXMeta` / `MockFXConverter`。
 - `yahoo_raw.go`: 8 個 facade-aligned SDK DTO + Yahoo 原始 API 結構。
 - `scrape_convert.go`: scrape DTO 直通 model（`Scrape*ToSnapshot` / `ScrapeNewsToItems`）。
@@ -138,7 +137,7 @@ flowchart TD
 
 - 由於部分台灣市場指標（如法人籌碼面、本益比歷史明細）在 Yahoo Finance 較難完整取得，此服務直接請求 TWSE Open Data。
 - 經過專屬解析器後，將 TWSE 的表格資料轉換為與 `yfin` 統一格式之資料欄位以供上游使用。
-- 對應 CLI 入口為 `yfin twse` 子指令群（定義於 `cmd/twse/`）。
+- 對應 flat CLI command 為 `yfin twse`（定義於 `cmd/twse/`）。
 
 ---
 
@@ -191,14 +190,15 @@ flowchart TD
 
 ### 關鍵檔案
 
-- `obsv.go`: 提供 OpenTelemetry 與追蹤監控的初始化方法。
+- `obsv.go`: 提供 structured `slog`、observability lifecycle 與 no-op OpenTelemetry tracer boundary。
 - `metrics.go`: 包裝 Prometheus 註冊器與度量計數指標。
 
 ### 套件設計與運作
 
 - 對 HTTP 用戶端的每次傳輸過程進行攔截，收集延遲時間、成功/失敗率、速率限制命中數。
-- 將可觀測性資料匯出至 `inf` 監控後端（VictoriaMetrics `:8428` 與 Loki `:3100`）。
-- 對應的 Grafana dashboard 與 runbook 位於 `monitoring/`。
+- 啟用 metrics 時，在 configured bind address 暴露 Prometheus `/metrics`；不主動 push 到外部 backend。
+- Tracing configuration 目前不建立 OTLP exporter，spans 由 no-op tracer 處理。
+- Alert examples 與 operator runbooks 位於 `monitoring/`；實際 deployment 與 sink 由 consumer environment 擁有。
 
 ---
 
@@ -206,21 +206,22 @@ flowchart TD
 
 ### 職責說明
 
-`config/` 是位於 repo 根目錄的頂層 YAML 設定 loader（**非 `internal/`**），提供 `Load` 與 schema 驗證，並將子型別拆入 `config/types/` 子套件。
+`config/` 是位於 repo 根目錄的頂層 YAML 設定 loader（**非 `internal/`**），提供 `Load` 與 schema 驗證；每個 config section 各自位於 root package 的單一檔案。
 
 ### 關鍵檔案
 
-- `types/config.go`: 頂層 `Config` struct。
-- `types/loader.go`: YAML 載入 + 環境變數插值 + 驗證。
-- `types/adapters.go`: HTTP / scrape / FX 等子設定型別。
-- `types/loader_test.go`: 解析測試。
+- `config.go`: 頂層 `Config` struct。
+- `loader.go`: YAML 載入 + 環境變數插值 + 驗證。
+- `adapters.go`: HTTP / scrape / FX 下游 adapter。
+- `loader_test.go`: 解析測試。
 - `effective.yaml`: 經由環境變數插值後產生的實際生效設定。不同環境以 `app.env` 區分。
 
 ### 套件設計與運作
 
 - 在系統啟動時載入組態檔案，檢查並行工作線數 (concurrency workers)、QPS 限流速率與斷路器參數之合理性。
 - 將設定結果傳遞給 `utils/httpx` 作為初始化基礎。
-- 應用設定目錄固定為 `~/.config/yfin/`（由 `gosdk` 提供，慣例不提供自訂選項）。
+- 未指定 `--config` 時讀取 `config/effective.yaml`；可用 global `--config <path>` 指定其他 YAML。
+- `gosdk/config` 另註冊 `~/.config/yfin/` app metadata path，batch command 使用其 `data/` subtree；這不取代 typed YAML loader。
 
 ---
 
@@ -228,7 +229,7 @@ flowchart TD
 
 ### 職責說明
 
-`cmd/` 是命令列介面的組合根 (composition root)，採用子套件 (sub-package) 結構，每個子指令群自治於自己的子目錄。
+`cmd/` 是命令列介面的 composition root。子套件依 ownership 分目錄，但所有 user-facing commands 都直接註冊在 flat root command。
 
 ### 關鍵檔案（cmd/ 根層 helpers）
 
@@ -237,15 +238,14 @@ flowchart TD
 - `global.go`: 全域旗標與 logger 初始化。
 - `build.go`: build-time 變數（版本、commit）。
 - `exitcodes.go`: 退出碼常數與測試。
-- `fetch.go`: 共用的 fetch helper。
 
 ### 子套件（每個獨立可建置）
 
-- `cmd/admin/`: `config-effective`、`version` 等管理子指令。
+- `cmd/admin/`: `config`、`version` 等管理子指令。
 - `cmd/dispatch/`: 批次調度（無對外 `yfin dispatch` 指令，作為 batch 的內部封裝）。
 - `cmd/fundamentals/`: `fundamentals`、`comprehensive-stats`、`comprehensive-profile`。
 - `cmd/market/`: `pull`、`quote`。
-- `cmd/scrape/`: `scrape`（4 個互斥 mode）。
+- `cmd/scrape/`: `scrape`（`--check`、`--preview-json`、`--preview-news` 三個 mode）。
 - `cmd/twse/`: `twse`（23 個端點）。
 - `cmd/soak/`: 獨立 binary（見第 11 節）。
 - `cmd/samples/`: 可執行的 CLI 子指令範例。
@@ -254,7 +254,7 @@ flowchart TD
 ### 套件設計與運作
 
 - 使用 `cobra` 套件管理命令列參數；每個子套件對外暴露 `Register(parentCmd)` 函式，由 `main.go` 註冊。
-- 解析 `config/` 的 YAML 設定，初始化連線池，並根據輸入指令執行對應的抓取、發佈或壓測。
+- 解析 `config/` 的 YAML 設定，初始化 shared HTTP transport，並依 command 經 `facade/` 執行 fetch、parse 或 local artifact write。
 
 ---
 
@@ -275,7 +275,7 @@ flowchart TD
 
 - 在開發與持續整合 (CI) 階段，被用來進行高強度壓測，長時間以並行 goroutine 拉取真實市場資料。
 - 正確性探針會對產出的 `NormalizedBar` 進行極限值、時間順序性等比對，並產出壓測報告。
-- 直接呼叫 `svc/yahoo` 與 `svc/scrape`，繞過 `facade` 以貼近底層行為。
+- 使用 `facade.Client` 執行 API 與 scrape requests，維持與主 CLI 相同的 service boundary。
 
 ---
 
@@ -288,5 +288,5 @@ flowchart TD
 ### 套件設計與運作
 
 - 依序註冊 `cmd/admin`、`cmd/dispatch`、`cmd/fundamentals`、`cmd/market`、`cmd/scrape`、`cmd/twse` 至根指令。
-- 設定 logger（slog，來自 `gosdk/log`）與 metrics exporter，再將控制權交給 cobra。
-- 任何新增的子指令群都應新增一條 `Register` 呼叫，並對應建立 `cmd/<name>/` 子套件；不要直接在 `main.go` 撰寫邏輯。
+- `cmd.Execute()` 安裝 gosdk Cobra metric hook；command-specific observability bootstrap 由需要的 command 自己管理。
+- 任何新增 command 都應由 owner sub-package 暴露一個 `Register` call，再由 `main.go` 註冊；不要在 `main.go` 撰寫 command logic，也不要新增 user-facing nested group。

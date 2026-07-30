@@ -4,9 +4,7 @@
 // invariants (daily-only intervals, QPS / retry bounds, ...).
 // `GetEffectiveConfig` re-loads for `--print-effective` output and
 // redacts `secrets[].ref` plus any keys matching common secret
-// patterns. Capacity: 1 `Loader` + `NewLoader` + `Load` + `GetEffectiveConfig` +
-// 5 private helpers (`interpolateEnvVars`, `interpolateString`,
-// `mapToConfig`, `validate`, `redactSecrets`, `redactSecretPatterns`).
+// patterns.
 package config
 
 import (
@@ -16,6 +14,10 @@ import (
 
 	"gopkg.in/yaml.v3"
 )
+
+// DefaultEffectivePath is the repository-relative configuration used when a
+// caller does not provide --config.
+const DefaultEffectivePath = "config/effective.yaml"
 
 // loadYAMLFile reads the YAML file at path into a generic map, replacing the
 // former ampy-config Loader which only provided os.ReadFile+yaml.Unmarshal
@@ -43,22 +45,35 @@ type Loader struct {
 
 // NewLoader creates a new configuration loader
 func NewLoader(effectivePath string) *Loader {
+	if effectivePath == "" {
+		effectivePath = DefaultEffectivePath
+	}
+
 	return &Loader{
 		effectivePath: effectivePath,
 	}
 }
 
-// Load loads and validates configuration from the effective YAML file
-func (l *Loader) Load() (*Config, error) {
-	// Read the effective YAML into a generic map (env-var interpolation +
-	// struct mapping happen locally below).
+// loadEffectiveMap reads the effective YAML file and interpolates environment
+// variables before handing the raw map to a caller-specific processing path.
+func (l *Loader) loadEffectiveMap() (map[string]interface{}, error) {
 	configMap, err := loadYAMLFile(l.effectivePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load effective config: %w", err)
 	}
 
-	// Interpolate environment variables
 	l.interpolateEnvVars(configMap)
+	return configMap, nil
+}
+
+// Load loads and validates configuration from the effective YAML file
+func (l *Loader) Load() (*Config, error) {
+	// Read and interpolate the effective YAML into a generic map; struct
+	// mapping happens locally below.
+	configMap, err := l.loadEffectiveMap()
+	if err != nil {
+		return nil, err
+	}
 
 	// Convert map to our Config struct
 	config, err := l.mapToConfig(configMap)
@@ -155,6 +170,7 @@ func (l *Loader) mapToConfig(configMap map[string]interface{}) (*Config, error) 
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		return nil, err
 	}
+	applyConcurrencyDefaults(configMap, &config.Concurrency)
 	if config.CircuitBreaker.MinimumRequests == 0 {
 		config.CircuitBreaker.MinimumRequests = defaultCircuitMinimumRequests
 	}
@@ -172,6 +188,12 @@ func (l *Loader) validate(config *Config) error {
 	}
 
 	// Validate concurrency constraints
+	if config.Concurrency.GlobalWorkers < 1 {
+		return fmt.Errorf("concurrency.global_workers must be >= 1")
+	}
+	if config.Concurrency.PerHostWorkers < 1 {
+		return fmt.Errorf("concurrency.per_host_workers must be >= 1")
+	}
 	if config.Concurrency.GlobalWorkers < config.Concurrency.PerHostWorkers {
 		return fmt.Errorf("concurrency.global_workers (%d) must be >= per_host_workers (%d)",
 			config.Concurrency.GlobalWorkers, config.Concurrency.PerHostWorkers)
@@ -205,6 +227,9 @@ func (l *Loader) validate(config *Config) error {
 	}
 
 	// Validate observability configuration
+	if err := config.Observability.Logs.validate(); err != nil {
+		return err
+	}
 	if config.Observability.Metrics.Prometheus.Enabled && config.Observability.Metrics.Prometheus.Addr == "" {
 		return fmt.Errorf("observability.metrics.prometheus.addr is required when prometheus is enabled")
 	}
@@ -223,13 +248,10 @@ func (l *Loader) GetEffectiveConfig() (map[string]interface{}, error) {
 	}
 
 	// Re-read the raw effective config map for printing
-	configMap, err := loadYAMLFile(l.effectivePath)
+	configMap, err := l.loadEffectiveMap()
 	if err != nil {
-		return nil, fmt.Errorf("failed to load effective config: %w", err)
+		return nil, err
 	}
-
-	// Interpolate environment variables
-	l.interpolateEnvVars(configMap)
 
 	// Redact secrets
 	l.redactSecrets(configMap)
@@ -256,22 +278,15 @@ func (l *Loader) redactSecrets(configMap map[string]interface{}) {
 
 // redactSecretPatterns redacts values that match secret patterns
 func (l *Loader) redactSecretPatterns(configMap map[string]interface{}) {
-	secretPatterns := []string{"password", "token", "api_key", "secret", "key"}
-
 	for key, value := range configMap {
-		keyLower := strings.ToLower(key)
-
 		// Skip the secrets array itself - it's handled separately
 		if key == "secrets" {
 			continue
 		}
 
-		// Check if key matches secret patterns
-		for _, pattern := range secretPatterns {
-			if strings.Contains(keyLower, pattern) {
-				configMap[key] = "[REDACTED]"
-				continue
-			}
+		if isSecretConfigKey(key) {
+			configMap[key] = "[REDACTED]"
+			continue
 		}
 
 		// Recursively process nested maps
@@ -279,4 +294,50 @@ func (l *Loader) redactSecretPatterns(configMap map[string]interface{}) {
 			l.redactSecretPatterns(nestedMap)
 		}
 	}
+}
+
+func isSecretConfigKey(key string) bool {
+	key = strings.ToLower(key)
+
+	switch key {
+	case "key", "password", "passwd", "token", "api_key", "apikey",
+		"secret", "private_key", "client_secret", "access_key", "secret_key":
+		return true
+	}
+
+	parts := strings.FieldsFunc(key, func(r rune) bool {
+		return r == '_' || r == '-' || r == '.'
+	})
+	for index, part := range parts {
+		switch part {
+		case "password", "passwd", "token", "secret", "apikey":
+			return true
+		case "key":
+			if index > 0 {
+				switch parts[index-1] {
+				case "api", "private", "access":
+					return true
+				}
+			}
+		}
+	}
+
+	for _, suffix := range []string{
+		"_password",
+		"_passwd",
+		"_token",
+		"_api_key",
+		"_apikey",
+		"_secret",
+		"_private_key",
+		"_client_secret",
+		"_access_key",
+		"_secret_key",
+	} {
+		if strings.HasSuffix(key, suffix) {
+			return true
+		}
+	}
+
+	return false
 }

@@ -6,6 +6,11 @@
 // `PrometheusConfig`, `TracingConfig`, `OTLPConfig`).
 package config
 
+import (
+	"fmt"
+	"strings"
+)
+
 // ObservabilityConfig represents observability configuration
 type ObservabilityConfig struct {
 	Logs    LogsConfig    `yaml:"logs"`
@@ -16,6 +21,15 @@ type ObservabilityConfig struct {
 // LogsConfig represents logging configuration
 type LogsConfig struct {
 	Level string `yaml:"level"`
+}
+
+func (config LogsConfig) validate() error {
+	switch strings.ToLower(strings.TrimSpace(config.Level)) {
+	case "", "debug", "info", "warn", "error":
+		return nil
+	default:
+		return fmt.Errorf("observability.logs.level must be one of debug, info, warn, error")
+	}
 }
 
 // MetricsConfig represents metrics configuration

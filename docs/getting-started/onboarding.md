@@ -8,10 +8,10 @@
 
 ## 結論優先 (TL;DR)
 
-- 這是 **Yahoo Finance 非官方 Go SDK + CLI**，提供 reflection-free 的 `facade.*` 資料模型給外部專案（`stock`、`data`）使用。
-- 套件劃分嚴格：對外用 `facade/`；業務服務在 `svc/`（`yahoo`、`scrape`、`twse`）；底層在 `utils/`（`httpx`、`cache`、`obsv`）；純資料/正規化在 `model/`。
-- 設定路徑約定 `~/.config/yfin/`（由 `gosdk` 提供），觀測指標自動送往 `inf` 後端。
-- 開始工作只需三步：`go test ./...` → `go build -o yfin ./cmd/yfin` → `./yfin --help`。
+- 這是 **Yahoo Finance 非官方 Go SDK + CLI**；外部專案優先使用 `model.*` SDK DTO，`facade.*` 保留相同型別的 compatibility aliases。
+- 套件劃分嚴格：CLI 只經 `facade/` 呼叫業務服務；`svc/` 包含 `yahoo`、`scrape`、`twse`；`model/` 是最低層；`utils/` 提供 `httpx`、`cache`、`obsv`。
+- Typed YAML 預設讀取 `config/effective.yaml`；batch artifacts 使用 `~/.config/yfin/data/`。Observability 提供 structured `slog` 與本機 Prometheus exposition，不自動連接外部 backend。
+- 開始工作只需三步：`go test ./...` → `go build -o yfin .` → `./yfin --help`。
 
 ---
 
@@ -34,7 +34,7 @@ cd ~/projects/yfin
 
 ### 1.3 確認外部依賴已就位
 
-`yfin` 主要依賴 `bizshuk/gosdk`（提供 config loader、slog logger、metric 預設值）。首次拉取時 Go modules 會自動下載。
+`yfin` 主要依賴 `bizshuk/gosdk`（提供 app metadata bootstrap、`slog` 預設 handler 與 Cobra command metric hook）。Typed YAML schema 與 loader 由本 repo 的 `config/` 擁有。首次拉取時 Go modules 會自動下載。
 
 ```bash
 go mod download   # 預先下載所有依賴
@@ -42,16 +42,19 @@ go mod download   # 預先下載所有依賴
 
 ### 1.4 設定目錄
 
-依 `gosdk` 慣例，應用設定路徑固定為：
+設定與 runtime artifacts 分開管理：
 
 ```tree
+yfin/
+└── config/
+    └── effective.yaml       # typed YAML 預設輸入
+
 ~/.config/yfin/
-├── app.yaml             # 主要組態（連線池、限流、斷路器參數）
-├── logs/                # stdout/stderr 日誌
-└── data/                # 執行期產物（如有）
+└── data/
+    └── raw/                 # yfin batch atomic artifacts
 ```
 
-> 此目錄由 `gosdk/config` 自動建立，無需手動 mkdir。
+可用 global flag `--config <path>` 指定其他 YAML。需要寫入 batch artifact 時，writer 才會建立對應 data directory；CLI 本身不建立固定 log file。
 
 ---
 
@@ -60,7 +63,7 @@ go mod download   # 預先下載所有依賴
 ### 2.1 編譯 CLI
 
 ```bash
-go build -o yfin ./cmd/yfin
+go build -o yfin .
 ```
 
 產出 `./yfin` 可執行檔。
@@ -71,15 +74,13 @@ go build -o yfin ./cmd/yfin
 ./yfin --help
 ```
 
-應看到子指令群如 `admin`、`fundamentals`、`market`、`scrape`、`twse` 等。
+CLI 是 flat command tree；應看到 `config`、`version`、`batch`、`fundamentals`、`comprehensive-stats`、`comprehensive-profile`、`pull`、`quote`、`scrape`、`twse`。
 
 ### 2.3 跑單元測試
 
 ```bash
 go test ./...
 ```
-
-> 注意：`utils/obsv` 套件在本地環境可能有預存的 OTel schema 衝突失敗，這是已知問題，與本次改動無關。
 
 ### 2.4 整合測試（選用）
 
@@ -109,12 +110,11 @@ yfin/
 │   ├── global.go              #   全域旗標 + logger 初始化
 │   ├── build.go               #   build-time 變數（版本、commit）
 │   ├── exitcodes.go           #   退出碼常數
-│   ├── fetch.go               #   共用 fetch helper
-│   ├── admin/                 #   config-effective、version
+│   ├── admin/                 #   config、version
 │   ├── dispatch/              #   批次調度（內部封裝，不暴露 yfin dispatch）
 │   ├── fundamentals/          #   fundamentals、comprehensive-stats、comprehensive-profile
 │   ├── market/                #   pull、quote
-│   ├── scrape/                #   scrape（4 mode 互斥）
+│   ├── scrape/                #   scrape（3 mode）
 │   ├── twse/                  #   twse（23 endpoints）
 │   ├── soak/                  #   獨立 binary（壓力測試）
 │   ├── samples/               #   CLI 子指令範例
@@ -138,7 +138,6 @@ yfin/
 │   ├── cache/                 #   資料更新頻率快取（daily/monthly/quarterly）
 │   └── obsv/                  #   OpenTelemetry + Prometheus 指標
 ├── config/                    # 頂層 YAML config loader（非 internal/）
-│   ├── types/                 #   拆分的子設定型別 + 驗證
 │   └── effective.yaml         #   環境變數插值後的生效設定（不同環境以 app.env 區分）
 ├── tests/                     # 測試資產（integration/crosslang/python）
 ├── monitoring/                # Grafana dashboard + runbooks
@@ -160,10 +159,10 @@ flowchart TD
     HX --> OB["utils/obsv"]
 ```
 
-- `facade/` 是唯一對外可見的純資料層；外部專案不應 import `svc/*` 或 `utils/*`。
+- `model/` 是建議的 public data surface；`facade/` 提供 client methods 與相同 DTO 的 compatibility aliases。外部專案不應 import `svc/*` 或 `utils/*`。
 - `model/` 是最低層的純資料/正規化邏輯，不 import `svc/*` 或 `facade/`。
-- `svc/*` 之間可互相呼叫（透過 `model/` 共用型別）；`utils/*` 不應 import `svc/*`。
-- CLI（`cmd/` + `main.go`）是唯一可以引用所有層的「組合根 (composition root)」。
+- `svc/*` 透過 `model/` 共用型別，但彼此不建立橫向依賴；`utils/*` 不應 import `svc/*`。
+- CLI（`cmd/` + `main.go`）是 composition root，但 runtime fetch 仍必須遵守 `cmd → facade → svc → model`。
 
 ---
 
@@ -204,7 +203,7 @@ func main() {
 執行：
 
 ```bash
-go run ./facade/samples/fetch_daily
+go run ./facade/samples/historical_data
 ```
 
 ---
@@ -219,7 +218,7 @@ go run ./facade/samples/fetch_daily
 4. 在 `facade/market_data_test.go`（或對應的 `<file>_test.go`）加 golden 測試。
 5. `go test ./... && go fmt ./... && golangci-lint run`。
 
-### 5.2 新增一個 CLI 子指令群
+### 5.2 新增一個 CLI command
 
 CLI 子指令採用**子套件自治**模型；不要把所有指令塞在單一 `root.go`。
 
@@ -229,15 +228,15 @@ CLI 子指令採用**子套件自治**模型；不要把所有指令塞在單一
    ```
 2. 在 `main.go` 增加一行 `cmd/<group>.Register(rootCmd)`。
 3. 在 `cmd/<group>/<sub>_test.go` 加 CLI 測試。
-4. 更新 `docs/usage.md`。
+4. 更新 `docs/cli/usage.md`。
 
-範例群組：`admin/`、`fundamentals/`、`market/`、`scrape/`、`twse/`。
+`admin/`、`fundamentals/`、`market/`、`scrape/`、`twse/` 是內部 ownership folders；它們註冊的 commands 全部直接掛在 root，不能新增同名 nested group。
 
 ### 5.3 調整 HTTP 限流參數
 
 1. 修改 `utils/httpx/client.go` 的 `Config` 結構。
 2. 修改 `config/effective.yaml` 對應的 YAML 設定。
-3. 修改 `config/types/` 的解析邏輯，必要時加上驗證。
+3. 修改 `config/` 對應 section type 與 `loader.go`，必要時加上驗證。
 4. 透過 `utils/obsv/metrics.go` 暴露新指標。
 
 ### 5.4 寫整合測試
@@ -256,19 +255,15 @@ package integration
 
 ## 步驟 6：除錯與可觀測性 (Step 6 — Debug & Observability)
 
-### 6.1 日誌位置
+### 6.1 日誌輸出
 
-```bash
-tail -f ~/.config/yfin/logs/yfin.log
-```
-
-所有 slog 日誌（自 `gosdk/log` zap → slog 遷移後）會同時送往：
-- `~/.config/yfin/logs/`（檔案）
-- `inf` Loki（透過 `gosdk/log` 預設值）
+CLI 使用 structured `slog` 寫入 process stderr。若由 PM2、container runtime 或 shell redirect 管理，log retention 與檔案位置由該 deployment owner 決定；`yfin` 不會自行寫固定 log file 或傳送到外部 sink。
 
 ### 6.2 指標位置
 
-HTTP 客戶端、斷路器、限流器的 Prometheus 指標會推送至 `inf` VictoriaMetrics（`:8428`）。
+啟用 `observability.metrics.prometheus.enabled` 時，支援 observability bootstrap 的 commands 會在設定的 bind address 暴露 `/metrics`（development default `:9090`）。這是 pull-based Prometheus exposition，不是 remote push。
+
+`utils/obsv` 目前安裝 no-op OpenTelemetry tracer；YAML 的 OTLP 欄位會被解析與驗證，但尚未建立 exporter。
 
 ### 6.3 常見問題
 
@@ -294,13 +289,12 @@ HTTP 客戶端、斷路器、限流器的 Prometheus 指標會推送至 `inf` Vi
 | `utils/`                      | 共用基礎設施層（`httpx`、`cache`、`obsv`）。**不應 import `svc/*`**。                                                                              |
 | `composition root`            | 組合根，唯一可以引用所有層的進入點（`main.go` + `cmd/`）。                                                                                       |
 | `Register(parent)`            | CLI 子套件慣例介面：每個 `cmd/<group>/` 暴露一個 `Register(parent *cobra.Command)` 函式，由 `main.go` 註冊至根指令。                              |
-| `MIC` (Market Identifier Code) | ISO 10383 市場識別碼。例：`XTAI` = 台灣證交所、`XASE` = 美國 NYSE American。當 API 未提供時，由 `svc/norm/security.go` 靜態推斷。                |
+| `MIC` (Market Identifier Code) | ISO 10383 市場識別碼。例：`XTAI` = 台灣證交所、`XASE` = 美國 NYSE American。當 API 未提供時，由 `model.InferMIC` 推斷。                           |
 | `Crumb`                       | Yahoo Finance 的存取令牌（cookie + crumb 對）。由 `svc/yahoo/auth.go` 管理，會自動刷新並快取。                                                  |
 | `norm`                        | 資料正規化：時區統一為 UTC、MIC 推斷、ScaledDecimal 轉換、市場時段判定。位於 `model/` 套件。                                                      |
 | `httpx`                       | 彈性 HTTP 客戶端：QPS 限流（token bucket）、指數退避（exponential backoff with jitter）、斷路器（circuit breaker）。                            |
-| `obsv`                        | 可觀測性封裝：OpenTelemetry tracing + Prometheus 指標。預設對接 `inf` 後端。                                                                    |
-| `gosdk`                       | `bizshuk/gosdk`，跨專案共用 SDK。提供 config loader、slog logger、metric 預設值。                                                               |
-| `inf`                         | 全工作區的觀測後端：VictoriaMetrics（`:8428`）收指標、Loki（`:3100`）收日誌。                                                                   |
+| `obsv`                        | 可觀測性基礎設施：structured `slog`、Prometheus exposition 與 no-op OpenTelemetry tracer boundary。                                                |
+| `gosdk`                       | `bizshuk/gosdk`，提供 app metadata bootstrap、預設 `slog` handler 與 Cobra command metric hook。                                                   |
 | `robots.txt`                  | 遠端網站爬蟲協定。`svc/scrape/robots.go` 在每次抓取前先請求並快取，僅對被允許的路徑送出請求。                                                   |
 | `keep-alive`                  | HTTP/1.1 連線復用。`utils/httpx` 採單一共享 `http.Client` 以最大化連線池利用率（Session rotation 已移除）。                                    |
 | `jitter`                      | 退避時的隨機抖動，避免多客戶端同時重試造成的 thundering herd。                                                                                  |
@@ -311,10 +305,10 @@ HTTP 客戶端、斷路器、限流器的 Prometheus 指標會推送至 `inf` Vi
 
 - `README.md` — 業務定義、安裝、快速開始
 - `CLAUDE.md` — 技術脈絡、限制、約束
-- `docs/tutorials/packages.md` — 各套件職責詳解（`facade/`、`svc/*`、`utils/*`、`config/`、`cmd/`）
-- `docs/api-reference.md` — facade 公開 API 規格
-- `docs/usage.md` — CLI 使用手冊
-- `docs/observability.md` — 可觀測性細節
-- `docs/data-quality.md` — 資料品質保證與探針
-- `facade/samples/` — 可執行的最小範例
-- `cmd/samples/` — CLI 子指令範例
+- [套件職責](packages.md)
+- [Go API reference](../api/reference.md)
+- [CLI usage](../cli/usage.md)
+- [Observability](../operations/observability.md)
+- [Data quality](../operations/data-quality.md)
+- [`facade/samples/`](../../facade/samples/)
+- [`cmd/samples/`](../../cmd/samples/)

@@ -1,7 +1,7 @@
 // defaults.go — `CreateEffectiveConfig` writes a self-consistent
-// default effective config (sane dev defaults: localhost NATS, dev
-// tracing, daily-only markets, 5 QPS per host, ...) so tests and
-// first-run users have a working config out of the box. The default
+// default effective config (schema-compatible no-op tracing fields,
+// daily-only markets, 5 QPS per host, ...) so tests and first-run
+// users have a working config out of the box. The default
 // is intentionally a single literal map (instead of building each
 // struct field-by-field) so the YAML output exactly mirrors what the
 // loader expects to find. Capacity: 1 public function
@@ -27,11 +27,11 @@ func CreateEffectiveConfig(path string) error {
 			"timeout_ms":         6000,
 			"idle_timeout_ms":    30000,
 			"max_conns_per_host": 64,
-			"user_agent":         "AmpyFin-yfinance-go/1.x",
+			"user_agent":         "yfin/1.x",
 		},
 		"concurrency": map[string]interface{}{
-			"global_workers":   64,
-			"per_host_workers": 32,
+			"global_workers":   defaultGlobalWorkers,
+			"per_host_workers": defaultPerHostWorkers,
 		},
 		"rate_limit": map[string]interface{}{
 			"per_host_qps":   5.0,
@@ -67,36 +67,6 @@ func CreateEffectiveConfig(path string) error {
 				"backoff_base_ms":      250,
 				"backoff_max_delay_ms": 4000,
 				"circuit_reset_ms":     30000,
-			},
-		},
-		"bus": map[string]interface{}{
-			"enabled":           false,
-			"env":               "dev",
-			"topic_prefix":      "ampy",
-			"max_payload_bytes": 1048576,
-			"publisher": map[string]interface{}{
-				"backend": "nats",
-				"nats": map[string]interface{}{
-					"url":           "nats://localhost:4222",
-					"subject_style": "topic",
-					"ack_wait_ms":   5000,
-				},
-				"kafka": map[string]interface{}{
-					"brokers":     []string{},
-					"acks":        "all",
-					"compression": "snappy",
-				},
-			},
-			"retry": map[string]interface{}{
-				"attempts":     5,
-				"base_ms":      250,
-				"max_delay_ms": 8000,
-			},
-			"circuit_breaker": map[string]interface{}{
-				"window":            50,
-				"failure_threshold": 0.30,
-				"reset_timeout_ms":  30000,
-				"half_open_probes":  3,
 			},
 		},
 		"scrape": map[string]interface{}{

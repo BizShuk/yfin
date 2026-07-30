@@ -9,7 +9,7 @@
 - 每日 bars（調整後 / 原始）— 僅限 daily 區間 (Daily bars, adjusted/raw — daily-only scope)
 - 即時 quote 快照 (Snapshot quotes)
 - Fundamentals 季報（需付費訂閱）(Quarterly fundamentals — requires paid subscription)
-- Yahoo Finance 網頁爬蟲（API 不可用時）(Web scraping fallback)
+- Yahoo Finance explicit 網頁爬蟲 surface（不會由 API command 隱式切換）
 - TWSE（臺灣證券交易所）23 個 endpoint (TWSE 23 endpoints)
 - Batch universe 擷取（skills/scripts parity）
 
@@ -35,15 +35,15 @@ yfin
 
 | Command | 用途 (Purpose) | 主要旗標 (Key Flags) |
 | --- | --- | --- |
-| `pull` | 擷取每日 bars（單 symbol 或 universe） | `--ticker` / `--universe-file` / `--start` / `--end` / `--adjusted` / `--preview` / `--out` / `--out-dir` |
-| `quote` | 擷取即時 quote 快照 | `--tickers` (CSV) / `--preview` / `--out` / `--out-dir` |
+| `pull` | 擷取每日 bars（單 symbol 或 universe） | `--ticker` / `--universe-file` / `--start` / `--end` / `--adjusted` / `--out` / `--out-dir` |
+| `quote` | 擷取即時 quote 快照 | `--tickers` (CSV) / `--out` / `--out-dir` |
 | `fundamentals` | 擷取 fundamentals 季報（需付費） | `--ticker` / `--preview` |
 | `comprehensive-stats` | 擷取完整 key statistics + 5 年歷史 | `--ticker` / `--preview` |
 | `comprehensive-profile` | 擷取公司基本資料 + key executives | `--ticker` / `--preview` |
 | `scrape` | Yahoo Finance 網頁爬蟲（3 種 mode） | `--check` / `--preview-json` / `--preview-news` / `--ticker` / `--endpoint` / `--endpoints` / `--force` |
 | `twse` | 查詢任一 23 個 TWSE endpoint | `--endpoint` (必填) / `--date` / `--stock` / `--month` / `--timeout` / `--pretty` |
 | `batch` | 批次擷取 universe 全部 commands | `--ticker` / `--max-workers` / `--force` |
-| `config-effective` | 印出 effective config | `--print-effective` / `--json` |
+| `config` | 印出 effective config | `--print-effective` / `--json` |
 | `version` | 列印 CLI 版本與 build 細節 | — |
 
 ## Basic Usage
@@ -66,7 +66,7 @@ yfin quote --help
 yfin fundamentals --help
 yfin scrape --help
 yfin twse --help
-yfin config-effective --help
+yfin config --help
 ```
 
 ## Daily Bars (`pull` command)
@@ -75,14 +75,14 @@ yfin config-effective --help
 
 ```bash
 # 擷取單一 symbol 的每日 bars (fetch daily bars for a single symbol)
-yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --preview
+yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31
 
 # 指定 adjustment policy
-yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --adjusted raw --preview
-yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --adjusted split_dividend --preview
+yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --adjusted raw
+yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --adjusted split_dividend
 ```
 
-`--adjusted` 接受 `raw` 或 `split_dividend`，預設為 `split_dividend`。若 YAML 設定 `markets.default_adjustment_policy`，會作為省略 `--adjusted` 時的預設值。
+`--adjusted` 接受 `raw` 或 `split_dividend`，CLI flag 預設為 `split_dividend`。YAML 的 `markets.default_adjustment_policy` 會被 loader 驗證，但目前不覆寫這個 Cobra default。
 
 ### Multiple Symbols (Universe File)
 
@@ -91,7 +91,7 @@ yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --adjusted split_div
 printf "AAPL\nMSFT\nGOOGL\nTSLA\n" > nasdaq100.txt
 
 # 批次擷取 (fetch bars for multiple symbols)
-yfin pull --universe-file nasdaq100.txt --start 2024-01-01 --end 2024-12-31 --preview
+yfin pull --universe-file nasdaq100.txt --start 2024-01-01 --end 2024-12-31
 ```
 
 `--ticker` 與 `--universe-file` 互斥，僅能擇一。
@@ -100,40 +100,40 @@ yfin pull --universe-file nasdaq100.txt --start 2024-01-01 --end 2024-12-31 --pr
 
 ```bash
 # 德國市場 SAP (German market)
-yfin pull --ticker SAP --market XETR --start 2024-01-01 --end 2024-12-31 --preview
+yfin pull --ticker SAP --market XETR --start 2024-01-01 --end 2024-12-31
 
 # 日本市場 Toyota (Japanese market)
-yfin pull --ticker TM --market XTKS --start 2024-01-01 --end 2024-12-31 --preview
+yfin pull --ticker TM --market XTKS --start 2024-01-01 --end 2024-12-31
 ```
 
 ### FX Conversion Preview
 
 ```bash
 # 轉換為 EUR (convert to EUR)
-yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --fx-target EUR --preview
+yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --fx-target EUR
 
 # 轉換為 JPY (convert to JPY)
-yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --fx-target JPY --preview
+yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --fx-target JPY
 ```
 
 ### Local Export
 
 ```bash
 # 匯出 JSON (export to JSON)
-yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --out json --out-dir ./data --preview
+yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --out json --out-dir ./data
 
 # 批次匯出多 symbol (export multiple symbols)
-yfin pull --universe-file nasdaq100.txt --start 2024-01-01 --end 2024-12-31 --out json --out-dir ./data --preview
+yfin pull --universe-file nasdaq100.txt --start 2024-01-01 --end 2024-12-31 --out json --out-dir ./data
 ```
 
 ### Performance Tuning
 
 ```bash
 # 提升 concurrency (increase concurrency)
-yfin pull --universe-file nasdaq100.txt --start 2024-01-01 --end 2024-12-31 --concurrency 32 --preview
+yfin pull --universe-file nasdaq100.txt --start 2024-01-01 --end 2024-12-31 --concurrency 32
 
 # 調整 QPS (queries per second)
-yfin pull --universe-file nasdaq100.txt --start 2024-01-01 --end 2024-12-31 --qps 10 --preview
+yfin pull --universe-file nasdaq100.txt --start 2024-01-01 --end 2024-12-31 --qps 10
 ```
 
 > **關於 `--sessions`**：此旗標保留為向後相容 (vestigial)，但 session rotation 已從 HTTP client 移除（見 `CLAUDE.md` 決策）。`--sessions` 對 connection reuse 不再生效，HTTP client 改採單一共享 `http.Client` + QPS rate limit + exponential backoff + circuit breaker。
@@ -144,21 +144,21 @@ yfin pull --universe-file nasdaq100.txt --start 2024-01-01 --end 2024-12-31 --qp
 
 ```bash
 # 單 symbol quote
-yfin quote --tickers AAPL --preview
+yfin quote --tickers AAPL
 ```
 
 ### Multiple Quotes
 
 ```bash
 # 多 symbol quote（CSV）
-yfin quote --tickers AAPL,MSFT,GOOGL,TSLA --preview
+yfin quote --tickers AAPL,MSFT,GOOGL,TSLA
 ```
 
 ### Export Quotes
 
 ```bash
 # 匯出 quote 至 JSON
-yfin quote --tickers AAPL,MSFT,GOOGL --out json --out-dir ./quotes --preview
+yfin quote --tickers AAPL,MSFT,GOOGL --out json --out-dir ./quotes
 ```
 
 ## Fundamentals (`fundamentals` command)
@@ -209,7 +209,7 @@ yfin scrape --preview-news --ticker AAPL
 
 - `--check` mode：搭配 `--endpoint`（單一 endpoint）
 - `--preview-json` mode：搭配 `--endpoints`（CSV，多 endpoint）
-- `--force`：忽略 API 可用性檢查，強制走爬蟲
+- `--force`：deprecated compatibility flag；目前無額外效果
 
 ## TWSE (`twse` command)
 
@@ -263,17 +263,17 @@ yfin batch --max-workers 32
 
 ```bash
 # 印出 effective config (key=value 格式)
-yfin config-effective --print-effective
+yfin config --print-effective
 
 # 以 JSON 格式印出
-yfin config-effective --print-effective --json
+yfin config --print-effective --json
 ```
 
 ### Use Custom Configuration
 
 ```bash
 # 指定 config 檔
-yfin --config ./my-config.yaml pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --preview
+yfin --config ./my-config.yaml pull --ticker AAPL --start 2024-01-01 --end 2024-12-31
 ```
 
 ### Persistent Flags (every subcommand)
@@ -283,14 +283,14 @@ yfin --config ./my-config.yaml pull --ticker AAPL --start 2024-01-01 --end 2024-
 | 旗標 | 用途 |
 | --- | --- |
 | `--config` | YAML 設定檔路徑 |
-| `--log-level` | Log level（`info` / `debug` / `warn` / `error`） |
+| `--log-level` | `slog` / observability 最低 level（`info` / `debug` / `warn` / `error`） |
 | `--run-id` | Run ID（追蹤用；空白則自動產生） |
-| `--concurrency` | Worker pool 大小（覆寫 YAML 預設） |
+| `--concurrency` | `pull` universe / multi-ticker `quote` worker limit（覆寫 YAML global limit，仍受 per-host limit） |
 | `--qps` | Per-host QPS（覆寫 YAML 預設） |
 | `--retry-max` | HTTP retry 嘗試次數 |
 | `--sessions` | **Vestigial**：session rotation 已移除，保留為向後相容，無實際效果 |
 | `--timeout` | HTTP timeout（如 `6s`） |
-| `--observability-disable-tracing` | 關閉 OpenTelemetry tracing |
+| `--observability-disable-tracing` | Compatibility flag；目前 tracer 本來就是 no-op |
 | `--observability-disable-metrics` | 關閉 Prometheus metrics |
 
 ## Advanced Usage
@@ -298,41 +298,41 @@ yfin --config ./my-config.yaml pull --ticker AAPL --start 2024-01-01 --end 2024-
 ### Observability Control
 
 ```bash
-# 關閉 tracing
-yfin --observability-disable-tracing pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --preview
+# Tracing compatibility flag（目前 tracer 為 no-op）
+yfin --observability-disable-tracing pull --ticker AAPL --start 2024-01-01 --end 2024-12-31
 
 # 關閉 metrics
-yfin --observability-disable-metrics pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --preview
+yfin --observability-disable-metrics pull --ticker AAPL --start 2024-01-01 --end 2024-12-31
 
 # 同時關閉
-yfin --observability-disable-tracing --observability-disable-metrics pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --preview
+yfin --observability-disable-tracing --observability-disable-metrics pull --ticker AAPL --start 2024-01-01 --end 2024-12-31
 ```
 
 ### Logging Control
 
 ```bash
 # Debug logging
-yfin --log-level debug pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --preview
+yfin --log-level debug pull --ticker AAPL --start 2024-01-01 --end 2024-12-31
 
 # Warning level
-yfin --log-level warn pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --preview
+yfin --log-level warn pull --ticker AAPL --start 2024-01-01 --end 2024-12-31
 ```
 
 ### Custom Run ID
 
 ```bash
 # 指定 run ID 用於追蹤
-yfin --run-id my-daily-job pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --preview
+yfin --run-id my-daily-job pull --ticker AAPL --start 2024-01-01 --end 2024-12-31
 ```
 
 ### HTTP Configuration
 
 ```bash
 # 自訂 timeout
-yfin --timeout 30s pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --preview
+yfin --timeout 30s pull --ticker AAPL --start 2024-01-01 --end 2024-12-31
 
 # 自訂 retry 次數
-yfin --retry-max 5 pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --preview
+yfin --retry-max 5 pull --ticker AAPL --start 2024-01-01 --end 2024-12-31
 ```
 
 ## Output Examples
@@ -342,7 +342,7 @@ yfin --retry-max 5 pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --prev
 `cmd/market/pull.go` 的 `printBarsPreview` 輸出格式：
 
 ```
-RUN <run-id>  (env=<env>, topic_prefix=<prefix>)
+RUN <run-id>
 SYMBOL <symbol> (MIC=<mic>, CCY=<ccy>)  range=<start>..<end>  bars=<n>  adjusted=<policy>
 first=<ts>  last=<ts>  last_close=<price> <ccy>
 ```
@@ -404,15 +404,15 @@ CONTENT PREVIEW: <html ...>
 
 ```bash
 # 日期格式錯誤 (invalid date format)
-yfin pull --ticker AAPL --start 2024-13-01 --end 2024-12-31 --preview
+yfin pull --ticker AAPL --start 2024-13-01 --end 2024-12-31
 # ERROR: Invalid date format: parsing time "2024-13-01": month out of range
 
 # 必填旗標缺少 (missing required flags)
-yfin pull --ticker AAPL --start 2024-01-01 --preview
+yfin pull --ticker AAPL --start 2024-01-01
 # ERROR: --start and --end are required
 
 # adjustment policy 非法 (invalid adjustment policy)
-yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --adjusted invalid --preview
+yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --adjusted invalid
 # ERROR: --adjusted must be 'raw' or 'split_dividend'
 
 # 付費訂閱需求 (paid subscription required)
@@ -421,21 +421,21 @@ yfin fundamentals --ticker AAPL --preview
 
 # scrape mode 必填其一
 yfin scrape --ticker AAPL
-# ERROR: either --check, --preview-json, or --preview-news flag is required
+# ERROR: exactly one of --check, --preview-json, or --preview-news is required
 ```
 
 ## Best Practices
 
 ### Performance
 
-1. **適當的 concurrency**：先使用預設值，universe 較大時再調升
+1. **適當的 concurrency**：只對 `pull` universe / multi-ticker `quote` 調校；先使用預設值，universe 較大時再調升
 2. **批次操作**：使用 universe 檔處理多 symbol
 3. **監控 QPS**：避免超過 Yahoo Finance rate limit
-4. **不要使用 `--sessions`**：session rotation 已移除，無效果；改用 `--qps` 與 `--concurrency`
+4. **不要使用 `--sessions`**：session rotation 已移除，無效果；以 `--qps` 控制所有 HTTP workload，multi-symbol market workload 再搭配 `--concurrency`
 
 ### Data Quality
 
-1. **務必先 preview**：正式輸出檔案前使用 `--preview`
+1. **先檢查 stdout**：省略 `--out` / `--out-dir` 先確認結果，再啟用本地匯出
 2. **驗證日期區間**：確認 start/end 日期合理
 3. **理解 adjustment policy**：`raw` vs `split_dividend` 影響 OHLCV 數值
 4. **驗證 ticker 拼字**：確保 symbol 正確
@@ -443,7 +443,7 @@ yfin scrape --ticker AAPL
 ### Production Usage
 
 1. **使用 config 檔**：避免依賴 CLI flag 部署
-2. **監控 observability**：啟用 tracing + metrics
+2. **監控 observability**：啟用 Prometheus metrics；tracing 目前是 no-op boundary
 3. **處理錯誤**：檢查 exit code 與 stderr
 4. **環境分離**：使用 dev / staging / prod config
 
@@ -510,18 +510,18 @@ docker run --rm \
 ### Common Issues
 
 1. **網路逾時 (network timeouts)**：調升 `--timeout`，或檢查網路狀態
-2. **Rate limiting**：降低 `--qps`，或減少 `--concurrency`
-3. **記憶體問題**：大型 universe 時降低 `--concurrency`
-4. **組態錯誤**：使用 `yfin config-effective --print-effective` 除錯
+2. **Rate limiting**：所有 commands 可降低 `--qps`；`pull` universe / multi-ticker `quote` 另可減少 `--concurrency`
+3. **記憶體問題**：大型 `pull` universe 或 ticker list 時降低 `--concurrency`
+4. **組態錯誤**：使用 `yfin config --print-effective` 除錯
 
 ### Debug Mode
 
 ```bash
 # 啟用 debug logging
-yfin --log-level debug pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --preview
+yfin --log-level debug pull --ticker AAPL --start 2024-01-01 --end 2024-12-31
 
 # 關閉 observability 並啟用 debug
-yfin --observability-disable-tracing --observability-disable-metrics --log-level debug pull --ticker AAPL --start 2024-01-01 --end 2024-12-31 --preview
+yfin --observability-disable-tracing --observability-disable-metrics --log-level debug pull --ticker AAPL --start 2024-01-01 --end 2024-12-31
 ```
 
 ### Getting Help
@@ -535,10 +535,10 @@ yfin --help
 yfin pull --help
 
 # 驗證 config
-yfin config-effective --print-effective
+yfin config --print-effective
 ```
 
 ## Next Steps
 
 - [Installation Guide](../getting-started/install.md) - 如何安裝 `yfin`
-- [Configuration](https://github.com/bizshuk/yfin/tree/main/configs) - 環境組態範例與選項
+- [Configuration](../operations/configuration.md) - 環境組態範例與選項

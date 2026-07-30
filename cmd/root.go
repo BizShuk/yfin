@@ -12,6 +12,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	sdkconfig "github.com/bizshuk/gosdk/config"
 	"github.com/bizshuk/gosdk/metric"
 	"github.com/spf13/cobra"
@@ -24,19 +26,29 @@ import (
 // import cycle.
 var RootCmd = &cobra.Command{
 	Use:   "yfin",
-	Short: "擷取並發布 Yahoo Finance 資料 (Yahoo Finance data fetcher and publisher)",
+	Short: "擷取 Yahoo Finance 資料 (Yahoo Finance data fetcher)",
 	Long: `yfin 是擷取 Yahoo Finance 資料的命令列工具 (yfin is a command-line tool for fetching Yahoo Finance data including)：
 - 每日 bars（調整後 / 原始）— 僅限 daily 區間 (Daily bars, adjusted/raw — daily-only scope)
 - 即時 quote 快照 (Snapshot quotes)
 - fundamentals（需付費訂閱）(Fundamentals — requires paid subscription)
 
-支援 FX 轉換預覽、bus 發布與本地匯出 (The tool supports FX conversion preview, bus publishing, and local export).`,
+支援 FX 轉換預覽與本地匯出 (The tool supports FX conversion preview and local export).`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		// gosdk bootstrap: load ~/.config/yfin + bind APP_* env (e.g. APP_LOG_LEVEL).
+		// gosdk bootstrap: register ~/.config/yfin as an app metadata/search
+		// path and bind APP_* env (e.g. APP_LOG_LEVEL). The typed yfin YAML
+		// remains owned by config.Loader.
 		// gosdk/log's package init installs slog.Default at import time (this
 		// binary imports `log` via cmd/global.go's `var _ = log.GetLogLevel`),
 		// so any APP_LOG_LEVEL set on the process environment is honored at startup.
 		sdkconfig.Default(sdkconfig.WithAppName("yfin"))
+		if Global.Concurrency < 0 {
+			return fmt.Errorf("--concurrency must be >= 0")
+		}
+		if flag := cmd.Flag("log-level"); flag != nil && flag.Changed {
+			if err := configureDefaultLogger(ResolveLogLevel(cmd, "")); err != nil {
+				return err
+			}
+		}
 		return nil
 	},
 }

@@ -75,7 +75,7 @@ func runComprehensiveStats(cobraCmd *cobra.Command, cfg *comprehensiveStatsConfi
 		CollectorEndpoint: ycfg.Observability.Tracing.OTLP.Endpoint,
 		TraceProtocol:     "grpc",
 		SampleRatio:       ycfg.Observability.Tracing.OTLP.SampleRatio,
-		LogLevel:          ycfg.Observability.Logs.Level,
+		LogLevel:          cmd.ResolveLogLevel(cobraCmd, ycfg.Observability.Logs.Level),
 		MetricsAddr:       ycfg.Observability.Metrics.Prometheus.Addr,
 		MetricsEnabled:    ycfg.Observability.Metrics.Prometheus.Enabled && !disableMetrics,
 		TracingEnabled:    ycfg.Observability.Tracing.OTLP.Enabled && !disableTracing,
@@ -86,7 +86,7 @@ func runComprehensiveStats(cobraCmd *cobra.Command, cfg *comprehensiveStatsConfi
 	}
 	defer func() { _ = obsv.Shutdown(ctx) }()
 
-	client, err := cmd.CreateClient()
+	client, err := cmd.CreateClientFromConfig(ycfg)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: Failed to create client: %v\n", err)
 		os.Exit(cmd.ExitGeneral)

@@ -210,10 +210,18 @@ type MI_QFIISResponse struct {
 
 // MI_QFIISRow is one row of the MI_QFIIS table.
 type MI_QFIISRow struct {
-	Code       string  // 證券代號
-	Name       string  // 證券名稱
-	SharesHeld int64   // 持有股數
-	IssuePct   float64 // 佔發行股數%
+	Code                    string  // 證券代號
+	Name                    string  // 證券名稱
+	ISIN                    string  // 國際證券編碼
+	IssuedShares            int64   // 發行股數
+	AvailableShares         int64   // 外資及陸資尚可投資股數
+	SharesHeld              int64   // 全體外資及陸資持有股數
+	AvailablePct            float64 // 外資及陸資尚可投資比率
+	IssuePct                float64 // 全體外資及陸資持股比率
+	ForeignMainlandLimitPct float64 // 外資及陸資共用法令投資上限比率
+	MainlandLimitPct        float64 // 陸資法令投資上限比率
+	ChangeReason            string  // 與前日異動原因
+	LastReportedDate        string  // 最近一次上市公司申報持股異動日期
 }
 
 // BFI82UResponse — three-institution aggregated buy/sell amount table.

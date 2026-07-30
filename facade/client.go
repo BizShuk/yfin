@@ -18,8 +18,9 @@ import (
 
 // Client provides a high-level interface for fetching Yahoo Finance data
 type Client struct {
+	httpClient   *httpx.Client
 	yahooClient  *yahoo.Client
-	scrapeClient scrape.Client
+	scrapeClient ScrapeClient
 	micCache     map[string]string // Cache for MIC inference to avoid repeated API calls
 	micCacheMu   sync.RWMutex      // Mutex for MIC cache
 }
@@ -33,6 +34,7 @@ func NewClient() *Client {
 	scrapeClient, _ := scrape.NewClient(scrape.DefaultConfig(), httpClient)
 
 	return &Client{
+		httpClient:   httpClient,
 		yahooClient:  yahooClient,
 		scrapeClient: scrapeClient,
 		micCache:     make(map[string]string),
@@ -50,6 +52,7 @@ func NewClientWithConfig(config *httpx.Config) *Client {
 	scrapeClient, _ := scrape.NewClient(scrape.DefaultConfig(), httpClient)
 
 	return &Client{
+		httpClient:   httpClient,
 		yahooClient:  yahooClient,
 		scrapeClient: scrapeClient,
 		micCache:     make(map[string]string),

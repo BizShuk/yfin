@@ -8,8 +8,8 @@
 //     scrape-tuned Go defaults. The scrape HTTP knobs are no longer
 //     in yaml (they live in `svc/scrape.DefaultConfig().HTTP`); this
 //     adapter populates a parallel default. To customise, callers
-//     mutate `cfg.Scrape.HTTP` post-load or pass a tuned `*httpx.Config`
-//     directly to `facade.NewScrapeClientWithHTTP`.
+//     mutate `cfg.Scrape.HTTP` post-load, then apply it through
+//     `(*facade.Client).ConfigureScrape`.
 //   - GetHTTPConfig      — returns c.HTTP (assembled at Load() time).
 //   - GetFXConfig        — `&c.FX` (fx sub-tree as-is).
 //   - GetScrapeConfig    — `&c.Scrape` (scrape sub-tree as-is).
@@ -69,7 +69,7 @@ func scrapeHTTPDefaults() *httpx.Config {
 		Timeout:              10 * time.Second,
 		IdleTimeout:          90 * time.Second,
 		MaxConnsPerHost:      10,
-		UserAgent:            "Mozilla/5.0 (Ampy yfinance-go scraper)",
+		UserAgent:            "Mozilla/5.0 (compatible; yfin/1.x)",
 		MaxAttempts:          4,
 		BackoffBaseMs:        300,
 		BackoffJitterMs:      150,
@@ -89,8 +89,8 @@ func scrapeHTTPDefaults() *httpx.Config {
 // scrape-tuned Go defaults. Scrape HTTP knobs (timeout / qps / retry /
 // user_agent) are no longer in yaml — defaults come from
 // `svc/scrape.DefaultConfig().HTTP` (mirrored here as scrapeHTTPDefaults).
-// To customise, callers mutate `cfg.Scrape.HTTP` post-load or pass a
-// tuned `*httpx.Config` directly via `facade.NewScrapeClientWithHTTP`.
+// To customise, callers mutate `cfg.Scrape.HTTP` post-load, then apply
+// the resulting ScrapeConfig through `(*facade.Client).ConfigureScrape`.
 func (c *Config) assembleScrapeHTTPConfig() *httpx.Config {
 	return scrapeHTTPDefaults()
 }

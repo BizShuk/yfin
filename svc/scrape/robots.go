@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+
 	"github.com/bizshuk/yfin/model"
 )
 
@@ -99,7 +100,7 @@ func (rm *RobotsManager) getRobots(ctx context.Context, host string) (*model.Rob
 	}
 
 	// Set appropriate headers for robots.txt
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Ampy yfinance-go scraper)")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; yfin/1.x)")
 	req.Header.Set("Accept", "text/plain")
 
 	resp, err := rm.client.Do(req)
@@ -196,7 +197,7 @@ func (rm *RobotsManager) isPathAllowed(robots *model.RobotsCache, path string) b
 	var applicableRules []model.RobotsRule
 
 	for _, rule := range robots.Rules {
-		if rule.UserAgent == "*" || strings.Contains(strings.ToLower(rule.UserAgent), "ampy") {
+		if rule.UserAgent == "*" || strings.Contains(strings.ToLower(rule.UserAgent), "yfin") {
 			applicableRules = append(applicableRules, rule)
 		}
 	}

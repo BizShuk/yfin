@@ -50,8 +50,31 @@ func TestYahooHostProfiles_ComposesQueryAndWebPolicies(t *testing.T) {
 	assert.Equal(t, 0.7, web.QPS)
 	assert.Equal(t, 1, web.Burst)
 	assert.EqualValues(t, 8<<20, web.MaxBody)
-	assert.Equal(t, "Mozilla/5.0 (Ampy yfinance-go scraper)", web.UserAgent)
+	assert.Equal(t, "Mozilla/5.0 (compatible; yfin/1.x)", web.UserAgent)
 	assert.Equal(t, "quote", web.EndpointFn("/quote/AAPL/financials"))
 	assert.NotEmpty(t, web.Headers.Get("Accept"))
 	assert.Equal(t, "en-US,en;q=0.9", web.Headers.Get("Accept-Language"))
+}
+
+func TestYahooHostProfiles_UsesConfiguredWebPolicy(t *testing.T) {
+	queryConfig := httpx.DefaultConfig()
+	webConfig := httpx.DefaultConfig()
+	webConfig.QPS = 0.25
+	webConfig.Burst = 2
+	webConfig.MaxBodyBytes = 4 << 20
+	webConfig.UserAgent = "custom-web-agent"
+
+	profiles := yahooHostProfilesWithScrape(queryConfig, webConfig)
+	var web httpx.HostProfile
+	for _, profile := range profiles {
+		if profile.Host == "finance.yahoo.com" {
+			web = profile
+			break
+		}
+	}
+
+	assert.Equal(t, 0.25, web.QPS)
+	assert.Equal(t, 2, web.Burst)
+	assert.EqualValues(t, 4<<20, web.MaxBody)
+	assert.Equal(t, "custom-web-agent", web.UserAgent)
 }
