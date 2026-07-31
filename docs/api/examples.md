@@ -8,33 +8,33 @@
 package main
 
 import (
-	"context"
-	"fmt"
-	"log"
-	"time"
+ "context"
+ "fmt"
+ "log"
+ "time"
 
-	"github.com/bizshuk/yfin/facade"
+ "github.com/bizshuk/yfin/facade"
 )
 
 func main() {
-	client := facade.NewClient()
-	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
-	end := time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC)
+ client := facade.NewClient()
+ start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+ end := time.Date(2026, 1, 31, 0, 0, 0, 0, time.UTC)
 
-	batch, err := client.FetchDailyBars(
-		context.Background(),
-		"AAPL",
-		start,
-		end,
-		true,
-		"example-bars",
-	)
-	if err != nil {
-		log.Fatal(err)
-	}
-	for _, bar := range batch.Bars {
-		fmt.Printf("%s %.2f %s\n", bar.Date, bar.Close, bar.CurrencyCode)
-	}
+ batch, err := client.FetchDailyBars(
+  context.Background(),
+  "AAPL",
+  start,
+  end,
+  true,
+  "example-bars",
+ )
+ if err != nil {
+  log.Fatal(err)
+ }
+ for _, bar := range batch.Bars {
+  fmt.Printf("%s %.2f %s\n", bar.Date, bar.Close, bar.CurrencyCode)
+ }
 }
 ```
 
@@ -45,10 +45,10 @@ Plain DTO fields 已是 `float64`，不需手動 scale arithmetic。
 ```go
 quote, err := client.FetchQuoteNorm(ctx, "AAPL", "example-quote")
 if err != nil {
-	return err
+ return err
 }
 if quote.RegularMarketPrice != nil {
-	fmt.Println(quote.RegularMarketPrice.Float64(), quote.CurrencyCode)
+ fmt.Println(quote.RegularMarketPrice.Float64(), quote.CurrencyCode)
 }
 ```
 
@@ -59,7 +59,7 @@ if quote.RegularMarketPrice != nil {
 ```go
 stats, err := client.ScrapeKeyStatistics(ctx, "AAPL", "example-scrape")
 if err != nil {
-	return err
+ return err
 }
 fmt.Println(stats.Symbol, len(stats.Lines), stats.Source)
 ```
@@ -73,16 +73,16 @@ Downstream application 提供 raw root，由 yfin 管理 request identity 與 at
 ```go
 cached, err := facade.NewCachedClient("./runtime/raw")
 if err != nil {
-	return err
+ return err
 }
 
 batch, err := cached.FetchDailyBars(
-	ctx,
-	"AAPL",
-	start,
-	end,
-	true,
-	"example-cache",
+ ctx,
+ "AAPL",
+ start,
+ end,
+ true,
+ "example-cache",
 )
 ```
 
