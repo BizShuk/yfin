@@ -7,11 +7,9 @@
 // so existing callers that still write `facade.Bar` keep compiling unchanged.
 // New code should prefer `model.Bar` directly to avoid the indirection.
 
-// Package facade re-exports the yfinance-go normalized bar/quote/company-info
-// types as plain Go structs so external consumers (e.g. data/stock) can avoid
-// reflection against the internal/norm package. The facade lives inside the
-// yfinance-go module so it can legally import the internal types; consumers
-// stay clean of `internal/`.
+// Package facade owns yfin's public operation boundary. It exposes Client
+// methods, opaque service handles, cache wrappers, and compatibility aliases
+// for the plain DTOs canonically owned by model.
 package facade
 
 import (

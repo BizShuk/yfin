@@ -1,203 +1,134 @@
-# 爬蟲備援系統概觀 (Scrape Fallback System Overview)
+# Yahoo Scrape Surfaces Overview
 
-## 架構與資料流 (Architecture & Data Flow)
+Yahoo web scrape 是 yfin 的明確 data source，用於取得 API 未提供的 financial statements、profile、statistics、analysis 與 news。Root CLI 不會在 API command 失敗時偷偷切換 source；caller 必須直接呼叫 scrape method 或 `yfin scrape`。
 
-`yfin` 爬蟲備援系統提供一個 production-ready 的替代路徑，於 Yahoo Finance API 不可用、被限速、或需要付費訂閱時接手。整體設計以單一 `http.Client` + 完整重試/熔斷/限速策略為核心。
+## Supported Surfaces
 
-```tree
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   User Request  │    │  Orchestrator   │    │  Data Pipeline  │
-│                 │    │                 │    │                 │
-│ • CLI Command   │───▶│ • Rate Limiting │───▶│ • Normalization │
-│ • Library Call  │    │ • Retry/Backoff │    │ • Validation    │
-│ • Batch Job     │    │ • Circuit Break │    │ • Mapping       │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-                                │              └─────────────────┘
-                                ▼
-                       ┌─────────────────┐    ┌─────────────────┐
-                       │   Data Sources  │    │     Output      │
-                       │                 │    │                 │
-                       │ • Yahoo API     │    │ • JSON Export   │
-                       │ • Web Scraping  │    │ • Local files   │
-                       │ • FX Providers  │    │                 │
-                       └─────────────────┘    └─────────────────┘
+| Endpoint | Data |
+| --- | --- |
+| `key-statistics` | valuation、shares、margin 與 historical statistics |
+| `financials` | income statement |
+| `balance-sheet` | balance sheet |
+| `cash-flow` | cash-flow statement |
+| `analysis` | estimates、EPS trend/revisions、growth |
+| `analyst-insights` | analyst opinions 與 price targets |
+| `profile` | company identity、sector、employees、executives |
+| `news` | ticker news items |
+
+`facade.Client` 提供兩種 output shape：
+
+- `ScrapeFinancials`、`ScrapeKeyStatistics` 等 snapshot methods：回傳 plain model/facade types。
+- `ScrapeFinancialsData`、`ScrapeProfileData`、`ScrapeKeyStatisticsData`、`ScrapeAnalysisData`：保留完整 scrape DTO。
+
+## Source Selection
+
+Main CLI：
+
+```text
+pull / quote / fundamentals -> Yahoo API only
+scrape                     -> Yahoo web only
 ```
 
-## 為何需要爬蟲備援 (Why Scrape Fallback Was Created)
+Standalone `cmd/soak` 可用 `auto` strategy，但唯一的 API-to-scrape mapping 是：
 
-### 問題陳述 (Problem Statement)
+```text
+fundamentals -> financials
+```
 
-Yahoo Finance API 有數項限制會直接衝擊 production 系統：
+`quote` 與 `daily-bars` 沒有 scrape equivalent。請勿把 `auto` 解讀為一般化的 seamless fallback。
 
-1. **認證要求**：多數進階 endpoint 需付費訂閱
-2. **速率限制**：積極的節流策略會擋掉合法請求
-3. **資料可用性**：部分資料只出現在網頁介面
-4. **可靠性**：API endpoint 不穩定或暫時性失效
+## Request Flow
 
-### 解法帶來的好處 (Solution Benefits)
+```text
+CLI or SDK caller
+      |
+ facade.Client
+      |
+ ScrapeClient.Fetch
+      |
+ robots policy -> shared httpx client -> finance.yahoo.com
+      |
+ parser -> model DTO / plain snapshot
+```
 
-- **自動備援**：API 與 scrape 之間無縫切換
-- **資料一致性**：不同來源輸出一致
-- **生產安全**：遵守 robots.txt，實施嚴格速率限制
-- **完整覆蓋**：取得 API 無法取得的欄位
+Transport facts：
 
-## 支援的資料來源 (Supported Data Sources)
+- Yahoo API、web scrape 與 cookie bootstrap 共用一個 `http.Client` / connection pool。
+- Host profile 分別擁有 QPS、burst、body cap、headers 與 endpoint tag。
+- Retry、backoff、circuit breaker 與 request metrics 由 `utils/httpx` 統一處理。
+- Scrape HTTP defaults 由 `utils/httpx.DefaultScrapeConfig()` 單一擁有。
 
-### API Endpoints (主要)
-- **Quotes**：即時與延遲報價
-- **Historical Bars**：日/週/月 OHLCV
-- **Fundamentals**：季度財報（需訂閱）
+完整 dependency graph 由 [CLAUDE.md](../../CLAUDE.md) 擁有。
 
-### Scrape Endpoints (備援)
-- **Key Statistics**：P/E ratios、market cap、財務指標
-- **Financials**：損益表、資產負債表、現金流量
-- **Analysis**：分析師推薦與目標價
-- **Profile**：公司資訊、經營階層、業務摘要
-- **News**：近期新聞與新聞稿
+## Robots Policy
 
-## 資料流架構 (Data Flow Architecture)
+`scrape.robots_policy`：
 
-### 1. 請求編排 (Request Orchestration)
+| Value | Behavior |
+| --- | --- |
+| `enforce` | disallowed path 回傳 error，不送出 page request |
+| `warn` | 記錄 violation 後繼續；只適合受控開發 |
+| `ignore` | 跳過 robots check；只適合 deterministic test |
+
+Production default 是 `enforce`。不要用 `ignore` 跨過 provider policy gate。
+
+## Data Semantics
+
+- Parser 只回傳 upstream 能證明的欄位；缺值不以固定數字補齊。
+- Scrape monetary values 在 comprehensive DTO 中使用 `ScaledDecimal` alias。
+- 轉成 plain `FundamentalsSnapshot` 後，public line values 使用 `float64`。
+- Event/boundary times 使用 UTC；daily trading date 的 exchange-local 語意由 `model` 處理。
+- Snapshot `Source` 使用 `yfin/scrape/...` lineage。
+- yfin 不執行 FX conversion，也不宣告 scrape cache hit。
+
+## CLI
+
+```bash
+# Connectivity only
+go run . scrape --check --ticker AAPL --endpoint profile --preview
+
+# Parse complete DTOs
+go run . scrape \
+  --preview-json \
+  --ticker AAPL \
+  --endpoints key-statistics,financials,analysis,profile
+
+# Parse news
+go run . scrape --preview-news --ticker AAPL
+```
+
+三種 mode（`--check` / `--preview-json` / `--preview-news`）互斥。`--preview` 只修飾 check output；不是 `pull` 或 `quote` flag。
+
+## SDK
 
 ```go
-// 簡化版 orchestration 流程
-func (o *Orchestrator) ProcessRequest(ctx context.Context, symbol string, endpoint string) (*Data, error) {
-    strategy := o.determineStrategy(endpoint)
+client := facade.NewClient()
 
-    switch strategy {
-    case "api-first":
-        data, err := o.tryAPI(ctx, symbol, endpoint)
-        if shouldFallback(err) {
-            return o.tryScrape(ctx, symbol, endpoint)
-        }
-        return data, err
-    case "scrape-only":
-        return o.tryScrape(ctx, symbol, endpoint)
-    }
+profile, err := client.ScrapeProfileData(ctx, "AAPL", "run-123")
+if err != nil {
+    return err
+}
+fmt.Println(profile.Sector)
+```
+
+需要從已載入 YAML 套用 policy：
+
+```go
+client := facade.NewClientWithConfig(cfg.HTTP)
+if err := client.ConfigureScrape(&cfg.Scrape); err != nil {
+    return err
 }
 ```
 
-### 2. 資料正規化管線 (Data Normalization Pipeline)
+## Observability and Acceptance
 
-```
-Raw Data → Parser → Validator → Normalized Struct
-    │         │         │              │
-    ▼         ▼         ▼              ▼
-  HTML/JSON  Regex   Schema        ScaledDec
-  嵌入 JSON  Extract Check         Currency   UTC times
-                                       ISO codes
-```
+通用 HTTP metrics 可觀察 requests、retries、backoff、decode failures、circuit state、latency 與 inflight requests。News parser 另有 news-specific parse metrics。Tracing 目前是 no-op boundary。
 
-對應實作位置：
+Live scrape acceptance 必須保留 exact ticker、endpoint、run ID、robots policy 與時間；unit fixtures 只能證明 parser contract，不能證明 Yahoo 當前頁面可達。
 
-- `svc/scrape/` — HTML 解析、regex extractor、parser
-- `model/` — 型別轉換、ScaledDecimal 包裝、scrape DTO 集合
-- `utils/httpx` — 共用 HTTP client（限速/重試/熔斷）
-- `utils/obsv` — observability bootstrap（metrics/tracing/logs）
+延伸閱讀：
 
-## 資料契約與保證 (Data Contracts & Guarantees)
-
-### 1. 時間標準化 (Time Standardization)
-- 所有時間戳記皆為 UTC
-- ISO-8601 格式
-- 事件時間語意：bar close、新聞發布時間
-
-### 2. 精度與貨幣 (Precision & Currency)
-- ScaledDecimal：精確財務運算
-- ISO-4217 貨幣代碼
-- 價格、量、金額皆經 scaling 處理
-
-### 3. 血緣與 metadata (Lineage & Metadata)
-- Run ID tracking：每個請求都有唯一識別
-- 來源標註：清楚的資料來源
-- Schema 版本化：相容性管理
-
-### 4. 錯誤處理 (Error Handling)
-- 型別化錯誤：不同失敗模式對應特定 error type
-- 優雅降級：部分資料仍勝過完全失敗
-- 重試語意：智慧型 backoff retry
-
-## 安全與合規 (Safety & Compliance)
-
-### Robots.txt Compliance
-
-系統支援三種執行層級（透過 `scrape.robots_policy`）：
-
-1. **enforce**（生產環境）
-   - 嚴格遵守 robots.txt 規則
-   - 阻擋 disallowed 請求
-   - 記錄違規事件
-
-2. **warn**（開發環境）
-   - 記錄 robots.txt 違規但放行
-   - 用於測試階段
-
-3. **ignore**（僅測試）
-   - 完全跳過 robots.txt 檢查
-   - 僅在受控測試環境使用
-
-### Rate Limiting
-
-- **Per-host QPS limit**：由 `utils/httpx.Config` 的 `QPS` / `Burst` 控制
-- **Burst allowance**：處理瞬間流量
-- **Exponential backoff**：由同一 HTTP config 的 retry 欄位控制
-
-### Error Recovery
-
-- **Circuit breaker**（`utils/httpx` 提供）：避免 cascade failure
-- **Graceful degradation**：部分資料勝過完全失敗
-- **Health check**：監控 endpoint 可用性
-- **Automatic recovery**：狀態穩定後自動恢復正常操作
-
-## 效能特性 (Performance Characteristics)
-
-實際 throughput 與 latency 取決於 Yahoo response、網路與 rate-limit 設定。請使用 Prometheus metrics 或 `cmd/soak` 在目標環境量測，不在文件中固定易失真的數值。
-
-## 整合介面 (Integration Points)
-
-### Library 用法
-
-```go
-import "github.com/bizshuk/yfin/facade"
-
-client := facade.NewClient()
-body, meta, err := client.ScrapeFetch(ctx, "AAPL", "key-statistics")
-```
-
-### CLI 用法
-
-```bash
-# 連線測試
-yfin scrape --ticker AAPL --endpoint key-statistics --check
-
-# extractor 乾跑
-yfin scrape --ticker AAPL --endpoints key-statistics,financials,analysis,profile --preview-json
-
-# News parser 乾跑
-yfin scrape --ticker AAPL --preview-news
-```
-
-## 監控與可觀測性 (Monitoring & Observability)
-
-### 關鍵指標 (Key Metrics)
-
-- **Fallback rate**：使用 scrape fallback 的請求比例
-- **Success rate**：整體請求成功率
-- **Latency percentiles**：P50、P95、P99
-- **Error rates**：依 error type 與 endpoint 區分
-
-### 健康指標 (Health Indicators)
-
-- **Robots compliance**：enforce 模式下違規次數為零
-- **Rate limit hits**：低於設定閾值
-- **Parse success**：高抽取成功率
-- **Schema validation**：所有輸出皆通過驗證
-
-### 告警閾值 (Alerting Thresholds)
-
-- 高 fallback rate：>50% 持續一段時間
-- Parse failure：>5% 錯誤率
-- Rate limit violation：生產環境中任何違規
-- Schema drift：新的 parsing 錯誤
-
-本概觀為理解爬蟲備援系統的基礎。詳細配置、使用範例、疑難排解請參考其他章節。
+- [Scrape CLI](cli.md)
+- [Configuration Reference](../operations/configuration.md)
+- [Error Handling](../operations/error-handling.md)
+- [Soak Testing](../cli/soak-testing.md)

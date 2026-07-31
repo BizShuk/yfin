@@ -67,7 +67,7 @@ func NormalizeBars(bars []ChartBar, meta *ChartMeta, runID string) (*NormalizedB
 
 	metaData := Meta{
 		RunID:         runID,
-		Source:        "yfinance-go",
+		Source:        "yfin",
 		Producer:      "local",
 		SchemaVersion: "ampy.bars.v1:1.0.0",
 	}
@@ -231,7 +231,7 @@ func NormalizeQuote(quote RawQuote, runID string) (*NormalizedQuote, error) {
 
 	meta := Meta{
 		RunID:         runID,
-		Source:        "yfinance-go",
+		Source:        "yfin",
 		Producer:      "local",
 		SchemaVersion: "ampy.ticks.v1:1.0.0",
 	}
@@ -297,9 +297,16 @@ func NormalizeFundamentals(fundamentals *Fundamentals, symbol, runID string) (*N
 		return nil, fmt.Errorf("no valid fundamentals lines found")
 	}
 
+	var asOf time.Time
+	for _, line := range lines {
+		if line.PeriodEnd.After(asOf) {
+			asOf = line.PeriodEnd
+		}
+	}
+
 	meta := Meta{
 		RunID:         runID,
-		Source:        "yfinance-go",
+		Source:        "yfin",
 		Producer:      "local",
 		SchemaVersion: "ampy.fundamentals.v1:1.0.0",
 	}
@@ -307,28 +314,31 @@ func NormalizeFundamentals(fundamentals *Fundamentals, symbol, runID string) (*N
 	return &NormalizedFundamentalsSnapshot{
 		Security: security,
 		Lines:    lines,
-		Source:   "yfinance",
-		AsOf:     time.Date(2025, 8, 1, 0, 0, 0, 0, time.UTC),
+		Source:   "yahoo-finance",
+		AsOf:     asOf,
 		Meta:     meta,
 	}, nil
 }
 
 func normalizeIncomeStatement(stmt IncomeStatement) ([]NormalizedFundamentalsLine, error) {
 	lines := make([]NormalizedFundamentalsLine, 0)
-	periodStart, periodEnd := convertDateToPeriod(stmt.EndDate)
+	periodStart, periodEnd, err := convertDateToPeriod(stmt.EndDate)
+	if err != nil {
+		return nil, err
+	}
 
 	if stmt.TotalRevenue != nil && stmt.TotalRevenue.Raw != nil {
-		if line, err := createFundamentalsLine("revenue", *stmt.TotalRevenue.Raw, "USD", periodStart, periodEnd); err == nil {
+		if line, err := createFundamentalsLine("revenue", *stmt.TotalRevenue.Raw, "", periodStart, periodEnd); err == nil {
 			lines = append(lines, line)
 		}
 	}
 	if stmt.NetIncome != nil && stmt.NetIncome.Raw != nil {
-		if line, err := createFundamentalsLine("net_income", *stmt.NetIncome.Raw, "USD", periodStart, periodEnd); err == nil {
+		if line, err := createFundamentalsLine("net_income", *stmt.NetIncome.Raw, "", periodStart, periodEnd); err == nil {
 			lines = append(lines, line)
 		}
 	}
 	if stmt.EPS != nil && stmt.EPS.Raw != nil {
-		if line, err := createFundamentalsLine("eps_basic", *stmt.EPS.Raw, "USD", periodStart, periodEnd); err == nil {
+		if line, err := createFundamentalsLine("eps_basic", *stmt.EPS.Raw, "", periodStart, periodEnd); err == nil {
 			lines = append(lines, line)
 		}
 	}
@@ -337,20 +347,23 @@ func normalizeIncomeStatement(stmt IncomeStatement) ([]NormalizedFundamentalsLin
 
 func normalizeBalanceSheet(sheet BalanceSheet) ([]NormalizedFundamentalsLine, error) {
 	lines := make([]NormalizedFundamentalsLine, 0)
-	periodStart, periodEnd := convertDateToPeriod(sheet.EndDate)
+	periodStart, periodEnd, err := convertDateToPeriod(sheet.EndDate)
+	if err != nil {
+		return nil, err
+	}
 
 	if sheet.TotalAssets != nil && sheet.TotalAssets.Raw != nil {
-		if line, err := createFundamentalsLine("total_assets", *sheet.TotalAssets.Raw, "USD", periodStart, periodEnd); err == nil {
+		if line, err := createFundamentalsLine("total_assets", *sheet.TotalAssets.Raw, "", periodStart, periodEnd); err == nil {
 			lines = append(lines, line)
 		}
 	}
 	if sheet.TotalLiab != nil && sheet.TotalLiab.Raw != nil {
-		if line, err := createFundamentalsLine("total_liabilities", *sheet.TotalLiab.Raw, "USD", periodStart, periodEnd); err == nil {
+		if line, err := createFundamentalsLine("total_liabilities", *sheet.TotalLiab.Raw, "", periodStart, periodEnd); err == nil {
 			lines = append(lines, line)
 		}
 	}
 	if sheet.TotalStockholderEquity != nil && sheet.TotalStockholderEquity.Raw != nil {
-		if line, err := createFundamentalsLine("total_equity", *sheet.TotalStockholderEquity.Raw, "USD", periodStart, periodEnd); err == nil {
+		if line, err := createFundamentalsLine("total_equity", *sheet.TotalStockholderEquity.Raw, "", periodStart, periodEnd); err == nil {
 			lines = append(lines, line)
 		}
 	}
@@ -359,15 +372,18 @@ func normalizeBalanceSheet(sheet BalanceSheet) ([]NormalizedFundamentalsLine, er
 
 func normalizeCashflowStatement(stmt CashflowStatement) ([]NormalizedFundamentalsLine, error) {
 	lines := make([]NormalizedFundamentalsLine, 0)
-	periodStart, periodEnd := convertDateToPeriod(stmt.EndDate)
+	periodStart, periodEnd, err := convertDateToPeriod(stmt.EndDate)
+	if err != nil {
+		return nil, err
+	}
 
 	if stmt.NetIncome != nil && stmt.NetIncome.Raw != nil {
-		if line, err := createFundamentalsLine("net_income", *stmt.NetIncome.Raw, "USD", periodStart, periodEnd); err == nil {
+		if line, err := createFundamentalsLine("net_income", *stmt.NetIncome.Raw, "", periodStart, periodEnd); err == nil {
 			lines = append(lines, line)
 		}
 	}
 	if stmt.TotalCashFromOperatingActivities != nil && stmt.TotalCashFromOperatingActivities.Raw != nil {
-		if line, err := createFundamentalsLine("operating_cashflow", *stmt.TotalCashFromOperatingActivities.Raw, "USD", periodStart, periodEnd); err == nil {
+		if line, err := createFundamentalsLine("operating_cashflow", *stmt.TotalCashFromOperatingActivities.Raw, "", periodStart, periodEnd); err == nil {
 			lines = append(lines, line)
 		}
 	}
@@ -377,9 +393,6 @@ func normalizeCashflowStatement(stmt CashflowStatement) ([]NormalizedFundamental
 func createFundamentalsLine(key string, value int64, currency string, periodStart, periodEnd time.Time) (NormalizedFundamentalsLine, error) {
 	if key == "" {
 		return NormalizedFundamentalsLine{}, fmt.Errorf("key cannot be empty")
-	}
-	if currency == "" {
-		return NormalizedFundamentalsLine{}, fmt.Errorf("currency cannot be empty")
 	}
 	if periodStart.After(periodEnd) {
 		return NormalizedFundamentalsLine{}, fmt.Errorf("period start cannot be after period end")
@@ -408,15 +421,13 @@ func createFundamentalsLine(key string, value int64, currency string, periodStar
 	}, nil
 }
 
-func convertDateToPeriod(dateValue DateValue) (periodStart, periodEnd time.Time) {
-	if dateValue.Raw != 0 {
-		periodEnd = time.Unix(dateValue.Raw, 0).UTC()
-		periodStart = periodEnd.AddDate(0, -3, 0)
-	} else {
-		periodEnd = time.Now().UTC()
-		periodStart = periodEnd.AddDate(0, -3, 0)
+func convertDateToPeriod(dateValue DateValue) (periodStart, periodEnd time.Time, err error) {
+	if dateValue.Raw <= 0 {
+		return time.Time{}, time.Time{}, fmt.Errorf("missing end date")
 	}
-	return periodStart, periodEnd
+	periodEnd = time.Unix(dateValue.Raw, 0).UTC()
+	periodStart = periodEnd.AddDate(0, -3, 0)
+	return periodStart, periodEnd, nil
 }
 
 // NormalizeMarketData normalizes comprehensive market data from chart metadata.
@@ -436,6 +447,7 @@ func NormalizeMarketData(meta *ChartMeta, runID string) (*NormalizedMarketData, 
 		regularMarketTime = &rmt
 	}
 
+	now := time.Now().UTC()
 	marketData := &NormalizedMarketData{
 		Security:             security,
 		RegularMarketPrice:   ToScaledDecimalPtr(meta.RegularMarketPrice, meta.Currency),
@@ -448,12 +460,12 @@ func NormalizeMarketData(meta *ChartMeta, runID string) (*NormalizedMarketData, 
 		ChartPreviousClose:   ToScaledDecimalPtr(meta.ChartPreviousClose, meta.Currency),
 		RegularMarketTime:    regularMarketTime,
 		HasPrePostMarketData: meta.HasPrePostMarketData,
-		EventTime:            time.Now().UTC(),
-		IngestTime:           time.Now().UTC(),
+		EventTime:            now,
+		IngestTime:           now,
 		Meta: Meta{
 			RunID:         runID,
-			Source:        "yahoo",
-			Producer:      "yfinance-go",
+			Source:        "yfin",
+			Producer:      "local",
 			SchemaVersion: "1.0",
 		},
 	}
@@ -478,6 +490,7 @@ func NormalizeCompanyInfo(meta *ChartMeta, runID string) (*NormalizedCompanyInfo
 		firstTradeDate = &ftd
 	}
 
+	now := time.Now().UTC()
 	companyInfo := &NormalizedCompanyInfo{
 		Security:         security,
 		LongName:         meta.LongName,
@@ -489,12 +502,12 @@ func NormalizeCompanyInfo(meta *ChartMeta, runID string) (*NormalizedCompanyInfo
 		FirstTradeDate:   firstTradeDate,
 		Timezone:         meta.Timezone,
 		ExchangeTimezone: meta.ExchangeTimezoneName,
-		EventTime:        time.Now().UTC(),
-		IngestTime:       time.Now().UTC(),
+		EventTime:        now,
+		IngestTime:       now,
 		Meta: Meta{
 			RunID:         runID,
-			Source:        "yahoo",
-			Producer:      "yfinance-go",
+			Source:        "yfin",
+			Producer:      "local",
 			SchemaVersion: "1.0",
 		},
 	}

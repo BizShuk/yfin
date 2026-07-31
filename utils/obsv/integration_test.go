@@ -1,4 +1,5 @@
-// integration_test.go — Integration: full `Init` lifecycle with metrics + tracing enabled / disabled, end-to-end span hierarchy `run -> fetch -> decode -> normalize -> emit -> publish -> fx`, log attribute propagation with trace context. Capacity: 5 integration scenarios.
+// integration_test.go — Integration coverage for the observability lifecycle,
+// metrics, named spans and trace-aware log attributes.
 package obsv
 
 import (
@@ -65,11 +66,7 @@ func TestObservabilityIntegration(t *testing.T) {
 	RecordCBOpen("host")
 	SetCBState("host", 1)
 	RecordDecodeFail("json_parse")
-	RecordSessionEject()
 	SetInflightRequests("bars_1d", 5)
-	RecordPublish("bars", "ack")
-	RecordPublishLatency("bars", 50*time.Millisecond)
-	RecordBatchBytes("bars", 1024)
 }
 
 // TestObservabilityDisabled tests that observability works when disabled
@@ -108,8 +105,6 @@ func TestObservabilityDisabled(t *testing.T) {
 	// These should not panic even when metrics are disabled
 	RecordRequest("bars_1d", "success", "200")
 	RecordRequestLatency("bars_1d", 100*time.Millisecond)
-	RecordPublish("bars", "ack")
-	RecordPublishLatency("bars", 50*time.Millisecond)
 }
 
 // TestObservabilityNotInitialized tests that functions work when not initialized
@@ -126,11 +121,7 @@ func TestObservabilityNotInitialized(t *testing.T) {
 	RecordCBOpen("host")
 	SetCBState("host", 1)
 	RecordDecodeFail("json_parse")
-	RecordSessionEject()
 	SetInflightRequests("bars_1d", 5)
-	RecordPublish("bars", "ack")
-	RecordPublishLatency("bars", 50*time.Millisecond)
-	RecordBatchBytes("bars", 1024)
 
 	// Test that logger and tracer return fallback implementations
 	logger := Logger()
@@ -147,7 +138,7 @@ func TestObservabilityNotInitialized(t *testing.T) {
 	span.End()
 }
 
-// TestSpanHierarchy tests the span hierarchy for yfinance-go operations
+// TestSpanHierarchy tests the span hierarchy for yfin operations.
 func TestSpanHierarchy(t *testing.T) {
 	// Reset global state
 	Reset()
@@ -189,12 +180,6 @@ func TestSpanHierarchy(t *testing.T) {
 	ctx, normalizeSpan := StartIngestNormalizeSpan(ctx, "bars_1d", "AAPL", "XNAS")
 	defer normalizeSpan.End()
 
-	ctx, emitSpan := StartEmitProtoSpan(ctx, "bars", "AAPL")
-	defer emitSpan.End()
-
-	ctx, publishSpan := StartPublishBusSpan(ctx, "ampy.bars", "AAPL", 0, 1024)
-	defer publishSpan.End()
-
 	_, fxSpan := StartFXRatesSpan(ctx, "USD", "EUR")
 	defer fxSpan.End()
 
@@ -207,8 +192,6 @@ func TestSpanHierarchy(t *testing.T) {
 	assert.NotNil(t, fetchSpan)
 	assert.NotNil(t, decodeSpan)
 	assert.NotNil(t, normalizeSpan)
-	assert.NotNil(t, emitSpan)
-	assert.NotNil(t, publishSpan)
 	assert.NotNil(t, fxSpan)
 }
 
@@ -246,7 +229,7 @@ func TestLoggingIntegration(t *testing.T) {
 	// Test common log attributes
 	attrs := CommonLogAttrs("test-run-123", "AAPL", "XNAS", "bars_1d")
 	assert.Contains(t, attrs, "source")
-	assert.Contains(t, attrs, "yfinance-go")
+	assert.Contains(t, attrs, "yfin")
 	assert.Contains(t, attrs, "run_id")
 	assert.Contains(t, attrs, "test-run-123")
 	assert.Contains(t, attrs, "symbol")
@@ -263,6 +246,6 @@ func TestLoggingIntegration(t *testing.T) {
 	// Test empty log attributes
 	emptyAttrs := CommonLogAttrs("", "", "", "")
 	assert.Contains(t, emptyAttrs, "source")
-	assert.Contains(t, emptyAttrs, "yfinance-go")
+	assert.Contains(t, emptyAttrs, "yfin")
 	assert.Len(t, emptyAttrs, 2) // Only source and value
 }

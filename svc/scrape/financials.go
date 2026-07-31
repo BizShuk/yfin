@@ -1,4 +1,5 @@
-// — Parses Yahoo financials/balance-sheet/cash-flow HTML tables into model.ComprehensiveFinancialsDTO via YAML-driven regex. Capacity: 30+ current-period fields + 5 historical quarters (Q2_2025 to Q2_2024) x ~25 metrics.
+// financials.go — parses Yahoo financials/balance-sheet/cash-flow HTML tables
+// into model.ComprehensiveFinancialsDTO via YAML-driven regex.
 package scrape
 
 import (
@@ -15,7 +16,6 @@ import (
 	"github.com/bizshuk/yfin/model"
 	"gopkg.in/yaml.v3"
 )
-
 
 // FinancialsRegexConfig holds the regex patterns for financials extraction
 type FinancialsRegexConfig struct {
@@ -112,10 +112,9 @@ func ParseComprehensiveFinancials(html []byte, symbol, market string) (*model.Co
 	}
 
 	dto := &model.ComprehensiveFinancialsDTO{
-		Symbol:   symbol,
-		Market:   market,
-		Currency: "USD", // Default, will be updated from actual data
-		AsOf:     time.Now().UTC(),
+		Symbol: symbol,
+		Market: market,
+		AsOf:   time.Now().UTC(),
 	}
 
 	htmlStr := string(html)
@@ -141,7 +140,7 @@ func ParseComprehensiveFinancialsWithCurrency(html, financialsHTML []byte, symbo
 	dto := &model.ComprehensiveFinancialsDTO{
 		Symbol: symbol,
 		Market: market,
-		AsOf:   time.Now(),
+		AsOf:   time.Now().UTC(),
 	}
 
 	// Extract currency from financials HTML
@@ -150,8 +149,6 @@ func ParseComprehensiveFinancialsWithCurrency(html, financialsHTML []byte, symbo
 	matches := re.FindStringSubmatch(financialsStr)
 	if len(matches) > 1 {
 		dto.Currency = matches[1]
-	} else {
-		dto.Currency = "USD" // Default fallback
 	}
 
 	// Extract financial data from the main HTML (balance sheet or cash flow)
@@ -163,8 +160,10 @@ func ParseComprehensiveFinancialsWithCurrency(html, financialsHTML []byte, symbo
 		return nil, fmt.Errorf("failed to extract financial data from HTML: %w", err)
 	}
 
-	// Override the currency with the one from financials page
-	financialData["model.Currency"] = dto.Currency
+	// Prefer the dedicated financials-page currency when it is present.
+	if dto.Currency != "" {
+		financialData["model.Currency"] = dto.Currency
+	}
 
 	// Populate the DTO with extracted data
 	populateDTOFromHTMLData(financialData, dto)
@@ -183,8 +182,6 @@ func extractFinancialDataFromHTML(html string) (map[string]string, error) {
 	matches := re.FindStringSubmatch(html)
 	if len(matches) > 1 {
 		financialData["model.Currency"] = matches[1]
-	} else {
-		financialData["model.Currency"] = "USD" // Default fallback
 	}
 
 	// Extract Total Revenue data

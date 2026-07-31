@@ -1,9 +1,7 @@
 // fundamentals.go — `FundamentalsLine` / `FundamentalsSnapshot` type aliases
 // + the public `FromFundamentalsSnapshot` (norm → SDK) converter. Structs
 // live in model/fundamentals.go; facade re-exports them as back-compat
-// aliases. The former `fromProtoFundamentals` proto→SDK converter was removed
-// with the ampy-proto dependency — scrape DTOs now convert to model directly
-// via model.Scrape*ToSnapshot.
+// aliases.
 package facade
 
 import (

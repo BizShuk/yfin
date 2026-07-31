@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
 	"github.com/bizshuk/yfin/model"
 )
-
 
 // FetchFMSRFK retrieves per-stock monthly trading info for the year `date`.
 // `stockNo` is required (e.g. "2330"); `date` is the year (e.g. "2022").

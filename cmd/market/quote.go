@@ -133,6 +133,12 @@ func validateQuoteFlags(cfg *quoteConfig) error {
 	if cfg.Out != "" && cfg.Out != "json" {
 		return fmt.Errorf("--out must be 'json' for quotes")
 	}
+	if cfg.Out != "" && cfg.OutDir == "" {
+		return fmt.Errorf("--out-dir is required when --out is set")
+	}
+	if cfg.Out == "" && cfg.OutDir != "" {
+		return fmt.Errorf("--out is required when --out-dir is set")
+	}
 	return nil
 }
 

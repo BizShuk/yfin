@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
 	"github.com/bizshuk/yfin/model"
 )
-
-
 
 // FetchTWT44U retrieves the daily aggregated buy/sell volume of
 // dealers (自營商) for `date`.

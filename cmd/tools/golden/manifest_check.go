@@ -1,4 +1,5 @@
-// manifest_check.go — golden-manifest validator CLI: reads `MANIFEST.yaml`, verifies file existence + SHA256 + schema-specific JSON shape for `ampy.bars.v1.BarBatch` / `ampy.ticks.v1.Quote` / `ampy.fundamentals.v1.Snapshot` payloads (including daily-bar time semantics). Capacity: 1 `main` + 7 validator functions (`loadManifest`/`validateItem`/`computeSHA256`/`validateBarBatch`/`validateQuote`/`validateFundamentalSnapshot`/`validateDailyBarTime`) + 8 minimal DTO types.
+// manifest_check.go — golden-manifest validator CLI: verifies file existence,
+// SHA256 and schema-specific JSON shape, including daily-bar time semantics.
 package main
 
 import (
@@ -13,7 +14,7 @@ import (
 )
 
 const (
-	yfinanceGoSource = "yfinance-go"
+	yfinSource = "yfin"
 )
 
 // Manifest represents the structure of MANIFEST.yaml
@@ -29,15 +30,15 @@ type ManifestItem struct {
 	Notes      []string `yaml:"notes"`
 }
 
-// Basic structures for validation (simplified versions of ampy-proto)
+// Basic structures for validation of legacy logical schema fixtures.
 type Security struct {
 	Symbol string `json:"symbol"`
 	MIC    string `json:"mic"`
 }
 
 type ScaledDecimal struct {
-	Scaled int `json:"scaled"`
-	Scale  int `json:"scale"`
+	Scaled int64 `json:"scaled"`
+	Scale  int   `json:"scale"`
 }
 
 type Bar struct {
@@ -232,7 +233,7 @@ func validateBarBatch(path string) bool {
 	}
 
 	// Validate meta
-	if batch.Meta.Source != yfinanceGoSource {
+	if batch.Meta.Source != yfinSource {
 		fmt.Printf("  ERROR: Invalid meta.source: %s\n", batch.Meta.Source)
 		return false
 	}
@@ -274,7 +275,7 @@ func validateQuote(path string) bool {
 	}
 
 	// Validate meta
-	if quote.Meta.Source != yfinanceGoSource {
+	if quote.Meta.Source != yfinSource {
 		fmt.Printf("  ERROR: Invalid meta.source: %s\n", quote.Meta.Source)
 		return false
 	}
@@ -307,19 +308,35 @@ func validateFundamentalSnapshot(path string) bool {
 	}
 
 	// Validate meta
-	if snapshot.Meta.Source != yfinanceGoSource {
+	if snapshot.Meta.Source != yfinSource {
 		fmt.Printf("  ERROR: Invalid meta.source: %s\n", snapshot.Meta.Source)
 		return false
 	}
 
-	// Validate currency codes
+	// Currency is optional when the upstream source omits it, but a present
+	// value must be an ISO-style three-letter uppercase code.
 	for i, line := range snapshot.Lines {
-		if line.CurrencyCode == "" {
-			fmt.Printf("  ERROR: Missing currency_code for line %d\n", i)
+		if !validOptionalCurrencyCode(line.CurrencyCode) {
+			fmt.Printf("  ERROR: Invalid currency_code for line %d: %q\n", i, line.CurrencyCode)
 			return false
 		}
 	}
 
+	return true
+}
+
+func validOptionalCurrencyCode(code string) bool {
+	if code == "" {
+		return true
+	}
+	if len(code) != 3 {
+		return false
+	}
+	for _, character := range code {
+		if character < 'A' || character > 'Z' {
+			return false
+		}
+	}
 	return true
 }
 

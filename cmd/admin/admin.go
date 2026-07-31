@@ -1,6 +1,5 @@
 // admin.go — `config` + `version` cobra subcommands grouped under one
 // sub-package because both are admin/maintenance commands (no network I/O).
-// Capacity: 1 `Register(rootCmd)` exporting both commands.
 package admin
 
 import (
@@ -37,7 +36,7 @@ func newConfigCmd() *cobra.Command {
 		Use:   "config",
 		Short: "組態管理 (Configuration management)",
 		Long: `yfin CLI 組態管理：載入並驗證 YAML 設定檔。
-(Configuration management for yfinance-go.
+(Configuration management for yfin.
 Loads and validates configuration from YAML files.)
 
 範例 (Examples):

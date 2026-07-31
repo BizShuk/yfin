@@ -1,6 +1,6 @@
 # HTTP Config Consolidation Hard Decision
 
-`Status: Durable architecture decision recorded on 2026-07-18.`
+`Status: Durable architecture decision recorded on 2026-07-18；default-value ownership updated on 2026-07-31.`
 
 ## Outcome
 
@@ -22,14 +22,14 @@ config/effective.yaml
 │       └── config.Config.HTTP (*httpx.Config)
 │           └── cmd.CreateClient()
 │               └── facade.NewClientWithConfig()
-│
 └── scrape business switches only
     ├── enabled / robots_policy / cache_ttl_ms / endpoints
     └── config.assembleScrapeHTTPConfig()
-        └── Go-owned scrape HTTP defaults
+        └── utils/httpx.DefaultScrapeConfig()
             └── config.Scrape.HTTP (*httpx.Config)
-                └── facade.NewScrapeClientFromConfig()
-                    └── svc/scrape.Config.HTTP
+                └── cmd.CreateClientFromConfig()
+                    └── (*facade.Client).ConfigureScrape()
+                        └── svc/scrape.Config.HTTP
 ```
 
 ## Divergence from the Original Plan
@@ -47,26 +47,17 @@ This was a deliberate simplification in commit `bcbb839`, not an unimplemented Y
 
 ## Source-of-truth Boundary
 
-Type ownership is centralized, but default values are not stored in one file.
+Type ownership and scrape default values are centralized:
 
 - Canonical type: `utils/httpx.Config`.
 - Yahoo/root HTTP assembly: `config.assembleHTTPConfig`.
-- Scrape defaults at service boundary: `svc/scrape.DefaultConfig`.
-- Mirrored scrape defaults at config leaf: `config.scrapeHTTPDefaults`.
+- Scrape defaults: `utils/httpx.DefaultScrapeConfig`.
+- `config.assembleScrapeHTTPConfig` 與 `svc/scrape.DefaultConfig` 都 consume
+  the shared default builder。
 
-The two scrape default builders intentionally duplicate values because `config` is a leaf and cannot import `svc/scrape`. Tests must keep the following values aligned:
-
-| Field | Value |
-| --- | --- |
-| Base URL | `https://finance.yahoo.com` |
-| Timeout | `10s` |
-| QPS / burst | `0.7 / 1` |
-| Attempts | `4` |
-| Backoff | `300ms` base, `150ms` jitter, `4000ms` max |
-| Body cap | `8 MiB` |
-| Circuit rate threshold | `0.30` after `10` requests |
-
-This is a documented cross-layer synchronization obligation, not a claim of zero duplicated values.
+`config` 與 `svc/scrape` 都可向下依賴 leaf `utils/httpx`，因此不需跨 layer
+複製 default literals，也不會形成 import cycle。修改 scrape transport policy
+時只更新 shared builder 及其 focused test。
 
 ## Mapper Boundary
 
@@ -77,6 +68,7 @@ The completed goal was removal of HTTP-field mappers.
 ## Verified Implementation Files
 
 - `utils/httpx/client.go`
+- `utils/httpx/defaults.go`
 - `config/http.go`
 - `config/config.go`
 - `config/scrape.go`
@@ -98,13 +90,12 @@ go vet ./...
 git diff --check
 ```
 
-The configuration tests must assert:
+Executable tests assert:
 
 - root YAML units map into `Config.HTTP` correctly;
 - `Config.Scrape.HTTP` is non-nil after load;
-- scrape body cap remains `8 MiB`;
+- shared scrape defaults have focused `utils/httpx` coverage;
 - both post-load fields have the exact `*httpx.Config` type;
-- removed scrape YAML HTTP keys are not documented as supported.
 
 ## Future Change Boundary
 

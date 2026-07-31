@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
 	"github.com/bizshuk/yfin/model"
 )
-
 
 // FetchMI_INDEX_PLUS retrieves the after-hours (盤後定價) index data
 // for `date`.

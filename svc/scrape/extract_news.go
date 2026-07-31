@@ -2,7 +2,7 @@
 // fallback) plus the HTML-regex strategy itself. Regex config lives in
 // news_regex_config.go, metrics in news_metrics.go, value normalization and
 // dedup in news_normalize.go, and the embedded-JSON strategy in
-// extract_news_json.go. Capacity: 25 articles max.
+// extract_news_json.go.
 package scrape
 
 import (
@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
 	"github.com/bizshuk/yfin/model"
 )
 

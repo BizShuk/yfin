@@ -1,4 +1,5 @@
-// — Parses Yahoo key-statistics HTML into model.ComprehensiveKeyStatisticsDTO covering current, additional, and dynamic historical quarters. Capacity: 9 current + 6 additional metrics + up to 5 historical quarters x 9 metrics.
+// statistics.go — parses Yahoo key-statistics HTML into
+// model.ComprehensiveKeyStatisticsDTO.
 package scrape
 
 import (
@@ -65,7 +66,6 @@ type ColumnPatterns struct {
 	EnterpriseValueEBITDA  string `yaml:"enterprise_value_ebitda"`
 }
 
-
 var (
 	regexConfig     *RegexConfig
 	regexConfigOnce sync.Once
@@ -110,10 +110,9 @@ func ParseComprehensiveKeyStatistics(html []byte, symbol, market string) (*model
 	}
 
 	dto := &model.ComprehensiveKeyStatisticsDTO{
-		Symbol:   symbol,
-		Market:   market,
-		Currency: "USD", // Default, will be updated from actual data
-		AsOf:     time.Now().UTC(),
+		Symbol: symbol,
+		Market: market,
+		AsOf:   time.Now().UTC(),
 	}
 
 	htmlStr := string(html)

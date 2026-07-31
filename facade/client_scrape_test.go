@@ -12,6 +12,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type staticScrapeClient struct {
+	body    []byte
+	lastURL string
+	err     error
+}
+
+func (client *staticScrapeClient) Fetch(_ context.Context, url string) ([]byte, *model.FetchMeta, error) {
+	client.lastURL = url
+	return client.body, &model.FetchMeta{}, client.err
+}
+
 func TestProjectAnalysisDimension(t *testing.T) {
 	dto := &model.ComprehensiveAnalysisDTO{}
 	dto.EarningsHistory.Currency = "history"
@@ -44,6 +55,35 @@ func TestProjectAnalysisDimension(t *testing.T) {
 
 	_, err := projectAnalysisDimension("unsupported", dto)
 	require.EqualError(t, err, `unsupported analysis command "unsupported"`)
+}
+
+func TestScrapeProfileDataFetchesAndParsesProfileSurface(t *testing.T) {
+	const profileHTML = `<script type="application/json" data-test="assetProfile">` +
+		`{"body":"{\"quoteSummary\":{\"result\":[{\"assetProfile\":{\"sector\":\"Technology\",\"fullTimeEmployees\":164000}}]}}"}` +
+		`</script>`
+	scraper := &staticScrapeClient{body: []byte(profileHTML)}
+	client := &Client{scrapeClient: scraper}
+
+	dto, err := client.ScrapeProfileData(context.Background(), "AAPL", "test-run")
+
+	require.NoError(t, err)
+	require.Equal(t, "https://finance.yahoo.com/quote/AAPL/profile", scraper.lastURL)
+	require.Equal(t, "AAPL", dto.Symbol)
+	require.Equal(t, "Technology", dto.Sector)
+	require.NotNil(t, dto.FullTimeEmployees)
+	require.EqualValues(t, 164000, *dto.FullTimeEmployees)
+}
+
+func TestScrapeFinancialsDataPreservesSourceCurrency(t *testing.T) {
+	scraper := &staticScrapeClient{body: []byte(`<div>Currency in EUR</div>`)}
+	client := &Client{scrapeClient: scraper}
+
+	dto, err := client.ScrapeFinancialsData(context.Background(), "SAP", "test-run")
+
+	require.NoError(t, err)
+	require.Equal(t, "https://finance.yahoo.com/quote/SAP/financials", scraper.lastURL)
+	require.Equal(t, "SAP", dto.Symbol)
+	require.Equal(t, "EUR", dto.Currency)
 }
 
 func TestConfigureScrapeAppliesLoadedPolicy(t *testing.T) {

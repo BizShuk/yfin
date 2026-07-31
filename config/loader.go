@@ -180,13 +180,6 @@ func (l *Loader) mapToConfig(configMap map[string]interface{}) (*Config, error) 
 
 // validate validates the configuration
 func (l *Loader) validate(config *Config) error {
-	// Validate app.env
-	if config.App.Env != "dev" && config.App.Env != "staging" && config.App.Env != "prod" {
-		// Allow custom env but warn
-		// In a real implementation, you might want to log a warning
-		_ = config.App.Env // Suppress unused variable warning
-	}
-
 	// Validate concurrency constraints
 	if config.Concurrency.GlobalWorkers < 1 {
 		return fmt.Errorf("concurrency.global_workers must be >= 1")
@@ -205,7 +198,7 @@ func (l *Loader) validate(config *Config) error {
 
 	// Validate markets.allowed_intervals (daily-only enforcement)
 	if len(config.Markets.AllowedIntervals) != 1 || config.Markets.AllowedIntervals[0] != "1d" {
-		return fmt.Errorf("markets.allowed_intervals must be exactly [\"1d\"] for yfinance-go (daily-only scope)")
+		return fmt.Errorf("markets.allowed_intervals must be exactly [\"1d\"] for yfin (daily-only scope)")
 	}
 
 	// Validate markets.default_adjustment_policy

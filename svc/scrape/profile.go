@@ -1,4 +1,5 @@
-// — Parses Yahoo company-profile HTML (assetProfile + quoteResponse script tags) into model.ComprehensiveProfileDTO with executives and governance risk scores. Capacity: ~22 DTO fields + variable executive list.
+// profile.go — parses Yahoo company-profile HTML into
+// model.ComprehensiveProfileDTO.
 package scrape
 
 import (
@@ -9,7 +10,6 @@ import (
 
 	"github.com/bizshuk/yfin/model"
 )
-
 
 // extractCompanyNameFromQuote extracts company name from the quote data in the same script tag
 func extractCompanyNameFromQuote(html string, dto *model.ComprehensiveProfileDTO) {

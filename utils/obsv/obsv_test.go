@@ -1,4 +1,4 @@
-// obsv_test.go — Unit tests for the `obsv` surface: `Init` / `Shutdown` round-trip, fallback `Logger` / `Tracer`, named-span factories, span-name constants, log attribute builders, no-op metric recorders when global state is nil. Capacity: ~16 test functions.
+// obsv_test.go — lifecycle, logging, tracing boundary, and metric helpers.
 package obsv
 
 import (
@@ -122,26 +122,6 @@ func TestStartIngestNormalizeSpan(t *testing.T) {
 	span.End()
 }
 
-func TestStartEmitProtoSpan(t *testing.T) {
-	ctx := context.Background()
-
-	ctx, span := StartEmitProtoSpan(ctx, "bars", "AAPL")
-	assert.NotNil(t, span)
-	assert.NotNil(t, ctx)
-
-	span.End()
-}
-
-func TestStartPublishBusSpan(t *testing.T) {
-	ctx := context.Background()
-
-	ctx, span := StartPublishBusSpan(ctx, "ampy.bars", "AAPL", 0, 1024)
-	assert.NotNil(t, span)
-	assert.NotNil(t, ctx)
-
-	span.End()
-}
-
 func TestStartFXRatesSpan(t *testing.T) {
 	ctx := context.Background()
 
@@ -182,7 +162,7 @@ func TestCommonLogAttrs(t *testing.T) {
 
 	// Should contain source and provided values
 	assert.Contains(t, attrs, "source")
-	assert.Contains(t, attrs, "yfinance-go")
+	assert.Contains(t, attrs, "yfin")
 	assert.Contains(t, attrs, "run_id")
 	assert.Contains(t, attrs, "run-123")
 	assert.Contains(t, attrs, "symbol")
@@ -198,7 +178,7 @@ func TestCommonLogAttrsEmpty(t *testing.T) {
 
 	// Should only contain source
 	assert.Contains(t, attrs, "source")
-	assert.Contains(t, attrs, "yfinance-go")
+	assert.Contains(t, attrs, "yfin")
 	assert.Len(t, attrs, 2) // Only source and value
 }
 
@@ -213,11 +193,7 @@ func TestMetricsFunctions(t *testing.T) {
 	RecordCBOpen("host")
 	SetCBState("host", 1)
 	RecordDecodeFail("json_parse")
-	RecordSessionEject()
 	SetInflightRequests("bars_1d", 5)
-	RecordPublish("bars", "ack")
-	RecordPublishLatency("bars", 50*time.Millisecond)
-	RecordBatchBytes("bars", 1024)
 }
 
 func TestSpanNames(t *testing.T) {
@@ -226,7 +202,5 @@ func TestSpanNames(t *testing.T) {
 	assert.Equal(t, "ingest.fetch", SpanNameIngestFetch)
 	assert.Equal(t, "ingest.decode", SpanNameIngestDecode)
 	assert.Equal(t, "ingest.normalize", SpanNameIngestNormalize)
-	assert.Equal(t, "emit.proto", SpanNameEmitProto)
-	assert.Equal(t, "publish.bus", SpanNamePublishBus)
 	assert.Equal(t, "fx.rates", SpanNameFXRates)
 }

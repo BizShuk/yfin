@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+
 	"github.com/bizshuk/yfin/model"
 )
-
-
 
 // FetchMI_5MINS retrieves the every-5-seconds order/trade statistics for `date`.
 func FetchMI_5MINS(ctx context.Context, client *Client, date string, opts url.Values) (any, error) {

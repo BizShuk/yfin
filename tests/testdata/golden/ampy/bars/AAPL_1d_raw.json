@@ -18,7 +18,7 @@
   ],
   "meta": {
     "run_id": "golden_bars_v1",
-    "source": "yfinance-go",
+    "source": "yfin",
     "producer": "local",
     "schema_version": "ampy.bars.v1:1.0.0"
   }

@@ -1,890 +1,123 @@
-# Performance Optimization & Best Practices
+# Performance Tuning
 
-This guide provides comprehensive information about performance optimization, best practices, and production-ready configurations for yfin.
+本指南只描述目前可由 runtime 與 tests 驗證的 tuning surfaces。不要把固定 latency 或 throughput 數字視為契約；Yahoo Finance、TWSE、network path 與 response size 都會改變實測結果。
 
-## Table of Contents
+## Tuning Model
 
-1. [Performance Overview](#performance-overview)
-2. [Client Configuration](#client-configuration)
-3. [Concurrency & Rate Limiting](#concurrency--rate-limiting)
-4. [Caching Strategies](#caching-strategies)
-5. [Batch Processing](#batch-processing)
-6. [Memory Optimization](#memory-optimization)
-7. [Network Optimization](#network-optimization)
-8. [Production Best Practices](#production-best-practices)
-9. [Monitoring & Metrics](#monitoring--metrics)
+yfin 的 request pressure 由兩層控制：
 
-## Performance Overview
+1. `cmd/market` 的 bounded worker pool 控制同時處理的 symbols。
+2. `utils/httpx` 的 per-host token bucket 控制送往每個 hostname 的 QPS 與 burst。
 
-### Performance Characteristics
+HTTP retries、backoff 與 circuit breaker 在同一個 shared `http.Client` / connection pool 上運作。Yahoo query hosts、Yahoo web host 與 cookie bootstrap host 使用各自的 immutable `HostProfile`；circuit breaker identity 則按 authority 加 optional logical group 隔離。
 
-| Operation | Typical Latency | Throughput | Notes |
-|-----------|----------------|------------|-------|
-| **FetchQuote()** | 100-500ms | 10-50 req/s | Fast, API-based |
-| **FetchDailyBars()** | 200-800ms | 5-20 req/s | Depends on date range |
-| **FetchCompanyInfo()** | 100-400ms | 10-50 req/s | Fast, API-based |
-| **FetchIncomeStatement()** | 200-900ms | 5-20 req/s | Annual fundamentals-timeseries |
-| **FetchNews()** | 200ms-1s | 5-20 req/s | JSON XHR POST |
-| **ScrapeFinancials()** | 1-3s | 1-5 req/s | Slower, scraping-based |
-| **ScrapeNews()** | 500ms-2s | 2-10 req/s | Variable, depends on content |
-| **ScrapeKeyStatistics()** | 800ms-2s | 2-8 req/s | Slower, scraping-based |
+## CLI Overrides
 
-### Performance Factors
+Global flags 可在單次執行時覆寫 loaded YAML：
 
-1. **Network Latency**: Distance to Yahoo Finance servers
-2. **Rate Limiting**: Yahoo Finance's rate limits
-3. **Data Size**: Amount of data requested
-4. **Concurrency**: Number of concurrent requests
-5. **Client Configuration**: Timeouts, retries, rate limiting
+```bash
+yfin \
+  --concurrency 8 \
+  --qps 1.5 \
+  --retry-max 3 \
+  --timeout 20s \
+  pull \
+  --universe-file symbols.txt \
+  --start 2026-01-01 \
+  --end 2026-01-31
+```
 
-## Client Configuration
+- `--concurrency` 只由 multi-symbol `pull` / `quote` orchestration 消費。
+- Effective worker count 是 CLI/YAML global limit、YAML per-host limit 與 item count 的最小值。
+- `--qps`、`--retry-max`、`--timeout` 套用到 Yahoo API 與 configured scrape HTTP profile。
+- `--sessions` 是無 runtime effect 的 compatibility flag。
 
-### 1. Production Configuration
+單一 request 很慢時，增加 concurrency 不會縮短該 request；它只增加可同時處理的 items。遇到 `429`、`503` 或 circuit open，先降低 QPS / concurrency，再考慮增加 retry。
+
+## YAML Ownership
+
+API workload 的設定位於 `config/effective.yaml`：
+
+- `yahoo.*`：base URL、timeout、idle timeout、per-host connection cap、user agent。
+- `concurrency.*`：global / per-host worker limits。
+- `rate_limit.*`：per-host QPS / burst。
+- `retry.*`：attempts 與 backoff range。
+- `circuit_breaker.*`：window、failure rate、minimum requests、reset timeout。
+
+Scrape HTTP defaults 由 `utils/httpx.DefaultScrapeConfig()` 單一擁有，不在 YAML 複製一份。Go consumer 若需自訂，先修改 loaded `cfg.Scrape.HTTP`，再呼叫 `facade.Client.ConfigureScrape`。
+
+## SDK Configuration
+
+SDK consumer 可用 `facade.NewClientWithConfig(*httpx.Config)` 調整 API transport：
 
 ```go
-// Production-ready configuration
-func createProductionClient() *facade.Client {
-    config := &httpx.Config{
-        // Timeouts
-        Timeout:     30 * time.Second,
-        DialTimeout: 10 * time.Second,
+cfg := httpx.DefaultConfig()
+cfg.QPS = 2
+cfg.Burst = 2
+cfg.MaxAttempts = 3
+cfg.Timeout = 20 * time.Second
 
-        // Rate limiting
-        QPS:         2.0,  // 2 requests per second
-        Burst:       5,    // Allow burst of 5 requests
-
-        // Retry configuration
-        MaxAttempts: 3,
-        BackoffBase: 1 * time.Second,
-        BackoffMax:  10 * time.Second,
-
-        // Connection pooling
-        MaxIdleConns:        100,
-        MaxIdleConnsPerHost: 10,
-        IdleConnTimeout:     90 * time.Second,
-
-        // User agent
-        UserAgent: "MyApp/1.0 (contact@mycompany.com)",
-    }
-
-    return facade.NewClientWithConfig(config)
-}
+client := facade.NewClientWithConfig(cfg)
 ```
 
-### 2. High-Volume Configuration
+同一個 `facade.Client` 應跨 requests 重用，才能共享 connection pool、cookie jar、rate limiter、circuit breakers 與 MIC cache。不要為每個 symbol 建立新 client。
 
-```go
-// High-volume configuration (session rotation removed — QPS + retries only)
-func createHighVolumeClient() *facade.Client {
-    config := &httpx.Config{
-        // Aggressive timeouts for high volume
-        Timeout:     15 * time.Second,
-        DialTimeout: 5 * time.Second,
+`httpx.Config.WrapTransport` 是 process-local instrumentation / deterministic fault-injection hook；它不從 YAML 載入，也不應用來繞過 rate limit 或 provider policy。
 
-        // Higher rate limits
-        QPS:         5.0,  // 5 requests per second
-        Burst:       10,   // Allow burst of 10 requests
+## Caching
 
-        // More retries
-        MaxAttempts: 5,
-        BackoffBase: 500 * time.Millisecond,
-        BackoffMax:  5 * time.Second,
+Cache optimization 必須走 facade boundary：
 
-        // Larger connection pool
-        MaxIdleConns:        200,
-        MaxIdleConnsPerHost: 20,
-        IdleConnTimeout:     60 * time.Second,
-    }
+- `facade.NewCachedClient(rawRoot)`：daily bars request-identity read-through cache。
+- `facade.NewCachedTwseClient(rawRoot)`：TWSE read-through cache。
+- `facade.NewCachedFoundationClient(rawRoot)`：30-command foundation cache。
+- `facade.NewRawCache(rawRoot)`：legacy artifact read boundary。
 
-    return facade.NewClientWithConfig(config)
-}
+Consumer 提供 raw root；yfin 擁有 root confinement、request identity、freshness policy 與 atomic JSON persistence。不要在 downstream 重複實作 transport 或 raw persistence。
+
+CLI `batch` 使用 daily / weekly / monthly / quarterly / annual refresh tiers，`--force` 只用於明確 bypass freshness。
+
+## Measurement
+
+啟用 Prometheus exposition 時，以 active metrics 判斷 bottleneck：
+
+| Metric | 用途 |
+| --- | --- |
+| `yfin_requests_total` | Logical request outcome 與 status code |
+| `yfin_request_latency_ms` | Endpoint latency distribution |
+| `yfin_retries_total` | Retry pressure |
+| `yfin_backoff_total` | Backoff frequency |
+| `yfin_backoff_sleep_ms` | Backoff delay |
+| `yfin_inflight_requests` | In-flight requests |
+| `yfin_cb_open_total` | Circuit opens |
+| `yfin_cb_state` | Circuit state |
+| `yfin_decode_fail_total` | Decode failures |
+
+完整 exporter boundary 見 [Observability](observability.md)。`cmd/soak` 自行輸出 run summary 與 memory analysis，不啟動另一套 Prometheus exporter。
+
+## Safe Tuning Sequence
+
+1. 以一個 symbol 跑通，記錄 endpoint、status、latency 與 retries。
+2. 擴到小型 universe，先固定 QPS，再逐步增加 worker limit。
+3. 若 retries / backoff / circuit opens 上升，降低 request pressure。
+4. 若 in-flight 偏低且沒有 upstream errors，再提高 concurrency 或 QPS。
+5. 對 long-running workload 使用 standalone [Soak Testing](../cli/soak-testing.md)，並把 deterministic failure injection 與 live upstream result 分開記錄。
+
+## Verification
+
+修改 performance-related code 後至少執行：
+
+```bash
+go test ./utils/httpx ./cmd/market ./facade
+go test -tags=integration ./... -run '^$'
+go vet ./...
 ```
 
-### 3. Development Configuration
+需要 live evidence 時另行執行 integration / soak，且不要把 upstream failure 當成 deterministic test failure。
 
-```go
-// Development configuration with relaxed limits
-func createDevelopmentClient() *facade.Client {
-    config := &httpx.Config{
-        // Longer timeouts for debugging
-        Timeout:     60 * time.Second,
-        DialTimeout: 30 * time.Second,
+## See Also
 
-        // Conservative rate limiting
-        QPS:         1.0,  // 1 request per second
-        Burst:       2,    // Allow burst of 2 requests
-
-        // More retries for debugging
-        MaxAttempts: 5,
-        BackoffBase: 2 * time.Second,
-        BackoffMax:  30 * time.Second,
-
-        // Smaller connection pool
-        MaxIdleConns:        50,
-        MaxIdleConnsPerHost: 5,
-        IdleConnTimeout:     120 * time.Second,
-    }
-
-    return facade.NewClientWithConfig(config)
-}
-```
-
-## Concurrency & Rate Limiting
-
-### Per-host HTTP profiles
-
-`facade.Client` shares one `http.Client` and connection pool across Yahoo
-upstreams, while selecting runtime policy by request hostname:
-
-| Host | Rate limit | Body cap | Request defaults |
-|------|------------|----------|------------------|
-| `query1.finance.yahoo.com` | configured `QPS` / `Burst` | configured `MaxBodyBytes` | configured user agent |
-| `query2.finance.yahoo.com` | configured `QPS` / `Burst` | configured `MaxBodyBytes` | configured user agent |
-| `fc.yahoo.com` | configured `QPS` / `Burst` | configured `MaxBodyBytes` | configured user agent |
-| `finance.yahoo.com` | `0.7 QPS`, burst `1` | `8 MiB` | scrape user agent and browser headers |
-
-Fractional rates are preserved, and each hostname owns independent token-bucket
-state. Hosts without a registered profile retain the `httpx.Config` fallback.
-Request middleware runs after profile defaults and may override them.
-
-Circuit-breaker identity is separate from host profiles: it remains the
-upstream authority plus an optional logical request group, so Yahoo auth,
-chart, quote-summary, news, and web failures do not become one shared profile
-state.
-
-### 1. Controlled Concurrency
-
-```go
-type ConcurrentProcessor struct {
-    client      *facade.Client
-    semaphore   chan struct{}
-    rateLimiter *time.Ticker
-}
-
-func NewConcurrentProcessor(client *facade.Client, maxConcurrency int, rateLimit time.Duration) *ConcurrentProcessor {
-    return &ConcurrentProcessor{
-        client:      client,
-        semaphore:   make(chan struct{}, maxConcurrency),
-        rateLimiter: time.NewTicker(rateLimit),
-    }
-}
-
-func (cp *ConcurrentProcessor) ProcessSymbol(symbol string) (*facade.Quote, error) {
-    // Acquire semaphore
-    cp.semaphore <- struct{}{}
-    defer func() { <-cp.semaphore }()
-    
-    // Wait for rate limit
-    <-cp.rateLimiter.C
-    
-    // Process symbol
-    ctx := context.Background()
-    runID := fmt.Sprintf("concurrent-%d", time.Now().Unix())
-    return cp.client.FetchQuote(ctx, symbol, runID)
-}
-
-func (cp *ConcurrentProcessor) ProcessSymbols(symbols []string) []*facade.Quote {
-    results := make([]*facade.Quote, len(symbols))
-    var wg sync.WaitGroup
-    
-    for i, symbol := range symbols {
-        wg.Add(1)
-        go func(index int, sym string) {
-            defer wg.Done()
-            
-            quote, err := cp.ProcessSymbol(sym)
-            if err != nil {
-                log.Printf("Error processing %s: %v", sym, err)
-                return
-            }
-            
-            results[index] = quote
-        }(i, symbol)
-    }
-    
-    wg.Wait()
-    return results
-}
-```
-
-### 2. Adaptive Rate Limiting
-
-```go
-type AdaptiveRateLimiter struct {
-    currentRate    float64
-    minRate        float64
-    maxRate        float64
-    successCount   int
-    failureCount   int
-    lastAdjustment time.Time
-    mutex          sync.RWMutex
-}
-
-func NewAdaptiveRateLimiter(minRate, maxRate float64) *AdaptiveRateLimiter {
-    return &AdaptiveRateLimiter{
-        currentRate:    minRate,
-        minRate:        minRate,
-        maxRate:        maxRate,
-        lastAdjustment: time.Now(),
-    }
-}
-
-func (arl *AdaptiveRateLimiter) RecordSuccess() {
-    arl.mutex.Lock()
-    defer arl.mutex.Unlock()
-    
-    arl.successCount++
-    arl.adjustRate()
-}
-
-func (arl *AdaptiveRateLimiter) RecordFailure() {
-    arl.mutex.Lock()
-    defer arl.mutex.Unlock()
-    
-    arl.failureCount++
-    arl.adjustRate()
-}
-
-func (arl *AdaptiveRateLimiter) adjustRate() {
-    // Only adjust every 10 requests
-    if arl.successCount+arl.failureCount < 10 {
-        return
-    }
-    
-    successRate := float64(arl.successCount) / float64(arl.successCount+arl.failureCount)
-    
-    if successRate > 0.95 && arl.currentRate < arl.maxRate {
-        // Increase rate
-        arl.currentRate = math.Min(arl.currentRate*1.1, arl.maxRate)
-    } else if successRate < 0.8 && arl.currentRate > arl.minRate {
-        // Decrease rate
-        arl.currentRate = math.Max(arl.currentRate*0.9, arl.minRate)
-    }
-    
-    // Reset counters
-    arl.successCount = 0
-    arl.failureCount = 0
-    arl.lastAdjustment = time.Now()
-}
-
-func (arl *AdaptiveRateLimiter) GetRate() float64 {
-    arl.mutex.RLock()
-    defer arl.mutex.RUnlock()
-    return arl.currentRate
-}
-```
-
-### 3. Circuit Breaker Pattern
-
-```yaml
-circuit_breaker:
-  window: 50
-  failure_threshold: 0.30
-  minimum_requests: 10
-  reset_timeout_ms: 30000
-```
-
-`utils/httpx` 依 upstream authority + optional logical group 維護獨立 breaker；未標記 request
-維持 authority-only identity。每次包含 retry 的完整操作只記錄一個 outcome；active window
-達到 `minimum_requests` 後才計算 failure rate。Open 狀態在
-`reset_timeout_ms` 屆滿後只允許一個 half-open probe。
-
-## Caching Strategies
-
-### 1. In-Memory Caching
-
-```go
-type CacheEntry struct {
-    Data      interface{}
-    ExpiresAt time.Time
-}
-
-type InMemoryCache struct {
-    cache map[string]CacheEntry
-    mutex sync.RWMutex
-}
-
-func NewInMemoryCache() *InMemoryCache {
-    cache := &InMemoryCache{
-        cache: make(map[string]CacheEntry),
-    }
-    
-    // Start cleanup goroutine
-    go cache.cleanup()
-    
-    return cache
-}
-
-func (c *InMemoryCache) Get(key string) (interface{}, bool) {
-    c.mutex.RLock()
-    defer c.mutex.RUnlock()
-    
-    entry, exists := c.cache[key]
-    if !exists {
-        return nil, false
-    }
-    
-    if time.Now().After(entry.ExpiresAt) {
-        return nil, false
-    }
-    
-    return entry.Data, true
-}
-
-func (c *InMemoryCache) Set(key string, data interface{}, ttl time.Duration) {
-    c.mutex.Lock()
-    defer c.mutex.Unlock()
-    
-    c.cache[key] = CacheEntry{
-        Data:      data,
-        ExpiresAt: time.Now().Add(ttl),
-    }
-}
-
-func (c *InMemoryCache) cleanup() {
-    ticker := time.NewTicker(1 * time.Minute)
-    defer ticker.Stop()
-    
-    for range ticker.C {
-        c.mutex.Lock()
-        now := time.Now()
-        for key, entry := range c.cache {
-            if now.After(entry.ExpiresAt) {
-                delete(c.cache, key)
-            }
-        }
-        c.mutex.Unlock()
-    }
-}
-```
-
-### 2. Cached Client Wrapper
-
-```go
-type CachedClient struct {
-    client *facade.Client
-    cache  *InMemoryCache
-}
-
-func NewCachedClient(client *facade.Client) *CachedClient {
-    return &CachedClient{
-        client: client,
-        cache:  NewInMemoryCache(),
-    }
-}
-
-func (cc *CachedClient) FetchQuote(ctx context.Context, symbol string, runID string) (*facade.Quote, error) {
-    // Check cache first
-    cacheKey := fmt.Sprintf("quote:%s", symbol)
-    if cached, exists := cc.cache.Get(cacheKey); exists {
-        return cached.(*facade.Quote), nil
-    }
-    
-    // Fetch from API
-    quote, err := cc.client.FetchQuote(ctx, symbol, runID)
-    if err != nil {
-        return nil, err
-    }
-    
-    // Cache for 5 minutes
-    cc.cache.Set(cacheKey, quote, 5*time.Minute)
-    
-    return quote, nil
-}
-
-func (cc *CachedClient) FetchDailyBars(ctx context.Context, symbol string, start, end time.Time, adjusted bool, runID string) (*facade.BarBatch, error) {
-    // Check cache first
-    cacheKey := fmt.Sprintf("bars:%s:%s:%s:%t", symbol, start.Format("2006-01-02"), end.Format("2006-01-02"), adjusted)
-    if cached, exists := cc.cache.Get(cacheKey); exists {
-        return cached.(*facade.BarBatch), nil
-    }
-    
-    // Fetch from API
-    bars, err := cc.client.FetchDailyBars(ctx, symbol, start, end, adjusted, runID)
-    if err != nil {
-        return nil, err
-    }
-    
-    // Cache for 1 hour
-    cc.cache.Set(cacheKey, bars, 1*time.Hour)
-    
-    return bars, nil
-}
-```
-
-## Batch Processing
-
-### 1. Efficient Batch Processing
-
-```go
-type BatchProcessor struct {
-    client      *facade.Client
-    concurrency int
-    rateLimit   time.Duration
-}
-
-func NewBatchProcessor(client *facade.Client, concurrency int, rateLimit time.Duration) *BatchProcessor {
-    return &BatchProcessor{
-        client:      client,
-        concurrency: concurrency,
-        rateLimit:   rateLimit,
-    }
-}
-
-func (bp *BatchProcessor) ProcessSymbols(symbols []string) []BatchResult {
-    results := make([]BatchResult, len(symbols))
-    semaphore := make(chan struct{}, bp.concurrency)
-    rateLimiter := time.NewTicker(bp.rateLimit)
-    defer rateLimiter.Stop()
-    
-    var wg sync.WaitGroup
-    
-    for i, symbol := range symbols {
-        wg.Add(1)
-        go func(index int, sym string) {
-            defer wg.Done()
-            
-            // Acquire semaphore
-            semaphore <- struct{}{}
-            defer func() { <-semaphore }()
-            
-            // Wait for rate limit
-            <-rateLimiter.C
-            
-            // Process symbol
-            start := time.Now()
-            ctx := context.Background()
-            runID := fmt.Sprintf("batch-%d", time.Now().Unix())
-            
-            quote, err := bp.client.FetchQuote(ctx, sym, runID)
-            
-            results[index] = BatchResult{
-                Symbol:   sym,
-                Quote:    quote,
-                Error:    err,
-                Duration: time.Since(start),
-            }
-        }(i, symbol)
-    }
-    
-    wg.Wait()
-    return results
-}
-```
-
-### 2. Streaming Batch Processing
-
-```go
-func (bp *BatchProcessor) ProcessSymbolsStream(symbols []string, resultChan chan<- BatchResult) {
-    semaphore := make(chan struct{}, bp.concurrency)
-    rateLimiter := time.NewTicker(bp.rateLimit)
-    defer rateLimiter.Stop()
-    
-    var wg sync.WaitGroup
-    
-    for _, symbol := range symbols {
-        wg.Add(1)
-        go func(sym string) {
-            defer wg.Done()
-            
-            // Acquire semaphore
-            semaphore <- struct{}{}
-            defer func() { <-semaphore }()
-            
-            // Wait for rate limit
-            <-rateLimiter.C
-            
-            // Process symbol
-            start := time.Now()
-            ctx := context.Background()
-            runID := fmt.Sprintf("stream-%d", time.Now().Unix())
-            
-            quote, err := bp.client.FetchQuote(ctx, sym, runID)
-            
-            resultChan <- BatchResult{
-                Symbol:   sym,
-                Quote:    quote,
-                Error:    err,
-                Duration: time.Since(start),
-            }
-        }(symbol)
-    }
-    
-    wg.Wait()
-    close(resultChan)
-}
-```
-
-## Memory Optimization
-
-### 1. Memory-Efficient Data Processing
-
-```go
-func processBarsEfficiently(bars *facade.BarBatch) {
-    // Process bars in chunks to avoid memory spikes
-    chunkSize := 1000
-    
-    for i := 0; i < len(bars.Bars); i += chunkSize {
-        end := i + chunkSize
-        if end > len(bars.Bars) {
-            end = len(bars.Bars)
-        }
-        
-        chunk := bars.Bars[i:end]
-        processBarChunk(chunk)
-        
-        // Force garbage collection if needed
-        if i%10000 == 0 {
-            runtime.GC()
-        }
-    }
-}
-
-func processBarChunk(bars []facade.Bar) {
-    for _, bar := range bars {
-        // Process bar
-        price := float64(bar.Close.Scaled) / float64(bar.Close.Scale)
-        // ... do something with price
-        _ = price
-    }
-}
-```
-
-### 2. Object Pooling
-
-```go
-var barPool = sync.Pool{
-    New: func() interface{} {
-        return &facade.Bar{}
-    },
-}
-
-func getBar() *facade.Bar {
-    return barPool.Get().(*facade.Bar)
-}
-
-func putBar(bar *facade.Bar) {
-    // Reset bar
-    *bar = facade.Bar{}
-    barPool.Put(bar)
-}
-```
-
-## Network Optimization
-
-### 1. Connection Pooling
-
-```go
-func createOptimizedClient() *facade.Client {
-    config := &httpx.Config{
-        // Connection pooling
-        MaxIdleConns:        200,
-        MaxIdleConnsPerHost: 20,
-        IdleConnTimeout:     90 * time.Second,
-        
-        // Keep-alive
-        DisableKeepAlives: false,
-        
-        // Compression
-        DisableCompression: false,
-        
-        // Timeouts
-        Timeout:     30 * time.Second,
-        DialTimeout: 10 * time.Second,
-        
-        // Rate limiting
-        QPS:   3.0,
-        Burst: 10,
-    }
-    
-    return facade.NewClientWithConfig(config)
-}
-```
-
-### 2. HTTP/2 Support
-
-```go
-func createHTTP2Client() *facade.Client {
-    config := &httpx.Config{
-        // Enable HTTP/2
-        ForceHTTP2: true,
-        
-        // Connection pooling
-        MaxIdleConns:        100,
-        MaxIdleConnsPerHost: 10,
-        IdleConnTimeout:     60 * time.Second,
-        
-        // Timeouts
-        Timeout:     20 * time.Second,
-        DialTimeout: 5 * time.Second,
-    }
-    
-    return facade.NewClientWithConfig(config)
-}
-```
-
-## Production Best Practices
-
-### 1. Health Checks
-
-```go
-type HealthChecker struct {
-    client *facade.Client
-}
-
-func (hc *HealthChecker) CheckHealth() error {
-    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-    defer cancel()
-    
-    runID := fmt.Sprintf("health-%d", time.Now().Unix())
-    
-    // Test with a known symbol
-    _, err := hc.client.FetchQuote(ctx, "AAPL", runID)
-    if err != nil {
-        return fmt.Errorf("health check failed: %w", err)
-    }
-    
-    return nil
-}
-
-func (hc *HealthChecker) StartHealthChecks(interval time.Duration) {
-    ticker := time.NewTicker(interval)
-    defer ticker.Stop()
-    
-    for range ticker.C {
-        if err := hc.CheckHealth(); err != nil {
-            log.Printf("Health check failed: %v", err)
-            // Send alert
-        }
-    }
-}
-```
-
-### 2. Graceful Shutdown
-
-```go
-type GracefulShutdown struct {
-    client    *facade.Client
-    ctx       context.Context
-    cancel    context.CancelFunc
-    wg        sync.WaitGroup
-    shutdown  chan struct{}
-}
-
-func NewGracefulShutdown(client *facade.Client) *GracefulShutdown {
-    ctx, cancel := context.WithCancel(context.Background())
-    
-    return &GracefulShutdown{
-        client:   client,
-        ctx:      ctx,
-        cancel:   cancel,
-        shutdown: make(chan struct{}),
-    }
-}
-
-func (gs *GracefulShutdown) Start() {
-    gs.wg.Add(1)
-    go func() {
-        defer gs.wg.Done()
-        
-        // Start processing
-        for {
-            select {
-            case <-gs.ctx.Done():
-                return
-            case <-gs.shutdown:
-                return
-            default:
-                // Do work
-                time.Sleep(100 * time.Millisecond)
-            }
-        }
-    }()
-}
-
-func (gs *GracefulShutdown) Stop() {
-    close(gs.shutdown)
-    gs.cancel()
-    gs.wg.Wait()
-}
-```
-
-### 3. Configuration Management
-
-```go
-type Config struct {
-    YahooFinance YahooFinanceConfig `yaml:"yahoo_finance"`
-    RateLimit    RateLimitConfig    `yaml:"rate_limit"`
-    Retry        RetryConfig        `yaml:"retry"`
-    Cache        CacheConfig        `yaml:"cache"`
-}
-
-type YahooFinanceConfig struct {
-    Timeout      time.Duration `yaml:"timeout"`
-    MaxAttempts  int           `yaml:"max_attempts"`
-    QPS          float64       `yaml:"qps"`
-    Burst        int           `yaml:"burst"`
-}
-
-type RateLimitConfig struct {
-    Enabled bool          `yaml:"enabled"`
-    Rate    float64       `yaml:"rate"`
-    Burst   int           `yaml:"burst"`
-    Window  time.Duration `yaml:"window"`
-}
-
-type RetryConfig struct {
-    Enabled     bool          `yaml:"enabled"`
-    MaxAttempts int           `yaml:"max_attempts"`
-    BackoffBase time.Duration `yaml:"backoff_base"`
-    BackoffMax  time.Duration `yaml:"backoff_max"`
-}
-
-type CacheConfig struct {
-    Enabled bool          `yaml:"enabled"`
-    TTL     time.Duration `yaml:"ttl"`
-    Size    int           `yaml:"size"`
-}
-
-func LoadConfig(filename string) (*Config, error) {
-    data, err := os.ReadFile(filename)
-    if err != nil {
-        return nil, err
-    }
-    
-    var config Config
-    if err := yaml.Unmarshal(data, &config); err != nil {
-        return nil, err
-    }
-    
-    return &config, nil
-}
-```
-
-## Monitoring & Metrics
-
-### 1. Performance Metrics
-
-```go
-type PerformanceMetrics struct {
-    RequestCount     int64
-    SuccessCount     int64
-    FailureCount     int64
-    TotalLatency     time.Duration
-    AverageLatency   time.Duration
-    P95Latency       time.Duration
-    P99Latency       time.Duration
-    mutex            sync.RWMutex
-}
-
-func (pm *PerformanceMetrics) RecordRequest(success bool, latency time.Duration) {
-    pm.mutex.Lock()
-    defer pm.mutex.Unlock()
-    
-    pm.RequestCount++
-    pm.TotalLatency += latency
-    
-    if success {
-        pm.SuccessCount++
-    } else {
-        pm.FailureCount++
-    }
-    
-    // Update average latency
-    pm.AverageLatency = pm.TotalLatency / time.Duration(pm.RequestCount)
-}
-
-func (pm *PerformanceMetrics) GetMetrics() map[string]interface{} {
-    pm.mutex.RLock()
-    defer pm.mutex.RUnlock()
-    
-    return map[string]interface{}{
-        "request_count":   pm.RequestCount,
-        "success_count":   pm.SuccessCount,
-        "failure_count":   pm.FailureCount,
-        "success_rate":    float64(pm.SuccessCount) / float64(pm.RequestCount),
-        "average_latency": pm.AverageLatency.Milliseconds(),
-        "total_latency":   pm.TotalLatency.Milliseconds(),
-    }
-}
-```
-
-### 2. Prometheus Metrics
-
-```go
-import (
-    "github.com/prometheus/client_golang/prometheus"
-    "github.com/prometheus/client_golang/prometheus/promauto"
-)
-
-var (
-    requestDuration = promauto.NewHistogramVec(
-        prometheus.HistogramOpts{
-            Name: "yfinance_request_duration_seconds",
-            Help: "Duration of yfinance requests",
-        },
-        []string{"method", "symbol", "status"},
-    )
-    
-    requestCount = promauto.NewCounterVec(
-        prometheus.CounterOpts{
-            Name: "yfinance_requests_total",
-            Help: "Total number of yfinance requests",
-        },
-        []string{"method", "symbol", "status"},
-    )
-    
-    activeConnections = promauto.NewGauge(
-        prometheus.GaugeOpts{
-            Name: "yfinance_active_connections",
-            Help: "Number of active connections",
-        },
-    )
-)
-
-func recordMetrics(method, symbol, status string, duration time.Duration) {
-    requestDuration.WithLabelValues(method, symbol, status).Observe(duration.Seconds())
-    requestCount.WithLabelValues(method, symbol, status).Inc()
-}
-```
-
-### 3. Logging
-
-```go
-import (
-    "go.uber.org/zap"
-)
-
-type Logger struct {
-    logger *zap.Logger
-}
-
-func NewLogger() *Logger {
-    logger, _ := zap.NewProduction()
-    return &Logger{logger: logger}
-}
-
-func (l *Logger) LogRequest(method, symbol string, duration time.Duration, err error) {
-    fields := []zap.Field{
-        zap.String("method", method),
-        zap.String("symbol", symbol),
-        zap.Duration("duration", duration),
-    }
-    
-    if err != nil {
-        fields = append(fields, zap.Error(err))
-        l.logger.Error("Request failed", fields...)
-    } else {
-        l.logger.Info("Request completed", fields...)
-    }
-}
-```
-
-## Next Steps
-
-- [API Reference](../api/reference.md) - Complete API documentation
-- [Data Structures](../api/data-structures.md) - Detailed data structure guide
-- [Complete Examples](../api/examples.md) - Working code examples
-- [Error Handling Guide](error-handling.md) - Comprehensive error handling
-- [Method Comparison](../comparisons/method-comparison.md) - Method comparison and use cases
-- [Data Quality Guide](data-quality.md) - Data quality and validation
+- [Configuration](configuration.md)
+- [Observability](observability.md)
+- [Error Handling](error-handling.md)
+- [Soak Testing](../cli/soak-testing.md)

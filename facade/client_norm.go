@@ -4,8 +4,8 @@
 // FetchFundamentalsQuarterly / FetchMarketData, but stop at the
 // `model.Normalize*` step and return the internal `*model.Normalized*` types
 // instead of converting to plain SDK. These exist for callers that need
-// ScaledDecimal precision (e.g. cmd's emit→proto pipeline). External SDK
-// consumers should keep using the plain Fetch* methods.
+// ScaledDecimal precision. Most external SDK consumers should use the plain
+// Fetch* methods.
 //
 // Naming convention: `Fetch<Kind>Norm` returns the Norm-internal shape.
 

@@ -231,7 +231,7 @@ Owner:
 
 ## See Also
 
-- [Scrape Surface Runbook](scrape-fallback.md)
+- [Scrape Surface Runbook](scrape-surface.md)
 - [Error Handling](../../docs/operations/error-handling.md)
 - [Configuration](../../docs/operations/configuration.md)
 - [Observability](../../docs/operations/observability.md)

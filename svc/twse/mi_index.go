@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
 	"github.com/bizshuk/yfin/model"
 )
 

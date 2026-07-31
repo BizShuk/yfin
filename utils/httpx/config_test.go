@@ -1,4 +1,4 @@
-// config_test.go — Tests `DefaultConfig` populates all required fields and that a fully-populated `Config` struct round-trips arbitrary values. Capacity: 2 test functions.
+// config_test.go — default HTTP policy and explicit Config construction.
 package httpx
 
 import (
@@ -72,6 +72,20 @@ func TestDefaultConfig(t *testing.T) {
 
 	if config.UserAgent == "" {
 		t.Error("Expected UserAgent to be set")
+	}
+}
+
+func TestDefaultScrapeConfig(t *testing.T) {
+	config := DefaultScrapeConfig()
+
+	if config.BaseURL != "https://finance.yahoo.com" {
+		t.Fatalf("BaseURL = %q", config.BaseURL)
+	}
+	if config.QPS != 0.7 || config.Burst != 1 {
+		t.Fatalf("rate limit = %v/%d", config.QPS, config.Burst)
+	}
+	if config.MaxAttempts != 4 || config.MaxBodyBytes != 8<<20 {
+		t.Fatalf("retry/body defaults = %d/%d", config.MaxAttempts, config.MaxBodyBytes)
 	}
 }
 

@@ -1,4 +1,5 @@
-// client.go — Resilient `Client` with token-bucket `RateLimiter`; `Config` knobs + exponential-backoff-with-jitter retry loop. Capacity: 1 client, 1 limiter, ~16 Config fields.
+// client.go — resilient Client with token-bucket rate limiting and
+// exponential-backoff-with-jitter retries.
 package httpx
 
 import (
@@ -40,6 +41,10 @@ type Config struct {
 	// decompression). 0 means unlimited. When the limit is exceeded
 	// Caller.Get returns ErrBodyTooLarge.
 	MaxBodyBytes int64
+	// WrapTransport decorates the shared HTTP transport. It is intended for
+	// process-local instrumentation and deterministic fault injection; it is
+	// never loaded from YAML.
+	WrapTransport func(http.RoundTripper) http.RoundTripper
 }
 
 // DefaultConfig returns a sensible default configuration
@@ -89,15 +94,21 @@ func NewClient(config *Config) *Client {
 	// Create HTTP client with timeouts and connection pooling.
 	// DisableCompression=true lets readBody handle gzip explicitly so the
 	// Content-Encoding response header is preserved for Meta.Gzip.
+	baseTransport := &http.Transport{
+		IdleConnTimeout:    config.IdleTimeout,
+		MaxConnsPerHost:    config.MaxConnsPerHost,
+		DisableCompression: true,
+		DisableKeepAlives:  false,
+	}
+	transport := http.RoundTripper(baseTransport)
+	if config.WrapTransport != nil {
+		transport = config.WrapTransport(transport)
+	}
+
 	httpClient := &http.Client{
-		Timeout: config.Timeout,
-		Jar:     jar,
-		Transport: &http.Transport{
-			IdleConnTimeout:    config.IdleTimeout,
-			MaxConnsPerHost:    config.MaxConnsPerHost,
-			DisableCompression: true,
-			DisableKeepAlives:  false,
-		},
+		Timeout:   config.Timeout,
+		Jar:       jar,
+		Transport: transport,
 	}
 
 	return &Client{

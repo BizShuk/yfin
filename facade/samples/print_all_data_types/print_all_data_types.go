@@ -1,8 +1,6 @@
 // `print_all_data_types.go` — exhaustive dump of every `facade.FundamentalsSnapshot`
 // variant (analysis, analyst insights, balance sheet, cash flow) plus JSON
-// marshaling and `ScrapeAllFundamentals` source differentiation. Capacity:
-// ~179 LOC; APIs include `ScrapeAnalysis`, `ScrapeAnalystInsights`,
-// `ScrapeBalanceSheet`, `ScrapeCashFlow`, `ScrapeAllFundamentals`.
+// marshaling and `ScrapeAllFundamentals` source differentiation.
 package main
 
 import (
@@ -15,12 +13,8 @@ import (
 	"github.com/bizshuk/yfin/facade"
 )
 
-// print_all_data_types demonstrates the plain-struct SDK surface. As of Step 6
-// of plans/spicy-singing-swan.md, facade.Client.Scrape* returns
-// facade.FundamentalsSnapshot (or facade.FundamentalsSnapshot[] from
-// ScrapeAllFundamentals) instead of ampy-proto messages. Lines are plain
-// facade.FundamentalsLine values (float64 + time.Time, no ScaledDecimal or
-// Timestamp protobuf fields).
+// print_all_data_types demonstrates facade.Client.Scrape* plain DTOs,
+// including FundamentalsSnapshot and ScrapeAllFundamentals results.
 func main() {
 	client := facade.NewClient()
 	ctx := context.Background()

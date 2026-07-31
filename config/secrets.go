@@ -1,6 +1,6 @@
-// secrets.go — placeholder secret references. The `Ref` field is a
+// secrets.go — indirect secret references. The `Ref` field is a
 // secret-store handle (env var, vault path, etc.) — actual secret
-// values are never written to YAML. Capacity: 1 struct (`SecretConfig`).
+// values are never written to YAML.
 package config
 
 // SecretConfig represents secret configuration

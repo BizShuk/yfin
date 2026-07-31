@@ -1,401 +1,251 @@
-// CorrectnessProbes validate fetched data during soak runs.
-
-// probes.go — `CorrectnessProbes` validator that runs 5 per-ticker checks (market_cap/pe_ratio/employee_count/sector/currency) comparing API vs scrape values within per-probe tolerances, then aggregates pass/fail. Capacity: 1 `CorrectnessProbes` + 1 `ProbeResult` + 5 probe methods + 8 placeholder extractors + `normalizeSectorName`.
+// probes.go — compares Yahoo API info with scraped statistics, financials, and profile data.
 package main
 
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math"
 	"strings"
 	"time"
 
 	"github.com/bizshuk/yfin/facade"
-	"go.uber.org/zap"
+	"github.com/bizshuk/yfin/model"
 )
 
-// CorrectnessProbes handles validation of API vs scrape data consistency
+// CorrectnessProbes handles validation of API vs scrape data consistency.
 type CorrectnessProbes struct {
 	client *facade.Client
-	logger *zap.Logger
+	logger *slog.Logger
 }
 
-// ProbeResult represents the result of a correctness probe
+// ProbeResult represents the result of a correctness probe.
 type ProbeResult struct {
 	Ticker      string
 	ProbeType   string
 	Passed      bool
 	Details     string
-	APIValue    interface{}
-	ScrapeValue interface{}
+	APIValue    any
+	ScrapeValue any
 	Tolerance   float64
 	Difference  float64
 }
 
-// NewCorrectnessProbes creates a new correctness probe instance
-func NewCorrectnessProbes(client *facade.Client, logger *zap.Logger) *CorrectnessProbes {
-	return &CorrectnessProbes{
-		client: client,
-		logger: logger,
-	}
+type probeDataset struct {
+	info       map[string]any
+	stats      *model.ComprehensiveKeyStatisticsDTO
+	financials *model.ComprehensiveFinancialsDTO
+	profile    *model.ComprehensiveProfileDTO
 }
 
-// ValidateTicker runs all correctness probes for a given ticker
-func (cp *CorrectnessProbes) ValidateTicker(ctx context.Context, ticker string) error {
+// NewCorrectnessProbes creates a new correctness probe instance.
+func NewCorrectnessProbes(client *facade.Client, logger *slog.Logger) *CorrectnessProbes {
+	return &CorrectnessProbes{client: client, logger: logger}
+}
+
+// ValidateTicker fetches each source once and runs all comparison probes.
+func (probes *CorrectnessProbes) ValidateTicker(ctx context.Context, ticker string) error {
 	runID := fmt.Sprintf("probe-%s-%d", ticker, time.Now().Unix())
+	probes.logger.Debug("Starting correctness validation", "ticker", ticker)
 
-	cp.logger.Debug("Starting correctness validation", zap.String("ticker", ticker))
-
-	// Run individual probes
-	probes := []func(context.Context, string, string) (*ProbeResult, error){
-		cp.validateMarketCap,
-		cp.validatePERatio,
-		cp.validateEmployeeCount,
-		cp.validateSector,
-		cp.validateCurrency,
+	infoValue, err := probes.client.FetchFoundation(ctx, "info", ticker, runID)
+	if err != nil {
+		return fmt.Errorf("fetch API info: %w", err)
+	}
+	info, ok := infoValue.(map[string]any)
+	if !ok {
+		return fmt.Errorf("fetch API info: unexpected response type %T", infoValue)
+	}
+	stats, err := probes.client.ScrapeKeyStatisticsData(ctx, ticker, runID)
+	if err != nil {
+		return fmt.Errorf("scrape key statistics: %w", err)
+	}
+	financials, err := probes.client.ScrapeFinancialsData(ctx, ticker, runID)
+	if err != nil {
+		return fmt.Errorf("scrape financials: %w", err)
+	}
+	profile, err := probes.client.ScrapeProfileData(ctx, ticker, runID)
+	if err != nil {
+		return fmt.Errorf("scrape profile: %w", err)
 	}
 
-	var failedProbes []string
-	var passedProbes int
+	dataset := probeDataset{
+		info:       info,
+		stats:      stats,
+		financials: financials,
+		profile:    profile,
+	}
+	results := []*ProbeResult{
+		probeMarketCap(ticker, dataset),
+		probePERatio(ticker, dataset),
+		probeEmployeeCount(ticker, dataset),
+		probeSector(ticker, dataset),
+		probeCurrency(ticker, dataset),
+	}
 
-	for _, probe := range probes {
-		result, err := probe(ctx, ticker, runID)
-		if err != nil {
-			cp.logger.Warn("Probe execution failed",
-				zap.String("ticker", ticker),
-				zap.Error(err))
-			failedProbes = append(failedProbes, fmt.Sprintf("execution_error: %v", err))
+	var failures []string
+	passed := 0
+	for _, result := range results {
+		if result.Passed {
+			passed++
+			probes.logger.Debug(
+				"Probe passed",
+				"ticker", ticker,
+				"probe_type", result.ProbeType,
+				"details", result.Details,
+			)
 			continue
 		}
-
-		if result.Passed {
-			passedProbes++
-			cp.logger.Debug("Probe passed",
-				zap.String("ticker", ticker),
-				zap.String("probe_type", result.ProbeType),
-				zap.String("details", result.Details))
-		} else {
-			failedProbes = append(failedProbes, fmt.Sprintf("%s: %s", result.ProbeType, result.Details))
-			cp.logger.Warn("Probe failed",
-				zap.String("ticker", ticker),
-				zap.String("probe_type", result.ProbeType),
-				zap.String("details", result.Details),
-				zap.Any("api_value", result.APIValue),
-				zap.Any("scrape_value", result.ScrapeValue))
-		}
+		failures = append(failures, fmt.Sprintf("%s: %s", result.ProbeType, result.Details))
+		probes.logger.Warn(
+			"Probe failed",
+			"ticker", ticker,
+			"probe_type", result.ProbeType,
+			"details", result.Details,
+			"api_value", result.APIValue,
+			"scrape_value", result.ScrapeValue,
+		)
 	}
 
-	// Consider validation successful if majority of probes pass
-	successThreshold := len(probes) / 2
-	if passedProbes >= successThreshold {
-		cp.logger.Debug("Overall validation passed",
-			zap.String("ticker", ticker),
-			zap.Int("passed_probes", passedProbes),
-			zap.Int("total_probes", len(probes)))
+	required := len(results)/2 + 1
+	if passed >= required {
+		probes.logger.Debug(
+			"Overall validation passed",
+			"ticker", ticker,
+			"passed_probes", passed,
+			"total_probes", len(results),
+		)
 		return nil
 	}
-
-	return fmt.Errorf("validation failed for %s: %s", ticker, strings.Join(failedProbes, "; "))
+	return fmt.Errorf("validation failed for %s: %s", ticker, strings.Join(failures, "; "))
 }
 
-// validateMarketCap compares market cap between API and scrape data
-func (cp *CorrectnessProbes) validateMarketCap(ctx context.Context, ticker, runID string) (*ProbeResult, error) {
-	result := &ProbeResult{
-		Ticker:    ticker,
-		ProbeType: "market_cap",
-		Tolerance: 0.05, // 5% tolerance
-	}
-
-	// Get market data from API (contains market cap info)
-	apiData, err := cp.client.FetchMarketData(ctx, ticker, runID)
-	if err != nil {
-		return result, fmt.Errorf("failed to fetch API market data: %w", err)
-	}
-
-	// Get key statistics from scrape (contains market cap)
-	scrapeData, err := cp.client.ScrapeKeyStatistics(ctx, ticker, runID)
-	if err != nil {
-		return result, fmt.Errorf("failed to scrape key statistics: %w", err)
-	}
-
-	// Extract market cap values
-	apiMarketCap := extractMarketCapFromAPI(apiData)
-	scrapeMarketCap := extractMarketCapFromScrape(scrapeData)
-
-	result.APIValue = apiMarketCap
-	result.ScrapeValue = scrapeMarketCap
-
-	if apiMarketCap == 0 || scrapeMarketCap == 0 {
-		result.Details = "One or both market cap values are zero or unavailable"
-		result.Passed = false
-		return result, nil
-	}
-
-	// Calculate percentage difference
-	diff := math.Abs(apiMarketCap-scrapeMarketCap) / apiMarketCap
-	result.Difference = diff
-
-	if diff <= result.Tolerance {
-		result.Passed = true
-		result.Details = fmt.Sprintf("Market cap values within tolerance: API=%.2fB, Scrape=%.2fB, diff=%.2f%%",
-			apiMarketCap/1e9, scrapeMarketCap/1e9, diff*100)
-	} else {
-		result.Passed = false
-		result.Details = fmt.Sprintf("Market cap values exceed tolerance: API=%.2fB, Scrape=%.2fB, diff=%.2f%% > %.2f%%",
-			apiMarketCap/1e9, scrapeMarketCap/1e9, diff*100, result.Tolerance*100)
-	}
-
-	return result, nil
+func probeMarketCap(ticker string, dataset probeDataset) *ProbeResult {
+	result := &ProbeResult{Ticker: ticker, ProbeType: "market_cap", Tolerance: 0.05}
+	apiValue, apiOK := numericInfo(dataset.info, "marketCap")
+	scrapeValue, scrapeOK := scaledValue(dataset.stats.Current.MarketCap)
+	return comparePositive(result, apiValue, apiOK, scrapeValue, scrapeOK)
 }
 
-// validatePERatio compares P/E ratio between API and scrape data
-func (cp *CorrectnessProbes) validatePERatio(ctx context.Context, ticker, runID string) (*ProbeResult, error) {
-	result := &ProbeResult{
-		Ticker:    ticker,
-		ProbeType: "pe_ratio",
-		Tolerance: 0.10, // 10% tolerance (P/E can vary more due to timing)
+func probePERatio(ticker string, dataset probeDataset) *ProbeResult {
+	result := &ProbeResult{Ticker: ticker, ProbeType: "pe_ratio", Tolerance: 0.10}
+	apiValue, apiOK := numericInfo(dataset.info, "trailingPE")
+	scrapeValue, scrapeOK := scaledValue(dataset.stats.Current.TrailingPE)
+	if !apiOK || !scrapeOK {
+		apiValue, apiOK = numericInfo(dataset.info, "forwardPE")
+		scrapeValue, scrapeOK = scaledValue(dataset.stats.Current.ForwardPE)
 	}
-
-	// Get quote data from API
-	apiQuote, err := cp.client.FetchQuote(ctx, ticker, runID)
-	if err != nil {
-		return result, fmt.Errorf("failed to fetch API quote: %w", err)
-	}
-
-	// Get key statistics from scrape
-	scrapeData, err := cp.client.ScrapeKeyStatistics(ctx, ticker, runID)
-	if err != nil {
-		return result, fmt.Errorf("failed to scrape key statistics: %w", err)
-	}
-
-	// Extract P/E ratios
-	apiPE := extractPERatioFromAPI(apiQuote)
-	scrapePE := extractPERatioFromScrape(scrapeData)
-
-	result.APIValue = apiPE
-	result.ScrapeValue = scrapePE
-
-	if apiPE <= 0 || scrapePE <= 0 {
-		result.Details = "One or both P/E ratios are zero, negative, or unavailable"
-		result.Passed = false
-		return result, nil
-	}
-
-	// Calculate percentage difference
-	diff := math.Abs(apiPE-scrapePE) / apiPE
-	result.Difference = diff
-
-	if diff <= result.Tolerance {
-		result.Passed = true
-		result.Details = fmt.Sprintf("P/E ratios within tolerance: API=%.2f, Scrape=%.2f, diff=%.2f%%",
-			apiPE, scrapePE, diff*100)
-	} else {
-		result.Passed = false
-		result.Details = fmt.Sprintf("P/E ratios exceed tolerance: API=%.2f, Scrape=%.2f, diff=%.2f%% > %.2f%%",
-			apiPE, scrapePE, diff*100, result.Tolerance*100)
-	}
-
-	return result, nil
+	return comparePositive(result, apiValue, apiOK, scrapeValue, scrapeOK)
 }
 
-// validateEmployeeCount compares employee count from different sources
-func (cp *CorrectnessProbes) validateEmployeeCount(ctx context.Context, ticker, runID string) (*ProbeResult, error) {
-	result := &ProbeResult{
-		Ticker:    ticker,
-		ProbeType: "employee_count",
-		Tolerance: 0.15, // 15% tolerance (employee counts can vary by reporting date)
+func probeEmployeeCount(ticker string, dataset probeDataset) *ProbeResult {
+	result := &ProbeResult{Ticker: ticker, ProbeType: "employee_count", Tolerance: 0.15}
+	apiValue, apiOK := numericInfo(dataset.info, "fullTimeEmployees")
+	scrapeOK := dataset.profile != nil && dataset.profile.FullTimeEmployees != nil
+	scrapeValue := float64(0)
+	if scrapeOK {
+		scrapeValue = float64(*dataset.profile.FullTimeEmployees)
 	}
-
-	// Get company info from API
-	apiCompany, err := cp.client.FetchCompanyInfo(ctx, ticker, runID)
-	if err != nil {
-		return result, fmt.Errorf("failed to fetch API company info: %w", err)
-	}
-
-	// Get key statistics from scrape (may contain employee count)
-	scrapeData, err := cp.client.ScrapeKeyStatistics(ctx, ticker, runID)
-	if err != nil {
-		return result, fmt.Errorf("failed to scrape key statistics: %w", err)
-	}
-
-	// Extract employee counts
-	apiEmployees := extractEmployeeCountFromAPI(apiCompany)
-	scrapeEmployees := extractEmployeeCountFromScrape(scrapeData)
-
-	result.APIValue = apiEmployees
-	result.ScrapeValue = scrapeEmployees
-
-	if apiEmployees == 0 || scrapeEmployees == 0 {
-		result.Details = "One or both employee counts are zero or unavailable"
-		result.Passed = false
-		return result, nil
-	}
-
-	// Calculate percentage difference
-	diff := math.Abs(float64(apiEmployees-scrapeEmployees)) / float64(apiEmployees)
-	result.Difference = diff
-
-	if diff <= result.Tolerance {
-		result.Passed = true
-		result.Details = fmt.Sprintf("Employee counts within tolerance: API=%d, Scrape=%d, diff=%.2f%%",
-			apiEmployees, scrapeEmployees, diff*100)
-	} else {
-		result.Passed = false
-		result.Details = fmt.Sprintf("Employee counts exceed tolerance: API=%d, Scrape=%d, diff=%.2f%% > %.2f%%",
-			apiEmployees, scrapeEmployees, diff*100, result.Tolerance*100)
-	}
-
-	return result, nil
+	return comparePositive(result, apiValue, apiOK, scrapeValue, scrapeOK)
 }
 
-// validateSector compares sector information
-func (cp *CorrectnessProbes) validateSector(ctx context.Context, ticker, runID string) (*ProbeResult, error) {
-	result := &ProbeResult{
-		Ticker:    ticker,
-		ProbeType: "sector",
-		Tolerance: 0.0, // Exact match required for sector
+func probeSector(ticker string, dataset probeDataset) *ProbeResult {
+	result := &ProbeResult{Ticker: ticker, ProbeType: "sector"}
+	apiValue, apiOK := stringInfo(dataset.info, "sector")
+	scrapeValue := ""
+	if dataset.profile != nil {
+		scrapeValue = dataset.profile.Sector
+	}
+	result.APIValue = apiValue
+	result.ScrapeValue = scrapeValue
+	if !apiOK || strings.TrimSpace(scrapeValue) == "" {
+		result.Details = "sector is unavailable from one or both real sources"
+		return result
+	}
+	result.Passed = normalizeSectorName(apiValue) == normalizeSectorName(scrapeValue)
+	result.Details = fmt.Sprintf("API=%s, scrape=%s", apiValue, scrapeValue)
+	return result
+}
+
+func probeCurrency(ticker string, dataset probeDataset) *ProbeResult {
+	result := &ProbeResult{Ticker: ticker, ProbeType: "currency"}
+	apiValue, apiOK := stringInfo(dataset.info, "financialCurrency", "currency")
+	scrapeValue := ""
+	if dataset.financials != nil {
+		scrapeValue = dataset.financials.Currency
+	}
+	result.APIValue = apiValue
+	result.ScrapeValue = scrapeValue
+	if !apiOK || strings.TrimSpace(scrapeValue) == "" {
+		result.Details = "currency is unavailable from one or both real sources"
+		return result
+	}
+	result.Passed = strings.EqualFold(apiValue, scrapeValue)
+	result.Details = fmt.Sprintf("API=%s, scrape=%s", apiValue, scrapeValue)
+	return result
+}
+
+func comparePositive(
+	result *ProbeResult,
+	apiValue float64,
+	apiOK bool,
+	scrapeValue float64,
+	scrapeOK bool,
+) *ProbeResult {
+	result.APIValue = apiValue
+	result.ScrapeValue = scrapeValue
+	if !apiOK || !scrapeOK || apiValue <= 0 || scrapeValue <= 0 {
+		result.Details = "value is unavailable or non-positive from one or both real sources"
+		return result
 	}
 
-	// Get company info from API
-	apiCompany, err := cp.client.FetchCompanyInfo(ctx, ticker, runID)
-	if err != nil {
-		return result, fmt.Errorf("failed to fetch API company info: %w", err)
+	result.Difference = math.Abs(apiValue-scrapeValue) / apiValue
+	result.Passed = result.Difference <= result.Tolerance
+	result.Details = fmt.Sprintf(
+		"API=%.4f, scrape=%.4f, difference=%.2f%%, tolerance=%.2f%%",
+		apiValue,
+		scrapeValue,
+		result.Difference*100,
+		result.Tolerance*100,
+	)
+	return result
+}
+
+func numericInfo(info map[string]any, keys ...string) (float64, bool) {
+	for _, key := range keys {
+		switch value := info[key].(type) {
+		case float64:
+			return value, true
+		case float32:
+			return float64(value), true
+		case int:
+			return float64(value), true
+		case int64:
+			return float64(value), true
+		}
 	}
+	return 0, false
+}
 
-	// For sector validation, we would need to implement profile scraping
-	// For now, we'll simulate this validation
-	apiSector := extractSectorFromAPI(apiCompany)
-	scrapeSector := simulateScrapedSector(ticker) // Placeholder
-
-	result.APIValue = apiSector
-	result.ScrapeValue = scrapeSector
-
-	if apiSector == "" || scrapeSector == "" {
-		result.Details = "One or both sector values are empty or unavailable"
-		result.Passed = false
-		return result, nil
+func stringInfo(info map[string]any, keys ...string) (string, bool) {
+	for _, key := range keys {
+		value, ok := info[key].(string)
+		if ok && strings.TrimSpace(value) != "" {
+			return value, true
+		}
 	}
+	return "", false
+}
 
-	// Normalize sector names for comparison
-	apiSectorNorm := normalizeSectorName(apiSector)
-	scrapeSectorNorm := normalizeSectorName(scrapeSector)
-
-	if apiSectorNorm == scrapeSectorNorm {
-		result.Passed = true
-		result.Details = fmt.Sprintf("Sector values match: API=%s, Scrape=%s", apiSector, scrapeSector)
-	} else {
-		result.Passed = false
-		result.Details = fmt.Sprintf("Sector values differ: API=%s, Scrape=%s", apiSector, scrapeSector)
+func scaledValue(value *model.ScaledDecimal) (float64, bool) {
+	if value == nil {
+		return 0, false
 	}
-
-	return result, nil
-}
-
-// validateCurrency compares currency information
-func (cp *CorrectnessProbes) validateCurrency(ctx context.Context, ticker, runID string) (*ProbeResult, error) {
-	result := &ProbeResult{
-		Ticker:    ticker,
-		ProbeType: "currency",
-		Tolerance: 0.0, // Exact match required for currency
-	}
-
-	// Get quote data from API
-	apiQuote, err := cp.client.FetchQuote(ctx, ticker, runID)
-	if err != nil {
-		return result, fmt.Errorf("failed to fetch API quote: %w", err)
-	}
-
-	// Get key statistics from scrape
-	scrapeData, err := cp.client.ScrapeKeyStatistics(ctx, ticker, runID)
-	if err != nil {
-		return result, fmt.Errorf("failed to scrape key statistics: %w", err)
-	}
-
-	// Extract currency codes
-	apiCurrency := extractCurrencyFromAPI(apiQuote)
-	scrapeCurrency := extractCurrencyFromScrape(scrapeData)
-
-	result.APIValue = apiCurrency
-	result.ScrapeValue = scrapeCurrency
-
-	if apiCurrency == "" || scrapeCurrency == "" {
-		result.Details = "One or both currency values are empty or unavailable"
-		result.Passed = false
-		return result, nil
-	}
-
-	if apiCurrency == scrapeCurrency {
-		result.Passed = true
-		result.Details = fmt.Sprintf("Currency values match: API=%s, Scrape=%s", apiCurrency, scrapeCurrency)
-	} else {
-		result.Passed = false
-		result.Details = fmt.Sprintf("Currency values differ: API=%s, Scrape=%s", apiCurrency, scrapeCurrency)
-	}
-
-	return result, nil
-}
-
-// Helper functions for extracting values from different data sources
-// These would need to be implemented based on the actual data structures
-
-func extractMarketCapFromAPI(data interface{}) float64 {
-	// Placeholder implementation
-	// In reality, this would extract market cap from the normalized market data
-	return 1000000000.0 // $1B placeholder
-}
-
-func extractMarketCapFromScrape(data interface{}) float64 {
-	// Placeholder implementation
-	// In reality, this would extract market cap from the scraped fundamentals
-	return 1050000000.0 // $1.05B placeholder (5% difference)
-}
-
-func extractPERatioFromAPI(data interface{}) float64 {
-	// Placeholder implementation
-	return 25.5
-}
-
-func extractPERatioFromScrape(data interface{}) float64 {
-	// Placeholder implementation
-	return 26.0
-}
-
-func extractEmployeeCountFromAPI(data interface{}) int {
-	// Placeholder implementation
-	return 150000
-}
-
-func extractEmployeeCountFromScrape(data interface{}) int {
-	// Placeholder implementation
-	return 155000
-}
-
-func extractSectorFromAPI(data interface{}) string {
-	// Placeholder implementation
-	return "Technology"
-}
-
-func simulateScrapedSector(ticker string) string {
-	// Placeholder implementation
-	return "Technology"
-}
-
-func extractCurrencyFromAPI(data interface{}) string {
-	// Placeholder implementation
-	return "USD"
-}
-
-func extractCurrencyFromScrape(data interface{}) string {
-	// Placeholder implementation
-	return "USD"
+	return value.Float64(), true
 }
 
 func normalizeSectorName(sector string) string {
-	// Normalize sector names for comparison
-	sector = strings.TrimSpace(sector)
-	sector = strings.ToLower(sector)
-
-	// Handle common variations
+	sector = strings.ToLower(strings.TrimSpace(sector))
 	replacements := map[string]string{
 		"information technology": "technology",
 		"tech":                   "technology",
@@ -403,10 +253,8 @@ func normalizeSectorName(sector string) string {
 		"consumer discretionary": "consumer cyclical",
 		"consumer staples":       "consumer defensive",
 	}
-
 	if normalized, exists := replacements[sector]; exists {
 		return normalized
 	}
-
 	return sector
 }

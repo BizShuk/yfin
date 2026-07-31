@@ -1,10 +1,9 @@
-// fx.go — FX provider settings. The FX provider converts non-USD
-// prices to a target currency at emission time. `YahooWebConfig` is the
-// embedded sub-config for the Yahoo-Web provider. Capacity: 2 structs
-// (`FXConfig`, `YahooWebConfig`).
+// fx.go — compatibility schema for the retired FX conversion surface.
+// Runtime code does not construct an FX rate provider or conversion cache;
+// pull --fx-target only validates that source and target currencies match.
 package config
 
-// FXConfig represents FX configuration
+// FXConfig preserves previously accepted YAML fields for compatibility.
 type FXConfig struct {
 	Provider   string         `yaml:"provider"`
 	Target     string         `yaml:"target"`
@@ -14,7 +13,7 @@ type FXConfig struct {
 	YahooWeb   YahooWebConfig `yaml:"yahoo_web"`
 }
 
-// YahooWebConfig represents Yahoo Web FX provider configuration
+// YahooWebConfig preserves the inactive Yahoo Web policy fields.
 type YahooWebConfig struct {
 	QPS               float64 `yaml:"qps"`
 	Burst             int     `yaml:"burst"`

@@ -1,8 +1,4 @@
-// news.go — `NewsItem` type alias re-exported from model. The former
-// `fromProtoNews` proto→SDK converter was removed with the ampy-proto
-// dependency — scrape news items now convert to model directly via
-// model.ScrapeNewsToItems. Struct lives in model/news.go; facade.NewsItem
-// is a back-compat alias.
+// news.go — `NewsItem` compatibility alias re-exported from model.
 package facade
 
 import (

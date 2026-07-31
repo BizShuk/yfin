@@ -7,9 +7,9 @@ package model
 import "time"
 
 // FundamentalsLine is one period-tagged line item (e.g., "revenue",
-// "net_income", "eps_basic"). Value is the float64 decoded from the
-// internal ScaledDecimal / ampy-proto Decimal; a missing Value is surfaced
-// as 0 (float64 cannot distinguish zero from missing). PeriodStart /
+// "net_income", "eps_basic"). Value is the float64-decoded normalized value;
+// a missing Value is surfaced as 0 because float64 cannot distinguish it from
+// a reported zero. An absent provider currency remains empty. PeriodStart and
 // PeriodEnd are UTC.
 type FundamentalsLine struct {
 	Key          string    `json:"key"`
@@ -20,9 +20,7 @@ type FundamentalsLine struct {
 }
 
 // FundamentalsSnapshot is one symbol's fundamentals view, exposed as a plain
-// SDK struct. Lines preserves the order it was supplied in (the ampy-proto
-// FundamentalsSnapshot.Lines is a []*LineItem, not a map, so ordering is
-// inherent).
+// SDK struct. Lines preserves provider/normalizer order.
 type FundamentalsSnapshot struct {
 	Symbol string             `json:"symbol"`
 	MIC    string             `json:"mic,omitempty"`

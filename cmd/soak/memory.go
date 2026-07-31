@@ -1,22 +1,20 @@
-// MemoryMonitor samples memory usage and detects leaks during soak runs.
-
-// memory.go — `MemoryMonitor` that samples `runtime.MemStats` + `runtime.NumGoroutine` every 10s (capped at 1000-sample ring), then runs leak analysis via linear growth rate, spike detection, GC behavior, and goroutine count heuristics. Capacity: 1 `MemoryMonitor` + 1 `MemorySample` + 1 `LeakDetectionResult` + 10 analysis methods (`Monitor`/`takeSample`/`takeFinalSample`/`AnalyzeLeaks`/`analyzeMemoryGrowth`/`analyzeGoroutineGrowth`/`detectMemorySpikes`/`analyzeGCBehavior`/`generateRecommendation`/`GetCurrentStats`/`GetSampleHistory`).
+// memory.go — `MemoryMonitor` samples runtime memory and goroutines, owns peak
+// state, and performs leak analysis over a bounded sample history.
 package main
 
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"runtime"
 	"strings"
 	"sync"
 	"time"
-
-	"go.uber.org/zap"
 )
 
 // MemoryMonitor tracks memory usage and goroutine counts during soak testing
 type MemoryMonitor struct {
-	logger            *zap.Logger
+	logger            *slog.Logger
 	initialMemory     uint64
 	peakMemory        uint64
 	initialGoroutines int
@@ -45,17 +43,38 @@ type LeakDetectionResult struct {
 	Details               []string
 }
 
+// MemorySummary is the monitor-owned state rendered in the final soak report.
+type MemorySummary struct {
+	InitialMemory     uint64
+	PeakMemory        uint64
+	InitialGoroutines int
+	PeakGoroutines    int
+	Final             MemorySample
+}
+
+// MemoryGrowthBytes returns signed growth so a final value below the initial
+// allocation remains negative instead of underflowing uint64.
+func (summary MemorySummary) MemoryGrowthBytes() int64 {
+	return int64(summary.Final.AllocBytes) - int64(summary.InitialMemory)
+}
+
+// GoroutineGrowth returns the signed final-to-initial goroutine delta.
+func (summary MemorySummary) GoroutineGrowth() int {
+	return summary.Final.Goroutines - summary.InitialGoroutines
+}
+
 // NewMemoryMonitor creates a new memory monitor
-func NewMemoryMonitor(logger *zap.Logger) *MemoryMonitor {
+func NewMemoryMonitor(logger *slog.Logger) *MemoryMonitor {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
+	goroutines := runtime.NumGoroutine()
 
 	return &MemoryMonitor{
 		logger:            logger,
 		initialMemory:     m.Alloc,
 		peakMemory:        m.Alloc,
-		initialGoroutines: runtime.NumGoroutine(),
-		peakGoroutines:    runtime.NumGoroutine(),
+		initialGoroutines: goroutines,
+		peakGoroutines:    goroutines,
 		samples:           make([]MemorySample, 0, 1000), // Pre-allocate for efficiency
 	}
 }
@@ -117,16 +136,17 @@ func (mm *MemoryMonitor) takeSample() {
 		copy(mm.samples, mm.samples[len(mm.samples)-1000:])
 		mm.samples = mm.samples[:1000]
 	}
+	sampleCount := len(mm.samples)
 	mm.mu.Unlock()
 
 	// Log periodic updates
-	if len(mm.samples)%30 == 0 { // Every 5 minutes (30 * 10 seconds)
+	if sampleCount%30 == 0 { // Every 5 minutes (30 * 10 seconds)
 		mm.logger.Info("Memory monitor sample",
-			zap.Uint64("alloc_mb", m.Alloc/1024/1024),
-			zap.Uint64("sys_mb", m.Sys/1024/1024),
-			zap.Int("goroutines", goroutines),
-			zap.Uint32("gc_cycles", m.NumGC),
-			zap.Uint64("heap_objects", m.HeapObjects),
+			"alloc_mb", m.Alloc/1024/1024,
+			"sys_mb", m.Sys/1024/1024,
+			"goroutines", goroutines,
+			"gc_cycles", m.NumGC,
+			"heap_objects", m.HeapObjects,
 		)
 	}
 }
@@ -134,7 +154,7 @@ func (mm *MemoryMonitor) takeSample() {
 // takeFinalSample captures the final state for analysis
 func (mm *MemoryMonitor) takeFinalSample() {
 	mm.takeSample()
-	mm.logger.Info("Final memory state captured", zap.Int("total_samples", len(mm.samples)))
+	mm.logger.Info("Final memory state captured", "total_samples", len(mm.samples))
 }
 
 // AnalyzeLeaks analyzes the collected samples for memory and goroutine leaks
@@ -389,6 +409,26 @@ func (mm *MemoryMonitor) GetCurrentStats() MemorySample {
 		GCCycles:    m.NumGC,
 		HeapObjects: m.HeapObjects,
 	}
+}
+
+// Summary returns the initial, peak and final state owned by the monitor.
+func (mm *MemoryMonitor) Summary() MemorySummary {
+	mm.mu.RLock()
+	summary := MemorySummary{
+		InitialMemory:     mm.initialMemory,
+		PeakMemory:        mm.peakMemory,
+		InitialGoroutines: mm.initialGoroutines,
+		PeakGoroutines:    mm.peakGoroutines,
+	}
+	if len(mm.samples) > 0 {
+		summary.Final = mm.samples[len(mm.samples)-1]
+	}
+	mm.mu.RUnlock()
+
+	if summary.Final.Timestamp.IsZero() {
+		summary.Final = mm.GetCurrentStats()
+	}
+	return summary
 }
 
 // GetSampleHistory returns a copy of the sample history

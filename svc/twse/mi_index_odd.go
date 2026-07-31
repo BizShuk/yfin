@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
 	"github.com/bizshuk/yfin/model"
 )
-
 
 // FetchMI_INDEX_ODD retrieves the odd-lot (零股) trading snapshot for
 // `date`.

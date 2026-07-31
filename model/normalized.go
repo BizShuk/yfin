@@ -1,8 +1,6 @@
-// normalized.go — all `Normalized*` data structs and `Meta`. These are the
-// ScaledDecimal-rich intermediate types emitted from `Normalize*` functions
-// to the proto-emit pipeline and to JSON fixtures. Originally split across
-// svc/norm/types.go (core types) + svc/norm/holders.go + svc/norm/insider.go;
-// consolidated here for cross-layer reuse.
+// normalized.go — all `Normalized*` data structs and `Meta`.
+// These precision-preserving shapes are returned by facade Fetch*Norm methods
+// and serialized by JSON-oriented tooling.
 
 package model
 

@@ -1,7 +1,6 @@
 // `print_data_contents.go` — field-by-field walk of `facade.Quote`,
 // `facade.BarBatch`, news, financials, and key-statistics snapshots, including
-// JSON marshaling. Capacity: ~167 LOC; APIs include `FetchQuote`,
-// `FetchDailyBars`, `ScrapeNews`, `ScrapeFinancials`, `ScrapeKeyStatistics`.
+// JSON marshaling.
 package main
 
 import (
@@ -14,11 +13,8 @@ import (
 	"github.com/bizshuk/yfin/facade"
 )
 
-// print_data_contents demonstrates the plain-struct SDK surface. As of Step 6
-// of plans/spicy-singing-swan.md, facade.Client returns facade.Quote /
-// facade.BarBatch / facade.FundamentalsSnapshot / facade.NewsItem — no
-// reflection, no ScaledDecimal pointers. Each section below prints the public
-// fields directly.
+// print_data_contents demonstrates the plain-struct SDK surface and prints
+// facade.Quote, BarBatch, FundamentalsSnapshot, and NewsItem fields directly.
 func main() {
 	client := facade.NewClient()
 	ctx := context.Background()

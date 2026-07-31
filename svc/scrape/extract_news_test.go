@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"testing"
 	"time"
+
 	"github.com/bizshuk/yfin/model"
 )
 

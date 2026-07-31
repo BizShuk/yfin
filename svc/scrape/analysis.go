@@ -1,4 +1,5 @@
-// — Parses Yahoo analysis pages into earnings/revenue estimates, history, EPS trend/revisions, and growth DTO. Capacity: 6 sub-sections x 4 periods (current_qtr, next_qtr, current_year, next_year).
+// analysis.go — parses Yahoo analysis pages into earnings/revenue estimates,
+// history, EPS trend/revisions, and growth DTOs.
 package scrape
 
 import (
@@ -15,11 +16,6 @@ import (
 	"github.com/bizshuk/yfin/model"
 	"gopkg.in/yaml.v3"
 )
-
-const (
-	defaultCurrency = "USD"
-)
-
 
 // AnalysisRegexConfig holds the regex patterns for analysis extraction
 type AnalysisRegexConfig struct {
@@ -107,7 +103,7 @@ func ParseAnalysis(html []byte, symbol, market string) (*model.ComprehensiveAnal
 	dto := &model.ComprehensiveAnalysisDTO{
 		Symbol: symbol,
 		Market: market,
-		AsOf:   time.Now(),
+		AsOf:   time.Now().UTC(),
 	}
 
 	htmlStr := string(html)
@@ -204,8 +200,6 @@ func extractEarningsEstimate(html string, dto *model.ComprehensiveAnalysisDTO) e
 	currencyMatch := re.FindStringSubmatch(match)
 	if len(currencyMatch) > 1 {
 		dto.EarningsEstimate.Currency = currencyMatch[1]
-	} else {
-		dto.EarningsEstimate.Currency = defaultCurrency // Default fallback
 	}
 
 	// Extract table rows - we know the order: No. of Analysts, Avg. Estimate, Low Estimate, High Estimate, Year Ago EPS
@@ -284,8 +278,6 @@ func extractRevenueEstimate(html string, dto *model.ComprehensiveAnalysisDTO) er
 	currencyMatch := re.FindStringSubmatch(match)
 	if len(currencyMatch) > 1 {
 		dto.RevenueEstimate.Currency = currencyMatch[1]
-	} else {
-		dto.RevenueEstimate.Currency = defaultCurrency // Default fallback
 	}
 
 	// Extract table rows
@@ -369,8 +361,6 @@ func extractEarningsHistory(html string, dto *model.ComprehensiveAnalysisDTO) er
 	currencyMatch := re.FindStringSubmatch(match)
 	if len(currencyMatch) > 1 {
 		dto.EarningsHistory.Currency = currencyMatch[1]
-	} else {
-		dto.EarningsHistory.Currency = defaultCurrency // Default fallback
 	}
 
 	// Extract header to get dates
@@ -489,8 +479,6 @@ func extractEPSTrend(html string, dto *model.ComprehensiveAnalysisDTO) error {
 	currencyMatch := re.FindStringSubmatch(match)
 	if len(currencyMatch) > 1 {
 		dto.EPSTrend.Currency = currencyMatch[1]
-	} else {
-		dto.EPSTrend.Currency = defaultCurrency // Default fallback
 	}
 
 	// Extract table rows
@@ -569,8 +557,6 @@ func extractEPSRevisions(html string, dto *model.ComprehensiveAnalysisDTO) error
 	currencyMatch := re.FindStringSubmatch(match)
 	if len(currencyMatch) > 1 {
 		dto.EPSRevisions.Currency = currencyMatch[1]
-	} else {
-		dto.EPSRevisions.Currency = defaultCurrency // Default fallback
 	}
 
 	// Extract table rows

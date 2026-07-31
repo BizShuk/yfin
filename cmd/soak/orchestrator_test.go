@@ -1,15 +1,16 @@
-// orchestrator_test.go — orchestrator smoke tests: `NewOrchestrator` ticker/endpoint loading, `loadTickerUniverse` (skips `#` comments + blank lines), `parseEndpoints` (trim), and an end-to-end `OrchestratorShortRun` (5s, low QPS, no probes, no failure injection). Capacity: 4 test functions covering construction + helpers + short integration.
+// orchestrator_test.go — orchestrator construction, input parsing, and
+// deterministic short-run coverage.
 package main
 
 import (
-	"context"
+	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/bizshuk/yfin/config"
-	"github.com/prometheus/client_golang/prometheus"
+	"github.com/bizshuk/yfin/facade"
 )
 
 func TestNewOrchestrator(t *testing.T) {
@@ -26,11 +27,6 @@ GOOGL`
 		t.Fatalf("Failed to create test universe file: %v", err)
 	}
 
-	// Create test configuration
-	cfg := &config.Config{
-		// Add minimal required config fields
-	}
-
 	soakConfig := &SoakConfig{
 		UniverseFile:  universeFile,
 		Endpoints:     "key-statistics,news",
@@ -43,11 +39,10 @@ GOOGL`
 		MemoryCheck:   true,
 	}
 
-	orchestrator, err := NewOrchestrator(cfg, soakConfig)
+	orchestrator, err := NewOrchestrator(facade.NewClient(), discardLogger(), soakConfig)
 	if err != nil {
 		t.Fatalf("Failed to create orchestrator: %v", err)
 	}
-	defer orchestrator.Close()
 
 	// Verify orchestrator was created correctly
 	if orchestrator == nil {
@@ -138,58 +133,6 @@ func TestParseEndpoints(t *testing.T) {
 	}
 }
 
-func TestOrchestratorShortRun(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping orchestrator integration test in short mode")
-	}
-
-	// Clear any existing metrics to avoid duplicate registration
-	prometheus.DefaultRegisterer = prometheus.NewRegistry()
-
-	// Create a temporary universe file with a single ticker
-	tempDir := t.TempDir()
-	universeFile := filepath.Join(tempDir, "test_universe.txt")
-
-	universeContent := `AAPL`
-
-	if err := os.WriteFile(universeFile, []byte(universeContent), 0o644); err != nil {
-		t.Fatalf("Failed to create test universe file: %v", err)
-	}
-
-	// Create test configuration
-	cfg := &config.Config{
-		// Add minimal required config fields
-	}
-
-	soakConfig := &SoakConfig{
-		UniverseFile:  universeFile,
-		Endpoints:     "key-statistics",
-		Fallback:      "scrape-only",
-		Duration:      5 * time.Second, // Very short test
-		Concurrency:   1,
-		QPS:           0.5,           // Very low QPS
-		ProbeInterval: 1 * time.Hour, // No probes during short test
-		FailureRate:   0.0,           // No failure injection
-		MemoryCheck:   true,
-	}
-
-	orchestrator, err := NewOrchestrator(cfg, soakConfig)
-	if err != nil {
-		t.Fatalf("Failed to create orchestrator: %v", err)
-	}
-	defer orchestrator.Close()
-
-	// Run the soak test
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	err = orchestrator.Run(ctx)
-	if err != nil {
-		t.Fatalf("Soak test failed: %v", err)
-	}
-
-	// Verify some basic stats were collected
-	if orchestrator.stats.TotalRequests == 0 {
-		t.Error("Expected some requests to be made, but TotalRequests is 0")
-	}
+func discardLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }

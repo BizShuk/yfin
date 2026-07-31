@@ -12,6 +12,8 @@
 
 `pull`、`comprehensive-stats`、`comprehensive-profile` 與 `scrape` 會初始化 `utils/obsv` lifecycle。其他 commands 不應被假設會啟動 metrics server。
 
+Standalone `cmd/soak` 使用自己的 JSON `slog` 與 stdout aggregate report；它不啟動 Prometheus exporter。
+
 ## Configuration
 
 Canonical YAML section：
@@ -65,6 +67,10 @@ curl -fsS http://127.0.0.1:9090/metrics |
 | `yfin_requests_total` | `endpoint`, `outcome`, `code` | 每個 logical request 的 final outcome |
 | `yfin_retries_total` | `endpoint`, `reason` | retry attempts |
 | `yfin_backoff_total` | `endpoint`, `reason` | backoff events |
+| `yfin_decode_fail_total` | `reason` | decode failures |
+| `yfin_cb_open_total` | `scope` | circuit open transitions |
+| `yfin_cb_state` | `scope` | current circuit state |
+| `yfin_inflight_requests` | `endpoint` | current inflight requests |
 | `yfin_request_latency_ms` | `endpoint`, milliseconds | logical request latency |
 | `yfin_backoff_sleep_ms` | `endpoint`, milliseconds | retry sleep duration |
 
@@ -76,7 +82,7 @@ News parsing lazily registers `yfin_scrape_news_total` 與 `yfin_scrape_news_par
 
 Log level 只控制已存在的 structured log emission，不會自行產生每個 HTTP request 的 debug event；request outcome、retry 與 backoff 的完整 machine-readable evidence 目前由 Prometheus metrics 擁有。
 
-本 repo 不保證 `~/.config/yfin/logs/` 或其他固定 log path。若由 PM2、container runtime 或 shell redirect 執行，請在該 runtime 設定 output path 與 rotation。
+`./run.sh` 會建立 `~/.config/yfin/logs/`，但 yfin logger 不會自行寫入該目錄。若由 PM2、container runtime 或 shell redirect 執行，請由 deployment owner 將 stderr 指向該目錄並設定 rotation。
 
 Debug example：
 

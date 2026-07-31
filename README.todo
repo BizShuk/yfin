@@ -1,5 +1,9 @@
 # TODO
 
+## Pending
+
+- [ ] 完成 [Yahoo 30-command parity 剩餘工作](plans/2026-07-18-yahoo-parity-remaining-work.md)，並分開記錄 deterministic 與 live acceptance evidence。
+
 ## Archive
 
 見 [docs/CHANGELOG.md](docs/CHANGELOG.md)。

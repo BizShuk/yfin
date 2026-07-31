@@ -5,9 +5,8 @@
 //     CircuitBreaker into `*httpx.Config`, the canonical HTTP-layer
 //     config used by `cmd/client.go`.
 //   - assembleScrapeHTTPConfig  — populate `c.Scrape.HTTP` from
-//     scrape-tuned Go defaults. The scrape HTTP knobs are no longer
-//     in yaml (they live in `svc/scrape.DefaultConfig().HTTP`); this
-//     adapter populates a parallel default. To customise, callers
+//     `httpx.DefaultScrapeConfig()`. The scrape HTTP knobs are no longer
+//     in YAML. To customise, callers
 //     mutate `cfg.Scrape.HTTP` post-load, then apply it through
 //     `(*facade.Client).ConfigureScrape`.
 //   - GetHTTPConfig      — returns c.HTTP (assembled at Load() time).
@@ -15,8 +14,6 @@
 //   - GetScrapeConfig    — `&c.Scrape` (scrape sub-tree as-is).
 //   - ValidateInterval   — markets.allowed_intervals membership.
 //   - ValidateAdjustmentPolicy — markets.default_adjustment_policy enum.
-//
-// Capacity: 4 accessor functions + 2 validators + 2 assemblers.
 package config
 
 import (
@@ -57,42 +54,13 @@ func (c *Config) assembleHTTPConfig() *httpx.Config {
 	}
 }
 
-// scrapeHTTPDefaults mirrors svc/scrape.DefaultConfig().HTTP. Kept
-// here (duplicated) because the `config` package is a leaf and cannot
-// import `svc/scrape`. If you change these values, update both files.
-// IMPORTANT: this is the single place where MaxBodyBytes=8 MiB is set
-// for scrape traffic — preserves the hardcoded default that used to
-// live in `svc/scrape/client.go:NewClient`.
-func scrapeHTTPDefaults() *httpx.Config {
-	return &httpx.Config{
-		BaseURL:              "https://finance.yahoo.com",
-		Timeout:              10 * time.Second,
-		IdleTimeout:          90 * time.Second,
-		MaxConnsPerHost:      10,
-		UserAgent:            "Mozilla/5.0 (compatible; yfin/1.x)",
-		MaxAttempts:          4,
-		BackoffBaseMs:        300,
-		BackoffJitterMs:      150,
-		MaxDelayMs:           4000,
-		QPS:                  0.7,
-		Burst:                1,
-		CircuitWindow:        60 * time.Second,
-		FailureThreshold:     0,
-		FailureRateThreshold: 0.30,
-		MinimumRequests:      10,
-		ResetTimeout:         30 * time.Second,
-		MaxBodyBytes:         8 << 20, // 8 MiB — scrape body cap.
-	}
-}
-
 // assembleScrapeHTTPConfig populates `c.Scrape.HTTP` from the
-// scrape-tuned Go defaults. Scrape HTTP knobs (timeout / qps / retry /
-// user_agent) are no longer in yaml — defaults come from
-// `svc/scrape.DefaultConfig().HTTP` (mirrored here as scrapeHTTPDefaults).
+// shared scrape-tuned HTTP defaults. Scrape HTTP knobs (timeout / qps /
+// retry / user_agent) are no longer in YAML.
 // To customise, callers mutate `cfg.Scrape.HTTP` post-load, then apply
 // the resulting ScrapeConfig through `(*facade.Client).ConfigureScrape`.
 func (c *Config) assembleScrapeHTTPConfig() *httpx.Config {
-	return scrapeHTTPDefaults()
+	return httpx.DefaultScrapeConfig()
 }
 
 // GetHTTPConfig returns the post-load assembled HTTP config. Returns

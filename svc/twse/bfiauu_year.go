@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+
 	"github.com/bizshuk/yfin/model"
 )
-
 
 // FetchBFIAUUYEAR retrieves the annual block-trade report for `date` (YYYY0101).
 func FetchBFIAUUYEAR(ctx context.Context, client *Client, date string, opts url.Values) (any, error) {

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
 	"github.com/bizshuk/yfin/model"
 )
-
 
 // FetchBFIAMU retrieves per-day index close & change values for `date`.
 // `date` is required (YYYYMMDD).

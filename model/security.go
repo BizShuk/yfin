@@ -1,7 +1,6 @@
 // security.go — `Security` struct + Yahoo exchange-to-MIC inference
 // (`ExchangeToMIC` map, `InferMIC`), exchange-specific symbol cleanup
-// (`cleanSymbol`), and `ValidateSecurity` invariant. Originally in
-// svc/norm/security.go.
+// (`cleanSymbol`), and `ValidateSecurity` invariant.
 
 package model
 

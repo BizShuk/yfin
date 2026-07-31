@@ -1,17 +1,10 @@
 # Soak Testing Guide
 
-`cmd/soak` 為獨立的 soak binary（非 `yfin` CLI 的一部分），用於在 production-like 條件下驗證穩定性、吞吐量與容錯能力。
+`cmd/soak` 是獨立的 live-test binary，不是 `yfin` subcommand。它在 shared `facade.Client` 上長時間執行 API/scrape requests，觀察 retry、rate limit、circuit breaker、robots policy、memory 與 goroutine 狀態。
 
-## 重點摘要
-
-- 與 `yfin` CLI 完全解耦：執行方式為 `go run ./cmd/soak ...` 或先 `go build -o soak ./cmd/soak` 後 `./soak ...`
-- 覆蓋 API → fallback → normalization 的端到端流程
-- 內建失敗注入、robots.txt 守查與正確性探測
-- Session 輪替功能已移除，HTTP client 改為共用 `http.Client` 搭配 rate-limit / retry / circuit breaker
+Soak 會連線外部 providers；deterministic `go test ./...` 不會自動執行 live soak。
 
 ## 快速開始
-
-### 基本冒煙測試（10 分鐘）
 
 ```bash
 go run ./cmd/soak \
@@ -20,238 +13,133 @@ go run ./cmd/soak \
   --endpoints key-statistics,financials,analysis,profile,news \
   --fallback auto \
   --duration 10m \
-  --concurrency 8 \
-  --qps 5
-```
-
-### 完整 production soak（2 小時）
-
-```bash
-go run ./cmd/soak \
-  --config config/effective.yaml \
-  --universe-file tests/testdata/universe/soak.txt \
-  --endpoints key-statistics,financials,analysis,profile,news \
-  --fallback auto \
-  --duration 2h \
-  --concurrency 12 \
-  --qps 5
-```
-
-### 長時段測試
-
-```bash
-go run ./cmd/soak \
-  --config config/effective.yaml \
-  --universe-file tests/testdata/universe/soak.txt \
-  --endpoints news \
-  --fallback auto \
-  --duration 30m \
-  --concurrency 8 \
-  --qps 3
-```
-
-## 設定旗標
-
-旗標以 `cmd/soak/main.go` 的 `rootCmd.PersistentFlags()` 與 `rootCmd.Flags()` 為準。
-
-### Runtime 旗標
-
-| 旗標 | 預設值 | 說明 |
-| --- | --- | --- |
-| `--config` | `""` | YAML 設定檔路徑；空白時載入 `config/effective.yaml` |
-| `--log-level` | `info` | info \| debug \| warn \| error |
-| `--run-id` | `""` | 識別本次 run 的 ID；留空自動產生 |
-| `--universe-file` | *必填* | 包含 ticker 清單的檔案路徑 |
-| `--endpoints` | `key-statistics,financials,analysis,profile,news` | 逗號分隔的 endpoint 清單 |
-| `--fallback` | `auto` | `auto` \| `api-only` \| `scrape-only` |
-| `--duration` | `2h` | 測試持續時間 |
-| `--concurrency` | `12` | 並行 worker 數 |
-| `--qps` | `5.0` | 目標每秒查詢數 |
-| `--probe-interval` | `1h` | 正確性探測週期間隔 |
-| `--failure-rate` | `0.1` | 模擬失敗率（0.0–1.0） |
-| `--memory-check` | `true` | 啟用記憶體與 goroutine 洩漏偵測 |
-| `--retry-max` | `0` | HTTP 重試次數 |
-| `--timeout` | `0` | HTTP timeout（例：`6s`） |
-
-> 注意：CLI 的 `--qps` / `--retry-max` / `--timeout` 與 nested config 結構尚未在 orchestrator override hook 串接，未來會以 `cfg.HTTP()` / `cfg.RateLimit.PerHostQPS` / `cfg.Retry.Attempts` 等 setter 套用。
-
-## Ticker Universe
-
-`ticker` 名單位於 `tests/testdata/universe/soak.txt`，目前共 82 個 ticker，橫跨多種市場與產業：
-
-- `US Large Cap`：AAPL, MSFT, GOOGL, AMZN, META, NVDA, TSLA …
-- `US Mid/Small Cap`：ROKU, PLTR, RBLX, COIN, SNOW …
-- `International`：ASML, SAP, 005930.KS, 0700.HK …
-- `ADRs`：NIO, LI, XPEV, PDD, JD …
-- `Specialized`：REITs、Crypto-related、Healthcare、Financial Services
-
-## 支援的 Endpoint
-
-### API + scrape fallback
-- `quote` 即時報價
-- `daily-bars` 日線歷史價
-- `fundamentals` 季度基本面（需付費）
-
-### Scrape only
-- `key-statistics`、`financials`、`balance-sheet`、`cash-flow`
-- `analysis`、`analyst-insights`、`profile`、`news`
-
-## Fallback 策略
-
-### `auto`（預設）
-- 先走 API，遇 `401` / `429` / `5xx` 退回 scrape
-- scrape-only endpoint 一律走 scrape
-
-### `api-only`
-- 僅 API；不可用即 fail，適合驗 API 可靠度
-
-### `scrape-only`
-- 僅 scrape；適合獨立驗證 scraping 與 robots.txt 守查
-
-## 觀測與診斷
-
-### 即時指標
-- 請求成功 / 失敗率
-- 各 endpoint 延遲直方圖
-- fallback 決策計數
-- rate-limit 與 robots.txt 阻擋計數
-- 記憶體用量與 goroutine 數
-
-### 正確性探測
-週期性比對 API vs scrape：
-- `Market Cap`：容差 5%
-- `P/E Ratio`：容差 10%
-- `Employee Count`：容差 15%
-- `Sector`、`Currency` 一致性
-
-### 記憶體洩漏偵測
-- heap / goroutine 持續監控
-- 成長率分析
-- GC 行為分析
-
-### 失敗注入
-內建 `FailureServer`（`cmd/soak/failure.go`）模擬：
-- 429 rate-limiting
-- 5xx server errors
-- 401 auth failures
-- connection timeouts
-- bad gateway
-
-## 輸出範例
-
-```
-=== SOAK TEST RESULTS ===
-Duration: 2h0m15s
-Total Requests: 7,234
-Successful Requests: 7,198
-Failed Requests: 36
-Success Rate: 99.50%
-Actual QPS: 1.00
-API Requests: 2,156
-Scrape Requests: 5,078
-Fallback Decisions: 234
-Rate Limit Hits: 12
-Robots Blocked: 0
-Correctness Probes Passed: 24
-Correctness Probes Failed: 1
-
-=== MEMORY ANALYSIS ===
-Initial Memory: 2,313 KB
-Peak Memory: 8,456 KB
-Final Memory: 3,127 KB
-Memory Growth: 814 KB
-Initial Goroutines: 8
-Peak Goroutines: 24
-Final Goroutines: 12
-Goroutine Growth: 4
-
-=== ENDPOINT BREAKDOWN ===
-key-statistics: 1,445 requests, 1,440 successes, 5 failures, avg latency: 1.2s
-financials:     1,434 requests, 1,429 successes, 5 failures, avg latency: 1.8s
-analysis:       1,445 requests, 1,441 successes, 4 failures, avg latency: 1.1s
-profile:        1,456 requests, 1,444 successes, 12 failures, avg latency: 2.1s
-news:           1,454 requests, 1,444 successes, 10 failures, avg latency: 1.5s
-```
-
-## 成功標準
-
-- `Zero Memory Leaks`：warmup 後 heap / GC 穩定在 ±10%
-- `Rate Limit Safety`：429/503 持續 < 1%
-- `Robots Adherence`：enforce 模式下無 disallowed fetch
-- `Correctness`：API vs scrape 容差內一致
-
-## 疑難排解
-
-### 失敗率偏高
-- 檢查網路
-- 確認 robots.txt 守查
-- 降低 QPS
-- 確認 Yahoo Finance 服務狀態
-
-### 記憶體洩漏
-- 檢視 goroutine lifecycle
-- 確認 channel 正常關閉
-- 確認 context cancel 傳遞
-- 觀察物件留存模式
-
-### 探測失敗
-- 時差造成（多數情況）
-- 匯率換算差異
-- 報告週期不對齊
-- 資料源更新延遲
-
-### Rate limiting
-- 調降 `--qps`
-- 調降 `--concurrency`，避免同時在 limiter 前堆積過多工作
-- 確認 backoff 行為出現在 log 中
-
-## CI/CD 整合
-
-### 每晚快速驗證（30 分鐘）
-
-```bash
-go run ./cmd/soak \
-  --config config/ci.yaml \
-  --universe-file tests/testdata/universe/soak.txt \
-  --endpoints key-statistics,news \
-  --duration 30m \
   --concurrency 4 \
-  --qps 2
+  --qps 1 \
+  --failure-rate 0
 ```
 
-### 上線前完整驗證（1 小時）
+先以低 QPS、短 duration 和 `--failure-rate 0` 建立 upstream baseline，再逐步增加 load 或 failure injection。
 
-```bash
-go run ./cmd/soak \
-  --config config/staging.yaml \
-  --universe-file tests/testdata/universe/soak.txt \
-  --endpoints key-statistics,financials,analysis,profile,news \
-  --duration 1h \
-  --concurrency 8 \
-  --qps 3 \
-  --memory-check
+## Runtime Flags
+
+| Flag | Default | Contract |
+| --- | --- | --- |
+| `--config` | `""` | 空白時載入 `config/effective.yaml` |
+| `--log-level` | `info` | `debug` / `info` / `warn` / `error` |
+| `--run-id` | generated | 整個 run 共用同一 ID |
+| `--universe-file` | required | newline-delimited ticker list |
+| `--endpoints` | scrape surface list | comma-separated endpoints |
+| `--fallback` | `auto` | `auto` / `api-only` / `scrape-only` |
+| `--duration` | `2h` | 必須大於 0 |
+| `--concurrency` | `12` | worker count，必須大於 0 |
+| `--qps` | `5` | outer worker limiter 與 Yahoo host profiles 的 QPS |
+| `--probe-interval` | `1h` | correctness probe interval |
+| `--failure-rate` | `0.1` | shared HTTP transport 的 injected 503 比例，範圍 `0..1` |
+| `--memory-check` | `true` | 啟用 memory/goroutine samples |
+| `--retry-max` | loaded config | 非零時覆寫 shared HTTP max attempts |
+| `--timeout` | loaded config | 非零時覆寫 shared HTTP timeout |
+
+CLI overrides 會套在已載入的 typed config clone，不會修改 loader 回傳的 config snapshot。
+
+## Endpoint and Strategy Matrix
+
+API endpoints：
+
+- `quote`
+- `daily-bars`
+- `fundamentals`
+
+Scrape endpoints：
+
+- `key-statistics`
+- `financials`
+- `balance-sheet`
+- `cash-flow`
+- `analysis`
+- `analyst-insights`
+- `profile`
+- `news`
+
+Strategy contract：
+
+| Strategy | Behavior |
+| --- | --- |
+| `api-only` | 只接受 API endpoints；API error 直接保留 |
+| `scrape-only` | 只接受 scrape endpoints |
+| `auto` | API endpoints 先走 API；scrape-only endpoints 直接走 scrape |
+
+`auto` 並不代表任意 endpoint 都可互換。唯一有明確 equivalent mapping 的 fallback 是：
+
+```text
+fundamentals API --retryable failure--> financials scrape
 ```
 
-## 最佳實踐
+`quote` 與 `daily-bars` 沒有 scrape equivalent；遇到錯誤時不會改名 dispatch 到不存在的 scrape surface。
 
-1. `Start Small`：短時、低 QPS 起步
-2. `Monitor Resources`：留意 memory / goroutine 成長
-3. `Validate Correctness`：定期審視探測結果
-4. `Respect Rate Limits`：QPS 維持 < 10
-5. `Use Short Runs`：先用短 duration 驗證設定
-6. `Check Logs`：監看 robots.txt 違規
-7. `Gradual Scaling`：循序漸進加壓
+## Failure Injection
 
-## 架構
+`--failure-rate` 裝飾 shared `http.RoundTripper`。被抽中的 request 會在真正的 request path 回傳 synthetic `503 Service Unavailable`，因此既有 retry/backoff/circuit-breaker logic 會實際處理它。
 
-`cmd/soak` 由下列元件組成（位於 `cmd/soak/`）：
+Failure injection：
 
-- `Orchestrator` (`orchestrator.go`)：整體協調
-- `Worker` (`worker.go`)：隨機 endpoint 派發
-- `Metrics` (`metrics.go`)：Prometheus 相容指標
-- `CorrectnessProbes` (`probes.go`)：API vs scrape 對齊
-- `MemoryMonitor` (`memory.go`)：洩漏偵測
-- `FailureServer` (`failure.go`)：失敗注入
-- 共用 `rate.Limiter`：QPS 控制與 backoff
+- 不開固定 port。
+- 不啟動另一個 disconnected HTTP server。
+- 不回傳假的成功 payload。
+- `0` 完全 delegate 到 upstream transport。
+- `1` 對每次 transport attempt 注入 retryable 503。
 
-輸入 config 來自 `config/` 套件；provider request 透過 `facade.Client`，測試結果直接輸出到 stdout 並更新 Prometheus collectors。
+## Correctness Probes
+
+Probe round 對抽樣 ticker 讀取真實資料：
+
+- Yahoo API `info` map。
+- Scraped comprehensive key statistics。
+- Scraped comprehensive financials（currency source）。
+- Scraped comprehensive profile。
+
+比較項目：
+
+| Probe | Tolerance |
+| --- | --- |
+| Market cap | 5% |
+| Trailing P/E；缺值時改比 forward P/E | 10% |
+| Full-time employees | 15% |
+| Sector | normalized exact match |
+| Currency | case-insensitive exact match |
+
+缺值會記錄為 probe failure；probe 不會填入固定 market cap、P/E、employee、sector 或 currency。
+
+## Memory and Output
+
+啟用 `--memory-check` 時，runner 取樣：
+
+- allocated/system memory
+- heap objects
+- GC cycles
+- goroutine count
+
+Run 結束後 stdout 顯示 aggregate request counts、API/scrape attempts、fallback decisions、probe results、memory state 與 per-endpoint latency。Structured runtime logs 由 stdlib `slog` 寫到 stderr。
+
+Soak runner 不建立獨立 Prometheus exporter；HTTP client 的通用 metrics ownership 請見 [Observability Guide](../operations/observability.md)。
+
+## Acceptance Boundary
+
+Soak result 會受 Yahoo/TWSE availability、network、robots policy 與 ticker data availability 影響。不要把一次 local pass 當成永久 SLA。
+
+建議分開保存：
+
+1. deterministic build/test evidence；
+2. soak invocation 與 exact config；
+3. run ID、開始/結束時間；
+4. upstream failures 與 injected failures；
+5. operator-defined acceptance thresholds。
+
+## Troubleshooting
+
+- `429` / repeated 5xx：降低 `--qps` 與 `--concurrency`，檢查 retry logs。
+- robots denied：確認 `scrape.robots_policy`；production 不應用 `ignore` 繞過。
+- invalid endpoint strategy：依 matrix 修正 `--fallback` 或 endpoint list。
+- probe mismatch：先確認兩個 source 的 reporting date 與缺值，不要加入 fallback constants。
+- memory growth：延長 observation window，區分 warmup、GC cycle 與持續 growth。
+
+Package ownership 與 standalone binary placement 由 [CLAUDE.md](../../CLAUDE.md) 單一擁有。

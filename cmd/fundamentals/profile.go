@@ -68,7 +68,7 @@ func runComprehensiveProfile(cobraCmd *cobra.Command, cfg *comprehensiveProfileC
 	disableTracing, _ := cobraCmd.Flags().GetBool("observability-disable-tracing")
 	disableMetrics, _ := cobraCmd.Flags().GetBool("observability-disable-metrics")
 	obsvConfig := &obsv.Config{
-		ServiceName:       "yfinance-go",
+		ServiceName:       "yfin",
 		ServiceVersion:    cmd.Version,
 		Environment:       ycfg.App.Env,
 		CollectorEndpoint: ycfg.Observability.Tracing.OTLP.Endpoint,

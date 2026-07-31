@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
 	"github.com/bizshuk/yfin/model"
 )
-
-
 
 // FetchBFI82U retrieves the daily aggregated buy/sell amounts of the
 // three main institutional investors (自營商, 投信, 外資及陸資) for `date`.

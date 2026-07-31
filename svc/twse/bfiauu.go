@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
 	"github.com/bizshuk/yfin/model"
 )
-
-
 
 // FetchBlockBFIAUU retrieves block-trade (鉅額交易) data for `date`.
 // If `stockNo` is set in `opts`, the response is filtered to that symbol.

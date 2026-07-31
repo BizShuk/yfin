@@ -1,4 +1,0 @@
-
-
-MSFTXNASü›È"‚œ(¬2XNMS:»¾ÒÒ þ¸DB»¾ÒÒ þ¸DJ8
-crosslang_testyfinance-gotest"ampy.ticks.v1:1.0.0

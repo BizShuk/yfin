@@ -1,18 +1,18 @@
-// Worker executes soak fetch requests and publishes results.
-
-// worker.go — soak worker loop: rate-limited random `(ticker, endpoint)` generation, dispatches via `api-only`/`scrape-only`/`auto` fallback policies, records success/failure/rate-limit/robots counters and per-endpoint latency. Capacity: 1 `Worker` + 1 `WorkRequest` + ~10 execution methods (`Run`/`generateWorkRequest`/`executeRequest`/`executeAPIRequest`/`executeScrapeRequest`/`executeAutoFallbackRequest`/`executeScrapeProfile`/`isAPIEndpoint`/`shouldFallbackToScrape`/`isRateLimitError`/`isRobotsError`/`contains`/`indexOfSubstring`).
+// worker.go — rate-limited request dispatch for api-only, scrape-only and the
+// bounded auto-fallback policy.
 package main
 
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math/rand"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/bizshuk/yfin/facade"
-	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 )
 
@@ -21,9 +21,10 @@ type Worker struct {
 	id          int
 	client      *facade.Client
 	rateLimiter *rate.Limiter
-	logger      *zap.Logger
+	logger      *slog.Logger
 	stats       *Stats
 	rng         *rand.Rand
+	runID       string
 }
 
 // WorkRequest represents a work item for a worker
@@ -34,7 +35,7 @@ type WorkRequest struct {
 }
 
 // NewWorker creates a new soak test worker
-func NewWorker(id int, client *facade.Client, rateLimiter *rate.Limiter, logger *zap.Logger, stats *Stats) *Worker {
+func NewWorker(id int, client *facade.Client, rateLimiter *rate.Limiter, logger *slog.Logger, stats *Stats, runID string) *Worker {
 	return &Worker{
 		id:          id,
 		client:      client,
@@ -42,6 +43,7 @@ func NewWorker(id int, client *facade.Client, rateLimiter *rate.Limiter, logger 
 		logger:      logger,
 		stats:       stats,
 		rng:         rand.New(rand.NewSource(time.Now().UnixNano() + int64(id))),
+		runID:       runID,
 	}
 }
 
@@ -49,8 +51,8 @@ func NewWorker(id int, client *facade.Client, rateLimiter *rate.Limiter, logger 
 func (w *Worker) Run(ctx context.Context, wg *sync.WaitGroup, stopCh <-chan struct{}, tickers []string, endpoints []string, config *SoakConfig) {
 	defer wg.Done()
 
-	w.logger.Debug("Worker started", zap.Int("worker_id", w.id))
-	defer w.logger.Debug("Worker stopped", zap.Int("worker_id", w.id))
+	w.logger.Debug("Worker started", "worker_id", w.id)
+	defer w.logger.Debug("Worker stopped", "worker_id", w.id)
 
 	for {
 		select {
@@ -64,7 +66,7 @@ func (w *Worker) Run(ctx context.Context, wg *sync.WaitGroup, stopCh <-chan stru
 				if ctx.Err() != nil {
 					return
 				}
-				w.logger.Warn("Rate limiter error", zap.Error(err))
+				w.logger.Warn("Rate limiter error", "error", err)
 				continue
 			}
 
@@ -81,12 +83,10 @@ func (w *Worker) Run(ctx context.Context, wg *sync.WaitGroup, stopCh <-chan stru
 func (w *Worker) generateWorkRequest(tickers []string, endpoints []string) WorkRequest {
 	ticker := tickers[w.rng.Intn(len(tickers))]
 	endpoint := endpoints[w.rng.Intn(len(endpoints))]
-	runID := fmt.Sprintf("soak-%d-%d", time.Now().Unix(), w.rng.Intn(10000))
-
 	return WorkRequest{
 		Ticker:   ticker,
 		Endpoint: endpoint,
-		RunID:    runID,
+		RunID:    w.runID,
 	}
 }
 
@@ -137,11 +137,11 @@ func (w *Worker) executeRequest(ctx context.Context, req WorkRequest, config *So
 		endpointStats.mu.Unlock()
 
 		w.logger.Debug("Request failed",
-			zap.Int("worker_id", w.id),
-			zap.String("ticker", req.Ticker),
-			zap.String("endpoint", req.Endpoint),
-			zap.Duration("duration", duration),
-			zap.Error(err),
+			"worker_id", w.id,
+			"ticker", req.Ticker,
+			"endpoint", req.Endpoint,
+			"duration", duration,
+			"error", err,
 		)
 
 		// Check for specific error types
@@ -158,11 +158,11 @@ func (w *Worker) executeRequest(ctx context.Context, req WorkRequest, config *So
 		endpointStats.mu.Unlock()
 
 		w.logger.Debug("Request succeeded",
-			zap.Int("worker_id", w.id),
-			zap.String("ticker", req.Ticker),
-			zap.String("endpoint", req.Endpoint),
-			zap.Duration("duration", duration),
-			zap.Bool("fallback_used", fallbackUsed),
+			"worker_id", w.id,
+			"ticker", req.Ticker,
+			"endpoint", req.Endpoint,
+			"duration", duration,
+			"fallback_used", fallbackUsed,
 		)
 	}
 }
@@ -199,8 +199,8 @@ func (w *Worker) executeScrapeRequest(ctx context.Context, req WorkRequest) erro
 		_, err := w.client.ScrapeAnalysis(ctx, req.Ticker, req.RunID)
 		return err
 	case "profile":
-		// Use comprehensive profile for more thorough testing
-		return w.executeScrapeProfile(ctx, req)
+		_, err := w.client.ScrapeProfileData(ctx, req.Ticker, req.RunID)
+		return err
 	case "news":
 		_, err := w.client.ScrapeNews(ctx, req.Ticker, req.RunID)
 		return err
@@ -223,25 +223,27 @@ func (w *Worker) executeAutoFallbackRequest(ctx context.Context, req WorkRequest
 	// First try API if available
 	if w.isAPIEndpoint(req.Endpoint) {
 		err := w.executeAPIRequest(ctx, req)
+		atomic.AddInt64(&w.stats.APIRequests, 1)
 		if err == nil {
-			atomic.AddInt64(&w.stats.APIRequests, 1)
 			return nil, false
 		}
 
-		// If API fails, check if we should fallback to scraping
-		if w.shouldFallbackToScrape(err) {
+		fallbackEndpoint, supported := scrapeFallbackEndpoint(req.Endpoint)
+		if supported && shouldFallbackToScrape(err) {
 			w.logger.Debug("Falling back to scrape",
-				zap.String("ticker", req.Ticker),
-				zap.String("endpoint", req.Endpoint),
-				zap.Error(err),
+				"ticker", req.Ticker,
+				"api_endpoint", req.Endpoint,
+				"scrape_endpoint", fallbackEndpoint,
+				"error", err,
 			)
 
-			scrapeErr := w.executeScrapeRequest(ctx, req)
+			fallbackRequest := req
+			fallbackRequest.Endpoint = fallbackEndpoint
+			scrapeErr := w.executeScrapeRequest(ctx, fallbackRequest)
 			atomic.AddInt64(&w.stats.ScrapeRequests, 1)
 			return scrapeErr, true
 		}
 
-		atomic.AddInt64(&w.stats.APIRequests, 1)
 		return err, false
 	}
 
@@ -251,37 +253,27 @@ func (w *Worker) executeAutoFallbackRequest(ctx context.Context, req WorkRequest
 	return err, false
 }
 
-// executeScrapeProfile executes profile scraping with comprehensive data
-func (w *Worker) executeScrapeProfile(ctx context.Context, req WorkRequest) error {
-	// This would integrate with the comprehensive profile scraping
-	// For now, we'll use a placeholder that simulates the work
-	time.Sleep(time.Duration(w.rng.Intn(500)) * time.Millisecond)
-
-	// Simulate occasional failures
-	if w.rng.Float64() < 0.05 { // 5% failure rate
-		return fmt.Errorf("simulated profile scrape failure")
-	}
-
-	return nil
-}
-
 // isAPIEndpoint checks if an endpoint has API support
 func (w *Worker) isAPIEndpoint(endpoint string) bool {
-	apiEndpoints := map[string]bool{
-		"quote":        true,
-		"daily-bars":   true,
-		"fundamentals": true,
-	}
-	return apiEndpoints[endpoint]
+	_, supported := apiSoakEndpoints[endpoint]
+	return supported
 }
 
-// shouldFallbackToScrape determines if we should fallback to scraping
-func (w *Worker) shouldFallbackToScrape(err error) bool {
+func scrapeFallbackEndpoint(apiEndpoint string) (string, bool) {
+	if apiEndpoint == "fundamentals" {
+		return "financials", true
+	}
+	return "", false
+}
+
+// shouldFallbackToScrape determines if an equivalent scrape surface should
+// be attempted after a retryable API failure.
+func shouldFallbackToScrape(err error) bool {
 	if err == nil {
 		return false
 	}
 
-	errStr := err.Error()
+	errStr := strings.ToLower(err.Error())
 
 	// Fallback on authentication errors (paid features)
 	if contains(errStr, "401") || contains(errStr, "authentication") || contains(errStr, "subscription") {
@@ -321,18 +313,5 @@ func isRobotsError(err error) bool {
 
 // contains checks if a string contains a substring (case-insensitive)
 func contains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr ||
-		len(s) > len(substr) &&
-			(s[:len(substr)] == substr || s[len(s)-len(substr):] == substr ||
-				indexOfSubstring(s, substr) >= 0))
-}
-
-// indexOfSubstring finds the index of a substring in a string
-func indexOfSubstring(s, substr string) int {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return i
-		}
-	}
-	return -1
+	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
 }

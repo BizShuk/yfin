@@ -775,7 +775,7 @@
   "schemaVersion": 38,
   "style": "dark",
   "tags": [
-    "yfinance-go",
+    "yfin",
     "ingest",
     "health"
   ],
@@ -816,7 +816,7 @@
   },
   "timepicker": {},
   "timezone": "",
-  "title": "YFinance-Go Ingest Health",
+  "title": "yfin Ingest Health",
   "uid": "yfin-ingest-health",
   "version": 1,
   "weekStart": ""

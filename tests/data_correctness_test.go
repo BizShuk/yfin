@@ -1,6 +1,6 @@
 //go:build integration
 
-// tests — validates real Yahoo Finance data correctness via live API calls. Capacity: 7 scenarios (quote prices, historical OHLC bars, analyst scrape, MIC inference, scale-2 precision, no-fake-data, currency consistency) over AAPL/MSFT/JPM.
+// tests — validates real Yahoo Finance data correctness via live API calls.
 package tests
 
 import (
@@ -32,7 +32,7 @@ func TestDataCorrectness_RealPrices(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			// Fetch quote
-			quote, err := client.FetchQuote(ctx, tc.symbol, "test-correctness")
+			quote, err := client.FetchQuoteNorm(ctx, tc.symbol, "test-correctness")
 			require.NoError(t, err, "Failed to fetch quote for %s", tc.symbol)
 			require.NotNil(t, quote, "Quote should not be nil")
 
@@ -90,7 +90,7 @@ func TestDataCorrectness_HistoricalData(t *testing.T) {
 			start := end.AddDate(0, 0, -tc.days)
 
 			// Fetch daily bars
-			bars, err := client.FetchDailyBars(ctx, tc.symbol, start, end, true, "test-historical")
+			bars, err := client.FetchDailyBarsNorm(ctx, tc.symbol, start, end, true, "test-historical")
 			require.NoError(t, err, "Failed to fetch bars for %s", tc.symbol)
 			require.NotNil(t, bars, "Bars should not be nil")
 			require.Greater(t, len(bars.Bars), 0, "Should have at least one bar")
@@ -163,7 +163,7 @@ func TestDataCorrectness_AnalystData(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			var snapshot interface{}
+			var snapshot *facade.FundamentalsSnapshot
 			var err error
 
 			switch tc.endpoint {
@@ -180,25 +180,9 @@ func TestDataCorrectness_AnalystData(t *testing.T) {
 			require.NoError(t, err, "Failed to scrape %s for %s", tc.endpoint, tc.symbol)
 			require.NotNil(t, snapshot, "Snapshot should not be nil")
 
-			// Type assert to fundamentals snapshot
-			fundamentals, ok := snapshot.(*struct {
-				Security interface{}
-				Lines    []interface{}
-				Source   string
-				AsOf     time.Time
-				Meta     interface{}
-			})
-			if !ok {
-				// Try to get lines count using reflection or type assertion
-				t.Logf("✓ %s: Successfully scraped %s data", tc.symbol, tc.endpoint)
-				return
-			}
-
-			// Validate source
-			if fundamentals != nil {
-				assert.NotEmpty(t, fundamentals.Source, "Source should not be empty")
-				t.Logf("✓ %s: Source = %s", tc.symbol, fundamentals.Source)
-			}
+			assert.Equal(t, tc.symbol, snapshot.Symbol, "Symbol should match")
+			assert.NotEmpty(t, snapshot.Source, "Source should not be empty")
+			t.Logf("✓ %s: Source = %s", tc.symbol, snapshot.Source)
 		})
 	}
 }
@@ -224,28 +208,30 @@ func TestDataCorrectness_MICInference(t *testing.T) {
 			companyInfo, err := client.FetchCompanyInfo(ctx, tc.symbol, "test-mic")
 			require.NoError(t, err, "Failed to fetch company info for %s", tc.symbol)
 
+			mic := model.InferMIC(companyInfo.Exchange, companyInfo.FullExchangeName)
+
 			// Validate MIC is inferred (may be empty for unknown exchanges, but should work for known ones)
 			if tc.expected != "" {
-				assert.NotEmpty(t, companyInfo.Security.MIC, "MIC should be inferred for %s", tc.symbol)
-				assert.Equal(t, tc.expected, companyInfo.Security.MIC,
+				assert.NotEmpty(t, mic, "MIC should be inferred for %s", tc.symbol)
+				assert.Equal(t, tc.expected, mic,
 					"MIC should match expected for %s", tc.symbol)
 			} else {
 				// For unknown exchanges, MIC may be empty, which is acceptable
-				t.Logf("MIC for %s: %s (may be empty for unknown exchange)", tc.symbol, companyInfo.Security.MIC)
+				t.Logf("MIC for %s: %s (may be empty for unknown exchange)", tc.symbol, mic)
 			}
 
-			t.Logf("✓ %s: MIC = %s (Exchange: %s)", tc.symbol, companyInfo.Security.MIC, companyInfo.Exchange)
+			t.Logf("✓ %s: MIC = %s (Exchange: %s)", tc.symbol, mic, companyInfo.Exchange)
 
 			// Now test scraping with inferred MIC
 			keyStats, err := client.ScrapeKeyStatistics(ctx, tc.symbol, "test-mic-scrape")
 			if err == nil {
 				require.NotNil(t, keyStats, "Key statistics should not be nil")
-				assert.Equal(t, tc.symbol, keyStats.Security.Symbol, "Symbol should match")
+				assert.Equal(t, tc.symbol, keyStats.Symbol, "Symbol should match")
 				if tc.expected != "" {
-					assert.Equal(t, tc.expected, keyStats.Security.Mic,
+					assert.Equal(t, tc.expected, keyStats.MIC,
 						"MIC should match expected in scraped data for %s", tc.symbol)
 				}
-				t.Logf("✓ %s: Scraped data has correct MIC = %s", tc.symbol, keyStats.Security.Mic)
+				t.Logf("✓ %s: Scraped data has correct MIC = %s", tc.symbol, keyStats.MIC)
 			}
 		})
 	}
@@ -257,7 +243,7 @@ func TestDataCorrectness_PricePrecision(t *testing.T) {
 	ctx := context.Background()
 
 	// Fetch quote for a stock with known price range
-	quote, err := client.FetchQuote(ctx, "AAPL", "test-precision")
+	quote, err := client.FetchQuoteNorm(ctx, "AAPL", "test-precision")
 	require.NoError(t, err)
 	require.NotNil(t, quote.RegularMarketPrice, "Should have price")
 
@@ -289,7 +275,7 @@ func TestDataCorrectness_NoFakeData(t *testing.T) {
 	ctx := context.Background()
 
 	// Fetch data for a real symbol
-	quote, err := client.FetchQuote(ctx, "AAPL", "test-no-fake")
+	quote, err := client.FetchQuoteNorm(ctx, "AAPL", "test-no-fake")
 	require.NoError(t, err)
 
 	// Validate we're not getting placeholder values
@@ -321,13 +307,13 @@ func TestDataCorrectness_CurrencyConsistency(t *testing.T) {
 	symbol := "AAPL"
 
 	// Fetch quote
-	quote, err := client.FetchQuote(ctx, symbol, "test-currency")
+	quote, err := client.FetchQuoteNorm(ctx, symbol, "test-currency")
 	require.NoError(t, err)
 
 	// Fetch bars
 	end := time.Now().UTC()
 	start := end.AddDate(0, 0, -7)
-	bars, err := client.FetchDailyBars(ctx, symbol, start, end, true, "test-currency")
+	bars, err := client.FetchDailyBarsNorm(ctx, symbol, start, end, true, "test-currency")
 	require.NoError(t, err)
 
 	// Validate currency consistency

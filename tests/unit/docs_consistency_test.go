@@ -28,6 +28,12 @@ func TestCurrentDocsDoNotReferenceRemovedCLISurfaces(t *testing.T) {
 		"NewScrapeClientWithHTTP",
 		"yfin_scrape_requests_total",
 		"yfin_fallback_decisions_total",
+		"go.uber.org/zap",
+		"`json` / `parquet`",
+		"`--out parquet`",
+		"tests/integration/crosslang/python",
+		"tests/python",
+		"`mock` mode",
 	}
 
 	for _, path := range currentMarkdownFiles(t, root) {
@@ -82,6 +88,38 @@ func TestCurrentDocsLocalLinksResolve(t *testing.T) {
 	}
 }
 
+func TestCurrentMonitoringDoesNotReferenceRemovedPublisherOrSessionSurfaces(t *testing.T) {
+	root := repositoryRoot(t)
+	monitoringRoot := filepath.Join(root, "monitoring")
+	banned := []string{
+		"yfin_publish",
+		"yfin_session_eject",
+		"yfin_batch_bytes",
+		"publisher health",
+		"yfinance-go",
+		"yfinance_go",
+	}
+
+	err := filepath.WalkDir(monitoringRoot, func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		content, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return readErr
+		}
+		lowerContent := strings.ToLower(string(content))
+		for _, token := range banned {
+			require.NotContainsf(t, lowerContent, token, "%s references removed runtime surface %q", path, token)
+		}
+		return nil
+	})
+	require.NoError(t, err)
+}
+
 func repositoryRoot(t *testing.T) string {
 	t.Helper()
 	_, filename, _, ok := runtime.Caller(0)
@@ -94,6 +132,7 @@ func currentMarkdownFiles(t *testing.T, root string) []string {
 	paths := []string{
 		filepath.Join(root, "README.md"),
 		filepath.Join(root, "CLAUDE.md"),
+		filepath.Join(root, "SECURITY.md"),
 	}
 	for _, directory := range []string{"docs", "monitoring"} {
 		base := filepath.Join(root, directory)

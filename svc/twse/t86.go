@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+
 	"github.com/bizshuk/yfin/model"
 )
-
-
 
 // FetchT86 retrieves the three-institution daily buy/sell for `date`.
 // selectType=ALL is always added by this fetcher.

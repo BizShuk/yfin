@@ -58,9 +58,9 @@ Only daily bars are supported by design.)
 	c.Flags().StringVar(&cfg.Start, "start", "", "Start date (YYYY-MM-DD, UTC)")
 	c.Flags().StringVar(&cfg.End, "end", "", "End date (YYYY-MM-DD, UTC)")
 	c.Flags().StringVar(&cfg.Adjusted, "adjusted", "split_dividend", "Adjustment policy (raw|split_dividend)")
-	c.Flags().StringVar(&cfg.Market, "market", "", "Market MIC (optional hint for MIC inference)")
-	c.Flags().StringVar(&cfg.FXTarget, "fx-target", "", "Target currency for FX conversion preview (e.g., USD)")
-	c.Flags().StringVar(&cfg.Out, "out", "", "Output format (json|parquet)")
+	c.Flags().StringVar(&cfg.Market, "market", "", "Market MIC or Yahoo exchange code (optional metadata hint)")
+	c.Flags().StringVar(&cfg.FXTarget, "fx-target", "", "Validate output currency; cross-currency conversion is unavailable (e.g., USD)")
+	c.Flags().StringVar(&cfg.Out, "out", "", "Output format (json)")
 	c.Flags().StringVar(&cfg.OutDir, "out-dir", "", "Output directory")
 	return c
 }
@@ -101,7 +101,7 @@ func runPull(cobraCmd *cobra.Command, cfg *pullConfig) error {
 		os.Exit(cmd.ExitConfigError)
 	}
 
-	// For yfinance-go, we only support daily intervals
+	// yfin supports daily intervals only.
 	if validateErr := ycfg.ValidateInterval("1d"); validateErr != nil {
 		fmt.Fprintf(os.Stderr, "ERROR: %v\n", validateErr)
 		os.Exit(cmd.ExitConfigError)
@@ -114,7 +114,7 @@ func runPull(cobraCmd *cobra.Command, cfg *pullConfig) error {
 	disableMetrics, _ := cobraCmd.Flags().GetBool("observability-disable-metrics")
 
 	obsvConfig := &obsv.Config{
-		ServiceName:       "yfinance-go",
+		ServiceName:       "yfin",
 		ServiceVersion:    cmd.Version,
 		Environment:       ycfg.App.Env,
 		CollectorEndpoint: ycfg.Observability.Tracing.OTLP.Endpoint,
@@ -202,8 +202,14 @@ func validatePullFlags(cfg *pullConfig) error {
 	if cfg.Adjusted != "raw" && cfg.Adjusted != "split_dividend" {
 		return fmt.Errorf("--adjusted must be 'raw' or 'split_dividend'")
 	}
-	if cfg.Out != "" && cfg.Out != "json" && cfg.Out != "parquet" {
-		return fmt.Errorf("--out must be 'json' or 'parquet'")
+	if cfg.Out != "" && cfg.Out != "json" {
+		return fmt.Errorf("--out must be 'json'")
+	}
+	if cfg.Out != "" && cfg.OutDir == "" {
+		return fmt.Errorf("--out-dir is required when --out is set")
+	}
+	if cfg.Out == "" && cfg.OutDir != "" {
+		return fmt.Errorf("--out is required when --out-dir is set")
 	}
 	return nil
 }
@@ -263,6 +269,12 @@ func getSymbols(ticker, universeFile string) ([]string, error) {
 
 // processPulledSymbol renders and exports one already-fetched bar batch.
 func processPulledSymbol(ctx context.Context, bars *model.NormalizedBarBatch, symbol string, start, end time.Time, adjusted bool, runID string, cfg *pullConfig) error {
+	if cfg == nil {
+		return fmt.Errorf("pull configuration is required")
+	}
+	if err := applyMarketHint(bars, cfg.Market); err != nil {
+		return err
+	}
 	if len(bars.Bars) == 0 {
 		fmt.Printf("No bars found for %s in the specified period\n", symbol)
 		return nil
@@ -274,7 +286,7 @@ func processPulledSymbol(ctx context.Context, bars *model.NormalizedBarBatch, sy
 	// Handle FX preview if requested
 	if cfg.FXTarget != "" {
 		if err := handleFXPreview(ctx, bars, cfg.FXTarget); err != nil {
-			fmt.Printf("FX preview failed: %v\n", err)
+			return err
 		}
 	}
 
@@ -285,6 +297,38 @@ func processPulledSymbol(ctx context.Context, bars *model.NormalizedBarBatch, sy
 		}
 	}
 
+	return nil
+}
+
+// applyMarketHint normalizes a known Yahoo exchange code to its MIC, then
+// fills missing provider metadata without overwriting a known value. The hint
+// does not select a Yahoo endpoint or rewrite the input symbol.
+func applyMarketHint(bars *model.NormalizedBarBatch, hint string) error {
+	if bars == nil {
+		return fmt.Errorf("bar batch is required")
+	}
+	hint = strings.TrimSpace(hint)
+	if hint == "" {
+		return nil
+	}
+	if inferredMIC := model.InferMIC(hint, hint); inferredMIC != "" {
+		hint = inferredMIC
+	} else {
+		hint = strings.ToUpper(hint)
+	}
+	if len(hint) < 3 || len(hint) > 4 {
+		return fmt.Errorf("invalid market MIC %q", hint)
+	}
+	for _, character := range hint {
+		if (character < 'A' || character > 'Z') &&
+			(character < '0' || character > '9') {
+			return fmt.Errorf("invalid market MIC %q", hint)
+		}
+	}
+	if bars.Security.MIC != "" {
+		return nil
+	}
+	bars.Security.MIC = hint
 	return nil
 }
 
@@ -305,27 +349,37 @@ func printBarsPreview(bars *model.NormalizedBarBatch, runID string) {
 	fmt.Printf("first=%s  last=%s  last_close=%.4f %s\n",
 		firstBar.Start.Format("2006-01-02T15:04:05Z"),
 		lastBar.End.Format("2006-01-02T15:04:05Z"),
-		float64(lastBar.Close.Scaled)/float64(lastBar.Close.Scale),
+		lastBar.Close.Float64(),
 		lastBar.CurrencyCode)
 }
 
-// handleFXPreview handles FX conversion preview. After Step 6, handleFXPreview
-// no longer needs a *facade.Client — it only inspects the bar batch's
-// currency; the client was previously threaded through without being used.
+// handleFXPreview validates whether the requested target already matches the
+// fetched data. yfin does not currently own an FX rate provider, so it must
+// reject cross-currency requests instead of reporting a fabricated preview.
 func handleFXPreview(ctx context.Context, bars *model.NormalizedBarBatch, targetCurrency string) error {
-	// Check if FX conversion is needed
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if bars == nil || len(bars.Bars) == 0 {
+		return fmt.Errorf("FX preview requires at least one bar")
+	}
+
 	firstBar := bars.Bars[0]
-	if firstBar.CurrencyCode == targetCurrency {
+	sourceCurrency := strings.ToUpper(strings.TrimSpace(firstBar.CurrencyCode))
+	targetCurrency = strings.ToUpper(strings.TrimSpace(targetCurrency))
+	if targetCurrency == "" {
+		return fmt.Errorf("FX target currency is required")
+	}
+	if sourceCurrency == targetCurrency {
 		fmt.Printf("fx_preview target=%s (no conversion needed)\n", targetCurrency)
 		return nil
 	}
 
-	// For now, just show that FX preview is requested
-	// In a full implementation, this would use the FX manager
-	fmt.Printf("fx_preview target=%s as_of=%s rate_scale=8 rounding=half_up  (provider=yahoo-web, cache_hit=true)\n",
-		targetCurrency, time.Now().Format("2006-01-02T15:04:05Z"))
-
-	return nil
+	return fmt.Errorf(
+		"FX conversion is unavailable: source currency %s does not match target currency %s",
+		sourceCurrency,
+		targetCurrency,
+	)
 }
 
 // handleLocalExport handles local export for bars
@@ -358,8 +412,6 @@ func handleLocalExport(bars *model.NormalizedBarBatch, symbol string, start, end
 	switch outFormat {
 	case "json":
 		return writeJSONFile(filePath, bars)
-	case "parquet":
-		return fmt.Errorf("parquet export not implemented yet")
 	default:
 		return fmt.Errorf("unsupported output format: %s", outFormat)
 	}

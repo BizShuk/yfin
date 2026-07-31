@@ -1,6 +1,6 @@
 // main.go — yfin CLI composition root; wires every sub-package's `Register`
 // onto `cmd.RootCmd` then forwards `cmd.Execute()` to the process. Exit non-zero
-// on error. Capacity: 1 entrypoint + 1 os.Exit fallback + 6 Register calls.
+// on error.
 package main
 
 import (

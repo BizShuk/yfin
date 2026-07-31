@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
 	"github.com/bizshuk/yfin/model"
 )
-
-
 
 // FetchTWT43U retrieves the daily aggregated buy/sell volume of
 // investment trust companies (投信) for `date`.

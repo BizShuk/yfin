@@ -10,7 +10,7 @@
   "ingest_time": "2024-01-03T15:30:12Z",
   "meta": {
     "run_id": "golden_quote_v1",
-    "source": "yfinance-go",
+    "source": "yfin",
     "producer": "local",
     "schema_version": "ampy.ticks.v1:1.0.0"
   }

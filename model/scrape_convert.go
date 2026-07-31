@@ -1,16 +1,10 @@
 // scrape_convert.go — DTO → model direct converters for the scrape path.
 //
-// These converters replace the former scrape DTO → emit.Map*DTO (ampy-proto)
-// → fromProto* (model) pipeline with a single hop: scrape DTO → model.
-// The key naming, Source strings, currency handling and time-window semantics
-// are aligned with the prior emit.Map*DTO output so tests/data_correctness_test.go
-// behavior is preserved. All monetary values land as float64 on FundamentalsLine
-// (model's external surface), decoded from the scrape ScaledDecimal via
-// FromScaledDecimal.
+// All monetary values land as float64 on FundamentalsLine (model's external
+// surface), decoded from scrape ScaledDecimal values via FromScaledDecimal.
 //
-// MIC is passed in by the caller (facade.Client.Scrape* already infers it via
-// inferMICForSymbol); the prior emit layer's normalizeMIC is not reproduced
-// here because inference already yields the canonical MIC.
+// MIC is passed in by the caller because facade.Client.Scrape* already infers
+// the canonical value.
 package model
 
 import (
@@ -35,10 +29,7 @@ func lineFromScaled(s *Scaled, currency string, ps, pe time.Time, key string) Fu
 	}
 }
 
-// lineFromFloat builds a FundamentalsLine directly from a *float64. The prior
-// emit layer scaled these (×10^scale into ScaledDecimal) then decoded back to
-// float64 — net effect identical to using the raw float, so we skip the
-// scaling round-trip.
+// lineFromFloat builds a FundamentalsLine directly from a *float64.
 func lineFromFloat(f *float64, currency string, ps, pe time.Time, key string) FundamentalsLine {
 	if f == nil {
 		return FundamentalsLine{Key: key, PeriodStart: ps, PeriodEnd: pe}
@@ -204,7 +195,7 @@ func ScrapeFinancialsToSnapshot(dto *ComprehensiveFinancialsDTO, mic string) *Fu
 	return &FundamentalsSnapshot{
 		Symbol: dto.Symbol,
 		MIC:    mic,
-		Source: "yfinance/scrape/comprehensive-financials",
+		Source: "yfin/scrape/comprehensive-financials",
 		AsOf:   dto.AsOf,
 		Lines:  lines,
 	}
@@ -236,7 +227,7 @@ func ScrapeBalanceSheetToSnapshot(dto *ComprehensiveFinancialsDTO, mic string) *
 	return &FundamentalsSnapshot{
 		Symbol: dto.Symbol,
 		MIC:    mic,
-		Source: "yfinance/scrape/balance-sheet",
+		Source: "yfin/scrape/balance-sheet",
 		AsOf:   dto.AsOf,
 		Lines:  lines,
 	}
@@ -268,7 +259,7 @@ func ScrapeCashFlowToSnapshot(dto *ComprehensiveFinancialsDTO, mic string) *Fund
 	return &FundamentalsSnapshot{
 		Symbol: dto.Symbol,
 		MIC:    mic,
-		Source: "yfinance/scrape/cash-flow",
+		Source: "yfin/scrape/cash-flow",
 		AsOf:   dto.AsOf,
 		Lines:  lines,
 	}
@@ -320,7 +311,7 @@ func ScrapeKeyStatisticsToSnapshot(dto *ComprehensiveKeyStatisticsDTO, mic strin
 	return &FundamentalsSnapshot{
 		Symbol: dto.Symbol,
 		MIC:    mic,
-		Source: "yfinance/scrape/key-statistics",
+		Source: "yfin/scrape/key-statistics",
 		AsOf:   dto.AsOf,
 		Lines:  lines,
 	}
@@ -408,7 +399,7 @@ func ScrapeAnalysisToSnapshot(dto *ComprehensiveAnalysisDTO, mic string) *Fundam
 	return &FundamentalsSnapshot{
 		Symbol: dto.Symbol,
 		MIC:    mic,
-		Source: "yfinance/scrape/analysis",
+		Source: "yfin/scrape/analysis",
 		AsOf:   dto.AsOf,
 		Lines:  lines,
 	}
@@ -457,7 +448,7 @@ func ScrapeAnalystInsightsToSnapshot(dto *AnalystInsightsDTO, mic string) *Funda
 	return &FundamentalsSnapshot{
 		Symbol: dto.Symbol,
 		MIC:    mic,
-		Source: "yfinance/scrape/analyst-insights",
+		Source: "yfin/scrape/analyst-insights",
 		AsOf:   dto.AsOf,
 		Lines:  lines,
 	}

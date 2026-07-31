@@ -1,8 +1,5 @@
 // `api_usage.go` — programmatic tour of `facade.Client.Scrape*` covering
 // financials, key statistics, analysis, news, and the all-fundamentals batch.
-// Capacity: ~82 LOC; APIs include `ScrapeFinancials`, `ScrapeKeyStatistics`,
-// `ScrapeAnalysis`, `ScrapeNews`, `ScrapeAllFundamentals` returning plain
-// `facade.FundamentalsSnapshot` / `[]facade.NewsItem` values.
 package main
 
 import (
@@ -14,10 +11,8 @@ import (
 	"github.com/bizshuk/yfin/facade"
 )
 
-// api_usage demonstrates the plain-struct SDK surface. As of Step 6 of
-// plans/spicy-singing-swan.md, every Scrape*/Fetch* call returns a plain
-// facade.* struct instead of an ampy-proto message; this file prints
-// only the public fields (Symbol, Source, Lines[i].Key/Value/Period, etc.).
+// api_usage demonstrates the plain-struct SDK surface and prints only public
+// fields (Symbol, Source, Lines[i].Key/Value/Period, etc.).
 func main() {
 	client := facade.NewClient()
 	ctx := context.Background()

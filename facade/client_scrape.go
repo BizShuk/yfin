@@ -1,7 +1,6 @@
-// client_scrape.go — the HTML-scrape surface of facade.Client: the 8
-// `Scrape*` methods (Financials, BalanceSheet, CashFlow, KeyStatistics,
-// Analysis, AnalystInsights, News, AllFundamentals) that fetch Yahoo pages
-// via `svc/scrape` and convert the DTOs straight to model types.
+// client_scrape.go — scrape snapshot conversion plus analysis, analyst-insights,
+// and news surfaces. Complete financials/profile/statistics DTO methods live in
+// their corresponding client_scrape_*.go files.
 package facade
 
 import (
@@ -13,23 +12,16 @@ import (
 	"github.com/bizshuk/yfin/svc/scrape"
 )
 
-// ScrapeFinancials fetches financials data and returns the plain SDK
-// FundamentalsSnapshot. After the ampy-proto removal, the scrape DTO is
-// converted directly to a model FundamentalsSnapshot (no proto hop).
+// ScrapeFinancials fetches financials data and converts the scrape DTO
+// directly to a plain model FundamentalsSnapshot.
 func (c *Client) ScrapeFinancials(ctx context.Context, symbol string, runID string) (*FundamentalsSnapshot, error) {
-	url := fmt.Sprintf("https://finance.yahoo.com/quote/%s/financials", symbol)
-	body, _, err := c.scrapeClient.Fetch(ctx, url)
+	dto, err := c.ScrapeFinancialsData(ctx, symbol, runID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch financials: %w", err)
+		return nil, err
 	}
 
 	mic := c.inferMICForSymbol(ctx, symbol)
-
-	dto, err := scrape.ParseComprehensiveFinancials(body, symbol, mic)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse financials: %w", err)
-	}
-
+	dto.Market = mic
 	return model.ScrapeFinancialsToSnapshot(dto, mic), nil
 }
 
@@ -74,19 +66,12 @@ func (c *Client) ScrapeCashFlow(ctx context.Context, symbol string, runID string
 // ScrapeKeyStatistics fetches key statistics data and returns the plain SDK
 // FundamentalsSnapshot.
 func (c *Client) ScrapeKeyStatistics(ctx context.Context, symbol string, runID string) (*FundamentalsSnapshot, error) {
-	url := fmt.Sprintf("https://finance.yahoo.com/quote/%s/key-statistics", symbol)
-	body, _, err := c.scrapeClient.Fetch(ctx, url)
+	dto, err := c.ScrapeKeyStatisticsData(ctx, symbol, runID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch key statistics: %w", err)
+		return nil, err
 	}
 
 	mic := c.inferMICForSymbol(ctx, symbol)
-
-	dto, err := scrape.ParseComprehensiveKeyStatistics(body, symbol, mic)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse key statistics: %w", err)
-	}
-
 	return model.ScrapeKeyStatisticsToSnapshot(dto, mic), nil
 }
 

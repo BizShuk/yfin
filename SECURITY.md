@@ -6,6 +6,7 @@ We provide security updates for the following versions:
 
 | Version | Supported          |
 | ------- | ------------------ |
+| 1.2.x   | :white_check_mark: |
 | 1.1.x   | :white_check_mark: |
 | 1.0.x   | :white_check_mark: |
 | < 1.0   | :x:                |
@@ -53,7 +54,7 @@ If you have a GitHub account, you can create a private security advisory:
     go mod tidy
     ```
 
-2. **Use latest version** of yfinance-go
+2. **Use latest version** of yfin
 
 3. **Review configuration** for sensitive settings
 
@@ -95,15 +96,15 @@ If you have a GitHub account, you can create a private security advisory:
 
 ### Network Security
 
-- All network requests use HTTPS
-- Certificate validation is enabled by default
+- Production provider defaults use HTTPS
+- Standard Go certificate validation is used by the default transport
 - Do not disable TLS verification in production
 
 ### Data Validation
 
-- All data from external sources is validated
-- Protobuf schemas provide type safety
-- Input validation prevents injection attacks
+- Typed Go decoders validate provider envelopes and field shapes
+- Surface-specific validation rejects malformed required fields
+- Missing optional provider values remain explicit rather than being invented
 
 ## Security Updates
 
@@ -151,11 +152,4 @@ For security-related questions that are not vulnerabilities:
 
 ---
 
-**Thank you for helping keep yfinance-go secure!**- Open a GitHub Discussion
-
-- Check existing documentation
-- Review GitHub Issues (non-security)
-
----
-
-**Thank you for helping keep yfinance-go secure!**
+**Thank you for helping keep yfin secure!**

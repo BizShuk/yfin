@@ -1,6 +1,6 @@
 # 組態參考 (Configuration Reference)
 
-`yfin` 的所有可調行為 — HTTP 連線、速率限制、重試、熔斷、scrape 引擎、FX 換算、觀測、密鑰 — 都透過 YAML 設定檔統一管理。單一 YAML 檔即承載全部設定。
+`yfin` 以 typed YAML 管理 HTTP、rate limit、retry、circuit breaker、scrape policy、observability 與 secret references。CLI flags 只覆寫其明確擁有的 runtime knobs；process-local test hooks 不寫入 YAML。
 
 ## 1. 總覽 (Overview)
 
@@ -15,7 +15,7 @@ CLI Flags > Environment Variables > Config File > Built-in Defaults
 - CLI flag：root 級 persistent flags，例如 `--log-level` / `--qps` / `--timeout` / `--concurrency` / `--retry-max`，在任何子命令之前解析；只有明確傳入的 flag 才覆寫下一層。
 - 環境變數 (Environment Variables)：僅供 log / observability 設定使用（走 `gosdk` 的 `APP_*` 慣例）；YAML 內 `${VAR}` / `${VAR:-default}` 插值則於 `Loader.Load()` 階段展開。
 - 設定檔 (Config File)：單一 YAML（`config/effective.yaml` 或 `--config` 指定路徑），由內建 loader 載入。
-- 預設值 (Defaults)：範例與 runtime 預設集中於 `config/effective.yaml`；`Config` root type 定義於 `config/config.go`。
+- 預設值 (Defaults)：YAML defaults 見 `config/effective.yaml`；scrape HTTP policy 由 `utils/httpx.DefaultScrapeConfig()` 擁有；root type 定義於 `config/config.go`。
 
 ### 設定檔位置 (File Locations)
 
@@ -23,8 +23,11 @@ CLI Flags > Environment Variables > Config File > Built-in Defaults
 | --- | --- |
 | `config/effective.yaml` | 預設設定檔（相對於工作目錄） |
 | `--config <path>` | 自訂路徑（root flag） |
+| `~/.config/yfin/data/` | raw cache 與 batch artifacts |
+| `~/.config/yfin/logs/` | PM2 / redirected logs 的預留目錄 |
 
 > 未指定 `--config` 時，所有 loader caller 都由 `config.NewLoader` 統一解析為 `config/effective.yaml`。
+> `./run.sh` 可重複建立兩個 runtime directories，不會啟動程式或覆寫 config。
 
 ## 2. CLI 旗標 (CLI Flags)
 
@@ -56,8 +59,8 @@ CLI Flags > Environment Variables > Config File > Built-in Defaults
 | `retry` | HTTP retry 通用設定（`utils/httpx` 使用） |
 | `circuit_breaker` | 失敗熔斷閾值與 reset timeout |
 | `markets` | Allowed intervals（`["1d"]` daily-only）、MIC allowlist、adjustment policy |
-| `fx` | FX 換算（provider、target、cache、Yahoo web fallback） |
-| `scrape` | 網頁爬蟲 fallback（Yahoo web 端點、robots policy） |
+| `fx` | 保留的 FX policy schema；目前沒有 runtime rate provider |
+| `scrape` | 明確 Yahoo web surfaces 與 robots policy |
 | `observability` | log level、Prometheus，以及保留給 future exporter 的 OTLP schema |
 | `secrets` | URI 參照 metadata；`config` 命令輸出時會 redact，但 loader 不解析 URI |
 
@@ -134,7 +137,7 @@ scrape:
 
 ### Scrape HTTP 設定
 
-Scrape 的 `user_agent`、timeout、QPS、burst、retry 與 body cap 不屬於 YAML schema。Loader 會將 Go defaults 寫入 `ScrapeConfig.HTTP`；Library caller 可先修改該 `*httpx.Config`，再呼叫 `client.ConfigureScrape(&cfg.Scrape)`，或以 `facade.NewScrapeClientFromConfig` 建立獨立 handle。
+Scrape 的 `user_agent`、timeout、QPS、burst、retry 與 body cap 不屬於 YAML schema。Loader 從 `utils/httpx.DefaultScrapeConfig()` 取得單一 default policy 並寫入 `ScrapeConfig.HTTP`；Library caller 可先 clone/修改該 `*httpx.Config`，再呼叫 `client.ConfigureScrape(&cfg.Scrape)`。
 
 ### Endpoints 結構（`ScrapeEndpointConfig`）
 
@@ -152,12 +155,14 @@ Scrape 的 `user_agent`、timeout、QPS、burst、retry 與 body cap 不屬於 Y
 
 ### FX（`fx` 區段）
 
-`FXConfig` 控制報價 / bars 的目標幣別換算：
+`FXConfig` 是 compatibility policy schema：
 
 - `fx.provider`：`none` / `yahoo-web`。
 - `fx.target`：預設目標幣別（如 `EUR` / `JPY`）。
 - `fx.cache_ttl_ms`：換算結果快取 TTL。
-- `fx.yahoo_web.*`：Yahoo web FX 端點的 sub-rate-limit 與 retry。
+- `fx.yahoo_web.*`：保留的 Yahoo web policy 欄位。
+
+目前 production path 沒有 FX rate provider，也不會讀寫 FX conversion cache。`pull --fx-target` 只驗證 fetched currency 是否已等於 target；跨幣別時回傳 error，不輸出假 rate 或 `cache_hit`。
 
 ### Observability（`observability` 區段）
 
@@ -181,23 +186,14 @@ Fetch 可並行，但 stdout 與 local export 仍依輸入順序處理。`scrape
 
 ## 7. 驗證規則 (Validation Rules)
 
-`config.Loader.validate()` 於 `Load()` 啟動時強制檢查：
+Executable validation 由 `config.Loader.Load()` 與 `config/*_test.go` 單一擁有；文件不複製可由 test 判定的完整 assertion table。可用以下 command 驗證目前 schema：
 
-| 規則 | 條件 | 失敗訊息 |
-| --- | --- | --- |
-| `concurrency.global_workers >= 1` | 必成立 | `must be >= 1` |
-| `concurrency.per_host_workers >= 1` | 必成立 | `must be >= 1` |
-| `concurrency.global_workers >= per_host_workers` | 必成立 | `must be >= per_host_workers` |
-| `markets.allowed_intervals == ["1d"]` | 嚴格等於 | `must be exactly ["1d"] for yfin (daily-only scope)` |
-| `markets.default_adjustment_policy ∈ {raw, split_dividend}` | 列舉 | `must be 'raw' or 'split_dividend'` |
-| `retry.attempts >= 1` | 範圍 | `must be >= 1` |
-| `circuit_breaker.failure_threshold ∈ (0, 1]` | 範圍 | `must be between 0 and 1` |
-| `circuit_breaker.minimum_requests >= 1` | 範圍 | `must be >= 1` |
-| `observability.logs.level ∈ {debug, info, warn, error}` | 空白或列舉 | `must be one of` |
-| `observability.metrics.prometheus.addr`（啟用時） | 必填 | `is required when prometheus is enabled` |
-| `observability.tracing.otlp.endpoint`（啟用時） | 必填 | `is required when OTLP tracing is enabled` |
+```bash
+go test ./config
+go run . --config config/effective.yaml config --print-effective
+```
 
-任何違規都會在啟動時印錯並以 exit code `3`（`ExitConfigError`）退出。
+Config violation 在 CLI composition 層對應 exit code `3`（`ExitConfigError`）。
 
 ## 8. 延伸閱讀 (See Also)
 

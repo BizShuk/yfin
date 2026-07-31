@@ -1,9 +1,12 @@
-// — ScrapeError typed errors plus IsRetryableError classification. Capacity: 14 predefined error types (robots, timeout, retry-exhausted, rate-limit, circuit-open, HTTP-status, news-parse, schema-drift).
+// errors.go — ScrapeError typed errors plus retryable classification.
 package scrape
 
 import (
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
+	"strings"
 )
 
 // ScrapeError represents a scraping-specific error
@@ -61,7 +64,8 @@ func IsRetryableError(err error) bool {
 	}
 
 	// Check for specific retryable error types
-	if scrapeErr, ok := err.(*ScrapeError); ok {
+	var scrapeErr *ScrapeError
+	if errors.As(err, &scrapeErr) {
 		switch scrapeErr.Type {
 		case "timeout", "rate_limited":
 			return true
@@ -78,9 +82,12 @@ func IsRetryableError(err error) bool {
 
 // isNetworkError checks if an error is a network-related error that should be retried
 func isNetworkError(err error) bool {
-	// This would typically check for net.Error types, connection refused, etc.
-	// For now, we'll implement a basic check
-	errStr := err.Error()
+	var networkError net.Error
+	if errors.As(err, &networkError) {
+		return true
+	}
+
+	errText := strings.ToLower(err.Error())
 	networkErrors := []string{
 		"connection refused",
 		"connection reset",
@@ -89,30 +96,10 @@ func isNetworkError(err error) bool {
 		"network is unreachable",
 	}
 
-	for _, netErr := range networkErrors {
-		if contains(errStr, netErr) {
+	for _, networkText := range networkErrors {
+		if strings.Contains(errText, networkText) {
 			return true
 		}
 	}
 	return false
-}
-
-// contains checks if a string contains a substring (case-insensitive)
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) &&
-		(s == substr ||
-			(len(s) > len(substr) &&
-				(s[:len(substr)] == substr ||
-					s[len(s)-len(substr):] == substr ||
-					indexOf(s, substr) >= 0)))
-}
-
-// indexOf finds the index of a substring in a string
-func indexOf(s, substr string) int {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return i
-		}
-	}
-	return -1
 }

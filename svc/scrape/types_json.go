@@ -19,7 +19,6 @@ import (
 
 // Value type aliases — defined in model/scrape.go.
 
-
 // ToYahooNum converts a raw struct to YahooNum.
 func ToYahooNum(raw *float64, fmtStr, longFmt string) model.YahooNum {
 	return model.ToYahooNum(raw, fmtStr, longFmt)

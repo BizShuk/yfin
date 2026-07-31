@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+
 	"github.com/bizshuk/yfin/model"
 )
-
 
 // FetchBFIMUU retrieves the monthly block-trade report for `date` (YYYYMM01).
 func FetchBFIMUU(ctx context.Context, client *Client, date string, opts url.Values) (any, error) {

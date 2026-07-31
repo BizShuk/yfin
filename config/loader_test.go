@@ -173,7 +173,7 @@ func TestValidateDailyOnlyIntervals(t *testing.T) {
 		t.Fatal("Expected validation error for invalid intervals")
 	}
 
-	expectedError := "markets.allowed_intervals must be exactly [\"1d\"] for yfinance-go (daily-only scope)"
+	expectedError := "markets.allowed_intervals must be exactly [\"1d\"] for yfin (daily-only scope)"
 	if !strings.Contains(err.Error(), expectedError) {
 		t.Errorf("Expected error to contain '%s', got '%s'", expectedError, err.Error())
 	}
@@ -365,8 +365,8 @@ func TestHTTPAndScrapeHTTPTypeMatch(t *testing.T) {
 	if cfg.HTTP.Timeout.Milliseconds() != int64(cfg.Yahoo.TimeoutMs) {
 		t.Errorf("HTTP.Timeout = %v ms, want %d ms", cfg.HTTP.Timeout.Milliseconds(), cfg.Yahoo.TimeoutMs)
 	}
-	// Scrape HTTP knobs are no longer in yaml — defaults come from
-	// scrapeHTTPDefaults() in adapters.go (mirrors svc/scrape.DefaultConfig).
+	// Scrape HTTP knobs are no longer in YAML; both consumers use
+	// httpx.DefaultScrapeConfig().
 	if cfg.Scrape.HTTP.Timeout != 10*time.Second {
 		t.Errorf("Scrape.HTTP.Timeout = %v, want 10s", cfg.Scrape.HTTP.Timeout)
 	}

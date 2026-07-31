@@ -129,11 +129,11 @@ yfin comprehensive-profile --ticker MSFT --preview
 | `--universe-file` | string | `""` | newline-delimited ticker 列表（與 `--ticker` 互斥） |
 | `--start` | string | `""` | 必填。起始日（`YYYY-MM-DD`，UTC） |
 | `--end` | string | `""` | 必填。結束日（`YYYY-MM-DD`，UTC） |
-| `--adjusted` | string | `"split_dividend"` | 調整策略（`raw` / `split_dividend`）；可由 YAML `markets.default_adjustment_policy` 覆寫 |
-| `--market` | string | `""` | Market MIC（MIC inference 提示，可選） |
-| `--fx-target` | string | `""` | FX 轉換目標幣別（如 `EUR`、`JPY`） |
-| `--out` | string | `""` | 輸出格式（`json` / `parquet`，parquet 尚未實作） |
-| `--out-dir` | string | `""` | 輸出目錄 |
+| `--adjusted` | string | `"split_dividend"` | 調整策略（`raw` / `split_dividend`）；目前 Cobra default 不由 YAML 覆寫 |
+| `--market` | string | `""` | MIC / Yahoo exchange-code hint；known code 先正規化，只在 provider inference 留空時補 metadata |
+| `--fx-target` | string | `""` | 驗證 fetched currency 已等於 target；不提供跨幣別 conversion |
+| `--out` | string | `""` | 輸出格式（僅支援 `json`；需搭配 `--out-dir`） |
+| `--out-dir` | string | `""` | 輸出目錄（需搭配 `--out`） |
 
 ```bash
 yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31
@@ -147,8 +147,8 @@ yfin pull --universe-file nasdaq100.txt --start 2024-01-01 --end 2024-12-31 --ou
 | 旗標 | 型別 | 預設值 | 說明 |
 | --- | --- | --- | --- |
 | `--tickers` | string | `""` | 必填。CSV ticker 列表（如 `AAPL,MSFT,TSLA`） |
-| `--out` | string | `""` | 輸出格式（僅支援 `json`） |
-| `--out-dir` | string | `""` | 輸出目錄 |
+| `--out` | string | `""` | 輸出格式（僅支援 `json`；需搭配 `--out-dir`） |
+| `--out-dir` | string | `""` | 輸出目錄（需搭配 `--out`） |
 
 ```bash
 yfin quote --tickers AAPL,MSFT,TSLA

@@ -1,4 +1,5 @@
-// metrics.go — Prometheus metric definitions (counters / gauges / histograms) and recorder functions for request latency, retries, backoff sleep, circuit-breaker state, decode failures, inflight gauges, and publish throughput. Capacity: 13 metrics, 12 recorders.
+// metrics.go — Prometheus metrics for request, retry, backoff, decode,
+// circuit-breaker, latency, and inflight HTTP state.
 package obsv
 
 import (
@@ -10,7 +11,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-// Prometheus metrics following Step 10 specifications
 var (
 	// Counters
 	requestsTotal = prometheus.NewCounterVec(
@@ -53,21 +53,6 @@ var (
 		[]string{"scope"},
 	)
 
-	sessionEjectTotal = prometheus.NewCounter(
-		prometheus.CounterOpts{
-			Name: "yfin_session_eject_total",
-			Help: "Total number of session ejections.",
-		},
-	)
-
-	publishTotal = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "yfin_publish_total",
-			Help: "Total number of publish operations.",
-		},
-		[]string{"type", "outcome"},
-	)
-
 	// Gauges
 	inflightRequests = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
@@ -103,24 +88,6 @@ var (
 		},
 		[]string{"endpoint"},
 	)
-
-	batchBytes = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "yfin_batch_bytes",
-			Help:    "Batch size in bytes.",
-			Buckets: []float64{1024, 4096, 16384, 65536, 262144, 1048576, 4194304},
-		},
-		[]string{"type"},
-	)
-
-	publishLatencyMs = prometheus.NewHistogramVec(
-		prometheus.HistogramOpts{
-			Name:    "yfin_publish_latency_ms",
-			Help:    "Publish latency in milliseconds.",
-			Buckets: []float64{10, 25, 50, 100, 200, 500, 1000, 2000},
-		},
-		[]string{"type"},
-	)
 )
 
 var (
@@ -142,14 +109,10 @@ func initMetrics(cfg PrometheusConfig) error {
 			backoffTotal,
 			decodeFailTotal,
 			cbOpenTotal,
-			sessionEjectTotal,
-			publishTotal,
 			inflightRequests,
 			cbState,
 			requestLatencyMs,
 			backoffSleepMs,
-			batchBytes,
-			publishLatencyMs,
 		)
 		metricsRegistered = true
 	}
@@ -180,8 +143,6 @@ func shutdownMetrics(ctx context.Context) error {
 	}
 	return nil
 }
-
-// Metrics recording functions following Step 10 specifications
 
 func RecordRequest(endpoint, outcome, code string) {
 	if globalObsv == nil || !globalObsv.config.MetricsEnabled {
@@ -239,37 +200,9 @@ func RecordDecodeFail(reason string) {
 	decodeFailTotal.WithLabelValues(reason).Inc()
 }
 
-func RecordSessionEject() {
-	if globalObsv == nil || !globalObsv.config.MetricsEnabled {
-		return
-	}
-	sessionEjectTotal.Inc()
-}
-
 func SetInflightRequests(endpoint string, count int) {
 	if globalObsv == nil || !globalObsv.config.MetricsEnabled {
 		return
 	}
 	inflightRequests.WithLabelValues(endpoint).Set(float64(count))
-}
-
-func RecordPublish(publishType, outcome string) {
-	if globalObsv == nil || !globalObsv.config.MetricsEnabled {
-		return
-	}
-	publishTotal.WithLabelValues(publishType, outcome).Inc()
-}
-
-func RecordPublishLatency(publishType string, duration time.Duration) {
-	if globalObsv == nil || !globalObsv.config.MetricsEnabled {
-		return
-	}
-	publishLatencyMs.WithLabelValues(publishType).Observe(float64(duration.Milliseconds()))
-}
-
-func RecordBatchBytes(batchType string, bytes int64) {
-	if globalObsv == nil || !globalObsv.config.MetricsEnabled {
-		return
-	}
-	batchBytes.WithLabelValues(batchType).Observe(float64(bytes))
 }

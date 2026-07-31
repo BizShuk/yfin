@@ -10,6 +10,7 @@ package scrape_test
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -72,9 +73,9 @@ func TestScrapeError_Format(t *testing.T) {
 func TestErrHTTP(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		status       int
-		wantType     string
-		wantMsgSub   string
+		status     int
+		wantType   string
+		wantMsgSub string
 	}{
 		{404, "http_error", "Not Found"},
 		{500, "http_error", "Internal Server Error"},
@@ -116,7 +117,9 @@ func TestIsRetryableError(t *testing.T) {
 		{"robots_denied", scrape.ErrRobotsDenied, false},
 		{"invalid_url", scrape.ErrInvalidURL, false},
 		{"network connection refused", errors.New("dial tcp: connection refused"), true},
+		{"network connection refused uppercase", errors.New("DIAL TCP: CONNECTION REFUSED"), true},
 		{"network no such host", errors.New("dial: no such host"), true},
+		{"wrapped rate limit", fmt.Errorf("request failed: %w", scrape.ErrRateLimited), true},
 		{"unrelated text", errors.New("something else went wrong"), false},
 	}
 	for _, tc := range tests {
@@ -135,9 +138,9 @@ func TestIsRetryableError(t *testing.T) {
 func TestCoerceCurrency(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name  string
-		in    any
-		want  string
+		name   string
+		in     any
+		want   string
 		wantOk bool
 	}{
 		{"uppercase USD", "USD", "USD", true},
@@ -165,9 +168,9 @@ func TestCoerceCurrency(t *testing.T) {
 func TestParseYahooDate(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name    string
-		in      any
-		wantOk  bool
+		name   string
+		in     any
+		wantOk bool
 	}{
 		{"unix float", float64(1700000000), true},
 		{"unix int", int64(1700000000), true},
@@ -374,6 +377,32 @@ func TestParseComprehensiveFinancialsWithCurrency_Smoke(t *testing.T) {
 	}
 }
 
+func TestParseComprehensiveFinancialsDoesNotInventCurrency(t *testing.T) {
+	t.Parallel()
+	htmlWithoutCurrency := strings.ReplaceAll(financialsHTML, "Currency in USD", "")
+
+	dto, err := scrape.ParseComprehensiveFinancials([]byte(htmlWithoutCurrency), "AAPL", "NMS")
+	if err != nil {
+		t.Fatalf("ParseComprehensiveFinancials failed: %v", err)
+	}
+	if dto.Currency != "" {
+		t.Errorf("Currency = %q, want empty when source omits currency", dto.Currency)
+	}
+
+	dto, err = scrape.ParseComprehensiveFinancialsWithCurrency(
+		[]byte(htmlWithoutCurrency),
+		[]byte(htmlWithoutCurrency),
+		"AAPL",
+		"NMS",
+	)
+	if err != nil {
+		t.Fatalf("ParseComprehensiveFinancialsWithCurrency failed: %v", err)
+	}
+	if dto.Currency != "" {
+		t.Errorf("Currency = %q, want empty when both sources omit currency", dto.Currency)
+	}
+}
+
 func TestParseComprehensiveKeyStatistics_Smoke(t *testing.T) {
 	t.Parallel()
 	dto, err := scrape.ParseComprehensiveKeyStatistics([]byte(statisticsHTML), "AAPL", "NMS")
@@ -389,6 +418,9 @@ func TestParseComprehensiveKeyStatistics_Smoke(t *testing.T) {
 	// Either current values or additional values should be populated.
 	if dto.Current.MarketCap == nil && dto.Additional.Beta == nil {
 		t.Error("expected at least one populated field in Current or Additional")
+	}
+	if dto.Currency != "" {
+		t.Errorf("Currency = %q, want empty because statistics source omits currency", dto.Currency)
 	}
 }
 
@@ -414,6 +446,29 @@ func TestParseAnalysis_Smoke(t *testing.T) {
 	}
 }
 
+func TestParseAnalysisDoesNotInventCurrency(t *testing.T) {
+	t.Parallel()
+	htmlWithoutCurrency := strings.ReplaceAll(analysisHTML, "Currency in USD", "")
+
+	dto, err := scrape.ParseAnalysis([]byte(htmlWithoutCurrency), "AAPL", "NMS")
+	if err != nil {
+		t.Fatalf("ParseAnalysis failed: %v", err)
+	}
+
+	currencies := map[string]string{
+		"earnings estimate": dto.EarningsEstimate.Currency,
+		"revenue estimate":  dto.RevenueEstimate.Currency,
+		"earnings history":  dto.EarningsHistory.Currency,
+		"EPS trend":         dto.EPSTrend.Currency,
+		"EPS revisions":     dto.EPSRevisions.Currency,
+	}
+	for surface, currency := range currencies {
+		if currency != "" {
+			t.Errorf("%s currency = %q, want empty when source omits currency", surface, currency)
+		}
+	}
+}
+
 func TestParseAnalystInsights_Smoke(t *testing.T) {
 	t.Parallel()
 	dto, err := scrape.ParseAnalystInsights([]byte(analystInsightsHTML), "AAPL", "NMS")
@@ -436,6 +491,9 @@ func TestParseAnalystInsights_Smoke(t *testing.T) {
 	}
 	if dto.NumberOfAnalysts == nil || *dto.NumberOfAnalysts != 35 {
 		t.Errorf("NumberOfAnalysts = %v, want 35", dto.NumberOfAnalysts)
+	}
+	if dto.AsOf.Location() != time.UTC {
+		t.Errorf("AsOf location = %v, want UTC", dto.AsOf.Location())
 	}
 }
 

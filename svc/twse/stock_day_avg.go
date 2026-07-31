@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+
 	"github.com/bizshuk/yfin/model"
 )
-
-
 
 // FetchStockDayAvg retrieves the per-stock monthly average price for `date`
 // (YYYYMM01). `stockNo` must be supplied via opts.

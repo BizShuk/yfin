@@ -1,4 +1,5 @@
-// — Parses Yahoo analyst-insights HTML (financialData section) for price targets and recommendation metrics. Capacity: 8 fields (current price + 4 targets + recommendation mean/key + analyst count).
+// analyst_insights.go — parses Yahoo analyst-insights HTML for price targets
+// and recommendation metrics.
 package scrape
 
 import (
@@ -13,7 +14,6 @@ import (
 	"github.com/bizshuk/yfin/model"
 	"gopkg.in/yaml.v3"
 )
-
 
 // AnalystInsightsRegexConfig holds the regex patterns for analyst insights extraction
 type AnalystInsightsRegexConfig struct {
@@ -79,7 +79,7 @@ func ParseAnalystInsights(html []byte, symbol, market string) (*model.AnalystIns
 	dto := &model.AnalystInsightsDTO{
 		Symbol: symbol,
 		Market: market,
-		AsOf:   time.Now(),
+		AsOf:   time.Now().UTC(),
 	}
 
 	htmlStr := string(html)

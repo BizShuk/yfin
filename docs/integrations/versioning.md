@@ -1,240 +1,130 @@
-# Versioning Policy
+# Versioning and Release Policy
 
-This document outlines the versioning strategy for `yfin` following [Semantic Versioning (SemVer)](https://semver.org/) principles.
-
-## Version Format
-
-Versions follow the format: `MAJOR.MINOR.PATCH` (e.g., `1.2.3`)
-
-- **MAJOR**: Breaking changes to public Go API or on-the-wire schemas
-- **MINOR**: Backward-compatible features and enhancements
-- **PATCH**: Bug fixes and non-behavioral changes
-
-## Versioning Rules
-
-### MAJOR Version (X.0.0)
-
-Increment when you make **breaking changes** to:
-
-- Public Go API (exported functions, types, interfaces)
-- Default behavior of CLI commands
-- On-the-wire schemas for messages this module emits by default
-- Configuration file format (breaking changes only)
-
-**Examples:**
-- Removing or renaming exported functions
-- Changing function signatures
-- Changing default CLI behavior
-- Breaking changes to public Go API surface or normalized struct shapes
-
-### MINOR Version (X.Y.0)
-
-Increment when you add **backward-compatible** features:
-
-- New CLI flags (default-off)
-- New exported functions or types
-- New configuration options
-- Performance improvements
-- New endpoints or data sources
-- Additional output formats
-
-**Examples:**
-- Adding `--new-flag` to existing commands
-- Adding new subcommands
-- Supporting new output formats
-- Adding new configuration options
-
-### PATCH Version (X.Y.Z)
-
-Increment for:
-
-- Bug fixes
-- Documentation updates
-- Internal refactoring (no API changes)
-- Security patches
-- Dependency updates (without API changes)
-
-**Examples:**
-- Fixing incorrect data parsing
-- Updating documentation
-- Fixing memory leaks
-- Security vulnerability patches
-
-## Schema Compatibility
-
-### Public SDK Structs
-
-The module's public surface is the `model.*` struct set (re-exported via `facade.*` aliases). Version compatibility:
-
-- **Stable fields**: Once a field is part of the public surface, it is considered stable
-- **Additive changes**: New fields may be added in MINOR versions; existing field meanings and types are preserved
-- **Breaking struct changes**: Require MAJOR version bump
-
-### Configuration Schema
-
-- **Breaking config changes**: MAJOR version bump
-- **Additive config changes**: MINOR version bump
-- **Config bug fixes**: PATCH version bump
-
-## Deprecation Policy
-
-### CLI Flags and Commands
-
-1. **Announcement**: Deprecate in version N
-2. **Warning**: Show deprecation warnings in version N+1
-3. **Removal**: Remove in version N+2 (MAJOR bump)
-
-### Go API
-
-1. **Announcement**: Mark as deprecated in version N
-2. **Warning**: Add compile-time warnings in version N+1
-3. **Removal**: Remove in version N+2 (MAJOR bump)
-
-## Release Process
-
-### Pre-release
-
-1. Update `CHANGELOG.md` with changes
-2. Ensure all tests pass
-3. Update version in `main.go` (if needed)
-4. Create release branch from `main`
-
-### Release
-
-1. Tag the release: `git tag v1.2.3`
-2. Push tag: `git push origin v1.2.3`
-3. GitHub Actions automatically builds and publishes release
-4. Update `CHANGELOG.md` with release date
-
-### Post-release
-
-1. Merge release branch back to `main`
-2. Update version to next development version
-3. Update documentation if needed
-
-## Version Information
-
-### Build-time Version
-
-Version information is embedded at build time using ldflags:
+yfin tags follow Semantic Versioning (`vMAJOR.MINOR.PATCH`). Repository tags are the source of truth：
 
 ```bash
-go build -ldflags="-X main.version=v1.2.3 -X main.commit=abc123 -X main.date=2024-01-15"
+git tag --list --sort=-version:refname
 ```
 
-### Runtime Version
+## Compatibility Surface
 
-Check version at runtime:
+Version impact must consider：
 
-```bash
-yfin version
-```
+- Exported Go API in `facade`, `model`, `config`, and supported utility packages.
+- CLI command / flag behavior and exit codes.
+- JSON field meanings and cache request identity.
+- YAML configuration schema.
+- Normalized metadata / legacy logical schema identifiers.
 
-Output:
-```
-yfin version v1.2.3
-commit: abc123
-build date: 2024-01-15
-```
+Internal refactoring is not breaking only when these externally observed contracts remain compatible。
 
-## Go Module Versioning
+## Version Selection
 
-### Module Path
+### MAJOR
 
-```
-github.com/bizshuk/yfin
-```
+Use for incompatible changes such as：
 
-### Import Examples
+- removing or renaming exported APIs;
+- changing an exported field type or meaning;
+- removing a CLI command / flag without a compatibility window;
+- incompatible config or persisted cache format changes.
+
+### MINOR
+
+Use for backward-compatible additions：
+
+- new exported method / type;
+- new optional CLI flag;
+- new endpoint / command;
+- additive config field.
+
+### PATCH
+
+Use for compatible fixes：
+
+- parser / normalization bug fix;
+- documentation correction;
+- internal refactor;
+- dependency or security update without public-contract break.
+
+## Deprecation
+
+Go API deprecation 使用 standard doc comment：
 
 ```go
-// Latest version
-import "github.com/bizshuk/yfin"
-
-// Specific version
-import "github.com/bizshuk/yfin@v1.2.3"
-
-// Latest minor version of v1
-import "github.com/bizshuk/yfin@v1"
+// Deprecated: use NewSurface instead.
 ```
 
-### Version Constraints
+CLI compatibility flags should：
 
-Use semantic version constraints in `go.mod`:
+1. remain accepted;
+2. explain whether they have runtime effect;
+3. emit a warning when appropriate;
+4. be removed only in a planned breaking release.
 
-```go
-require github.com/bizshuk/yfin v1.2.3
-```
+`--sessions` currently remains accepted but has no runtime effect。
 
-## Compatibility Matrix
+## Build Metadata
 
-| yfin         | Go Version |
-|-------------|------------|
-| v1.0.x      | 1.23+      |
-| v1.1.x      | 1.23+      |
-| v2.0.x      | 1.23+      |
+Version command reads：
 
-## Migration Guides
+- `cmd.Version`
+- `cmd.Commit`
+- `cmd.Date`
 
-### v1.0 to v1.1
-
-No breaking changes. New features available:
-- Additional CLI flags
-- New configuration options
-
-### v1.x to v2.0
-
-Breaking changes expected:
-- Updated normalized struct shapes (`model.*`)
-- Modified CLI behavior
-- Configuration format changes
-
-Migration guide will be provided in release notes.
-
-## Support Policy
-
-### Supported Versions
-
-- **Current**: Latest release
-- **Previous**: Previous major version (security fixes only)
-- **LTS**: Long-term support versions (if applicable)
-
-### End-of-Life
-
-- **Announcement**: 6 months before EOL
-- **Security fixes**: 3 months after EOL
-- **Full support**: Until EOL date
-
-## Examples
-
-### Version Bump Examples
+Inject them at build time：
 
 ```bash
-# Bug fix
-v1.2.3 → v1.2.4
-
-# New feature
-v1.2.3 → v1.3.0
-
-# Breaking change
-v1.2.3 → v2.0.0
+go build \
+  -ldflags "\
+-X github.com/bizshuk/yfin/cmd.Version=v1.2.3 \
+-X github.com/bizshuk/yfin/cmd.Commit=$(git rev-parse --short HEAD) \
+-X github.com/bizshuk/yfin/cmd.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  -o yfin .
 ```
 
-### Git Tag Examples
+Without ldflags, output intentionally uses development placeholders。
+
+## Release Checklist
+
+This repository currently has no checked-in automated release workflow，so publishing remains an explicit operator action：
+
+1. Review public API / CLI / config compatibility.
+2. Update [CHANGELOG](../CHANGELOG.md) with durable user-visible changes.
+3. Run deterministic verification.
+4. Compile integration-tagged packages without live requests.
+5. Run live provider acceptance separately when required.
+6. Build the release binary with metadata and smoke-test `version` / `--help`.
+7. Create an annotated tag only after review.
+8. Push tag / publish artifacts only with explicit release authorization.
+
+Verification baseline：
 
 ```bash
-# Create and push tag
-git tag v1.2.3
-git push origin v1.2.3
-
-# Delete tag (if needed)
-git tag -d v1.2.3
-git push origin :refs/tags/v1.2.3
+go fmt ./...
+go test ./...
+go test -tags=integration ./... -run '^$'
+go vet ./...
+go build ./...
+git diff --check
 ```
+
+## Go Module Consumers
+
+Consumers pin a concrete tag：
+
+```bash
+go get github.com/bizshuk/yfin@v1.2.3
+```
+
+Import paths do not contain a version suffix until a future major version requires Go semantic import versioning。
+
+## Legacy Schema Identifier
+
+Some normalized JSON retains `ampy.*` in `Meta.SchemaVersion` and golden manifest `schema_fqdn`。This is a compatibility identifier for the serialized shape, not an active protobuf package or publisher pipeline。Changing it requires an explicit compatibility decision and fixture migration。
 
 ## References
 
 - [Semantic Versioning](https://semver.org/)
-- [Go Modules](https://golang.org/ref/mod)
-- [Keep a Changelog](https://keepachangelog.com/)
-- [Conventional Commits](https://www.conventionalcommits.org/)
+- [Go Modules Reference](https://go.dev/ref/mod)
+- [CHANGELOG](../CHANGELOG.md)

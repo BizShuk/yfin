@@ -10,15 +10,10 @@
 // HTTP-layer config. The flat HTTP fields that used to live here
 // (UserAgent, TimeoutMs, QPS, Burst, Retry{}) have moved out: the
 // config loader assembles them into `*httpx.Config` and callers read
-// `cfg.HTTP.QPS`, `cfg.HTTP.MaxAttempts`, etc. directly. Capacity: 1
-// Config + 1 EndpointConfig + 3 RobotsPolicy constants + 2 helpers.
+// `cfg.HTTP.QPS`, `cfg.HTTP.MaxAttempts`, etc. directly.
 package scrape
 
-import (
-	"time"
-
-	"github.com/bizshuk/yfin/utils/httpx"
-)
+import "github.com/bizshuk/yfin/utils/httpx"
 
 // Config represents the scraping configuration.
 type Config struct {
@@ -52,25 +47,7 @@ type EndpointConfig struct {
 // callers see identical behavior when they pass nil to NewScrapeClient.
 func DefaultConfig() *Config {
 	return &Config{
-		HTTP: &httpx.Config{
-			BaseURL:              "https://finance.yahoo.com",
-			Timeout:              10 * time.Second,
-			IdleTimeout:          90 * time.Second,
-			MaxConnsPerHost:      10,
-			MaxAttempts:          4,
-			BackoffBaseMs:        300,
-			BackoffJitterMs:      150,
-			MaxDelayMs:           4000,
-			QPS:                  0.7,
-			Burst:                1,
-			CircuitWindow:        60 * time.Second,
-			FailureThreshold:     0,
-			FailureRateThreshold: 0.30,
-			MinimumRequests:      10,
-			ResetTimeout:         30 * time.Second,
-			UserAgent:            "Mozilla/5.0 (compatible; yfin/1.x)",
-			MaxBodyBytes:         8 << 20, // 8 MiB — scrape body cap.
-		},
+		HTTP:         httpx.DefaultScrapeConfig(),
 		Enabled:      true,
 		RobotsPolicy: string(RobotsEnforce),
 		CacheTTLMs:   60000,

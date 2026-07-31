@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+
 	"github.com/bizshuk/yfin/model"
 )
 

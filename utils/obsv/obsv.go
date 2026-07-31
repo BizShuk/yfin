@@ -1,13 +1,12 @@
 // obsv.go — Observability bootstrap (`Init` / `Shutdown`), structured `Logger` /
 // `Tracer` accessors, named-span factories for `run` / `fetch` / `decode` /
-// `normalize` / `emit` / `publish` / `fx`, plus trace-aware log-attr helpers.
-// Capacity: 1 config, 7 span helpers, 1 logger, 1 tracer.
+// `normalize` / `fx`, plus trace-aware log-attr helpers.
 //
 // This package previously wrapped `ampy-observability`; it now stands alone on
 // stdlib `slog` (text handler to stderr) for logging and OTel's noop tracer
 // provider for spans. `Tracer()` has always been a no-op (the prior ampy-obs
-// wrapper never exposed a real tracer), so behavior is unchanged. Prometheus
-// metrics live in metrics.go and are unaffected.
+// wrapper never exposed a real tracer), so behavior is unchanged. Active HTTP
+// Prometheus metrics live in metrics.go.
 package obsv
 
 import (
@@ -145,7 +144,7 @@ func Tracer() trace.Tracer {
 	globalMux.RLock()
 	defer globalMux.RUnlock()
 
-	return noop.NewTracerProvider().Tracer("yfinance-go")
+	return noop.NewTracerProvider().Tracer("yfin")
 }
 
 // StartSpan creates a new span. With the no-op tracer this returns a span that
@@ -160,8 +159,6 @@ const (
 	SpanNameIngestFetch     = "ingest.fetch"
 	SpanNameIngestDecode    = "ingest.decode"
 	SpanNameIngestNormalize = "ingest.normalize"
-	SpanNameEmitProto       = "emit.proto"
-	SpanNamePublishBus      = "publish.bus"
 	SpanNameFXRates         = "fx.rates"
 )
 
@@ -221,28 +218,6 @@ func StartIngestNormalizeSpan(ctx context.Context, endpoint, symbol, mic string)
 	return StartSpan(ctx, SpanNameIngestNormalize, trace.WithAttributes(attrs...))
 }
 
-// StartEmitProtoSpan creates a span for protobuf emission
-func StartEmitProtoSpan(ctx context.Context, messageType, symbol string) (context.Context, trace.Span) {
-	attrs := []attribute.KeyValue{
-		attribute.String("message_type", messageType),
-		attribute.String("symbol", symbol),
-	}
-
-	return StartSpan(ctx, SpanNameEmitProto, trace.WithAttributes(attrs...))
-}
-
-// StartPublishBusSpan creates a span for bus publishing
-func StartPublishBusSpan(ctx context.Context, topic, partitionKey string, chunkIndex int, bytes int64) (context.Context, trace.Span) {
-	attrs := []attribute.KeyValue{
-		attribute.String("topic", topic),
-		attribute.String("partition_key", partitionKey),
-		attribute.Int("chunk_index", chunkIndex),
-		attribute.Int64("bytes", bytes),
-	}
-
-	return StartSpan(ctx, SpanNamePublishBus, trace.WithAttributes(attrs...))
-}
-
 // StartFXRatesSpan creates a span for FX rate operations
 func StartFXRatesSpan(ctx context.Context, fromCurrency, toCurrency string) (context.Context, trace.Span) {
 	attrs := []attribute.KeyValue{
@@ -271,10 +246,10 @@ func LogWithTrace(ctx context.Context, attrs ...any) []any {
 	return attrs
 }
 
-// Common log attributes for yfinance-go
+// Common log attributes for yfin.
 func CommonLogAttrs(runID, symbol, mic, endpoint string) []any {
 	attrs := []any{
-		"source", "yfinance-go",
+		"source", "yfin",
 	}
 
 	if runID != "" {

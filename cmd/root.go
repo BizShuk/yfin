@@ -4,11 +4,11 @@
 //
 // 各 sub-package 與職責對應：
 // - cmd/admin       → config + version
-// - cmd/dispatch    → batch + dispatch (FetchContext + commandRegistry)
-// - cmd/fundamentals → fundamentals + comprehensive_stats + comprehensive_profile
+// - cmd/dispatch    → batch (shared foundation manifest dispatch)
+// - cmd/fundamentals → fundamentals + comprehensive-stats + comprehensive-profile
 // - cmd/market      → pull + quote + 本地 JSON 匯出
 // - cmd/scrape      → scrape + scrape DTO formatters
-// - cmd/twse        → twse (含 TWSE 專用 HTTP client builder)
+// - cmd/twse        → twse
 package cmd
 
 import (
@@ -27,12 +27,13 @@ import (
 var RootCmd = &cobra.Command{
 	Use:   "yfin",
 	Short: "擷取 Yahoo Finance 資料 (Yahoo Finance data fetcher)",
-	Long: `yfin 是擷取 Yahoo Finance 資料的命令列工具 (yfin is a command-line tool for fetching Yahoo Finance data including)：
+	Long: `yfin 是擷取 Yahoo Finance 資料的命令列工具 (yfin is a command-line tool for fetching Yahoo Finance data)：
 - 每日 bars（調整後 / 原始）— 僅限 daily 區間 (Daily bars, adjusted/raw — daily-only scope)
 - 即時 quote 快照 (Snapshot quotes)
 - fundamentals（需付費訂閱）(Fundamentals — requires paid subscription)
 
-支援 FX 轉換預覽與本地匯出 (The tool supports FX conversion preview and local export).`,
+支援同幣別驗證與本地匯出（JSON）；不執行跨幣別 FX 轉換。
+(The tool validates matching currencies and exports local JSON; cross-currency FX conversion is not available.)`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// gosdk bootstrap: register ~/.config/yfin as an app metadata/search
 		// path and bind APP_* env (e.g. APP_LOG_LEVEL). The typed yfin YAML

@@ -1,4 +1,4 @@
-// middleware.go — `Meta` request/response tag struct plus `RequestMiddleware` and `ResponseMiddleware` chains registered via `Client.Use` and `Client.UseAfter`. Capacity: 1 struct, 2 func types, 2 register methods, 2 runners, 3 service-specific middleware factories.
+// middleware.go — request/response metadata and middleware chains.
 package httpx
 
 import (
@@ -71,9 +71,8 @@ func ScrapeMiddleware(userAgent string) RequestMiddleware {
 
 // Meta is the per-request side-channel that middleware reads and writes.
 // It is constructed at the top of `Client.Do` (Host + Endpoint populated
-// eagerly) and threaded through every registered middleware. Status /
-// Bytes / Duration / Attempts / Gzip are filled in by the response path
-// of later tasks and may stay zero-valued for now.
+// eagerly) and threaded through every registered middleware. The response
+// path fills Status / Bytes / Duration / Attempts / Gzip before returning.
 type Meta struct {
 	Status   int
 	Bytes    int

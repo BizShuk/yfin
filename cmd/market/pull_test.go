@@ -1,16 +1,16 @@
 // pull_test.go — unit tests for the pull subcommand's helpers:
 // flag validation, date/adjusted parsing, universe-file symbol loading,
 // and the JSON local-export sink used by `pull` (also reused by `quote`).
-// Capacity: 5 test functions covering `validatePullFlags` / `parseDates` /
-// `parseAdjusted` / `getSymbols` / `writeJSONFile`.
 package market
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/bizshuk/yfin/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -47,6 +47,29 @@ func TestValidatePullFlags(t *testing.T) {
 				Start:    "2024-01-01",
 				End:      "2024-01-31",
 				Adjusted: "invalid",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid - parquet is not a supported output",
+			config: pullConfig{
+				Ticker:   "AAPL",
+				Start:    "2024-01-01",
+				End:      "2024-01-31",
+				Adjusted: "raw",
+				Out:      "parquet",
+				OutDir:   "./out",
+			},
+			wantErr: true,
+		},
+		{
+			name: "invalid - output format requires output directory",
+			config: pullConfig{
+				Ticker:   "AAPL",
+				Start:    "2024-01-01",
+				End:      "2024-01-31",
+				Adjusted: "raw",
+				Out:      "json",
 			},
 			wantErr: true,
 		},
@@ -213,4 +236,72 @@ func TestWriteJSONFile(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(content), `"test": "data"`)
 	assert.Contains(t, string(content), `"number": 42`)
+}
+
+func TestHandleFXPreviewRejectsUnavailableCrossCurrencyConversion(t *testing.T) {
+	bars := normalizedBarsForFXTest("EUR")
+
+	err := handleFXPreview(context.Background(), bars, "USD")
+
+	require.ErrorContains(t, err, "FX conversion is unavailable")
+	require.ErrorContains(t, err, "EUR")
+	require.ErrorContains(t, err, "USD")
+}
+
+func TestHandleFXPreviewAllowsMatchingCurrency(t *testing.T) {
+	bars := normalizedBarsForFXTest("USD")
+
+	require.NoError(t, handleFXPreview(context.Background(), bars, "USD"))
+}
+
+func TestProcessPulledSymbolPropagatesFXPreviewFailure(t *testing.T) {
+	bars := normalizedBarsForFXTest("EUR")
+	start := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+	end := start.AddDate(0, 0, 1)
+
+	err := processPulledSymbol(
+		context.Background(),
+		bars,
+		"SAP",
+		start,
+		end,
+		true,
+		"test-run",
+		&pullConfig{FXTarget: "USD"},
+	)
+
+	require.ErrorContains(t, err, "FX conversion is unavailable")
+}
+
+func TestApplyMarketHintOnlyFillsMissingMIC(t *testing.T) {
+	t.Parallel()
+
+	missing := &model.NormalizedBarBatch{
+		Security: model.Security{Symbol: "SAP"},
+	}
+	require.NoError(t, applyMarketHint(missing, " NasdaqGS "))
+	require.Equal(t, "XNAS", missing.Security.MIC)
+
+	inferred := &model.NormalizedBarBatch{
+		Security: model.Security{Symbol: "AAPL", MIC: "XNAS"},
+	}
+	require.NoError(t, applyMarketHint(inferred, "XNYS"))
+	require.Equal(t, "XNAS", inferred.Security.MIC)
+
+	require.ErrorContains(t, applyMarketHint(missing, "bad/mic"), "invalid market MIC")
+	require.ErrorContains(t, applyMarketHint(nil, "XNAS"), "bar batch is required")
+}
+
+func normalizedBarsForFXTest(currency string) *model.NormalizedBarBatch {
+	start := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+	return &model.NormalizedBarBatch{
+		Security: model.Security{Symbol: "TEST", MIC: "XNAS"},
+		Bars: []model.NormalizedBar{{
+			Start:              start,
+			End:                start.AddDate(0, 0, 1),
+			Close:              model.ScaledDecimal{Scaled: 10_000, Scale: 2},
+			CurrencyCode:       currency,
+			AdjustmentPolicyID: "split_dividend",
+		}},
+	}
 }

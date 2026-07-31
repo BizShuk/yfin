@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
 	"github.com/bizshuk/yfin/model"
 )
-
 
 // FetchSTOCK_DAY retrieves per-stock daily trade info for `date` and
 // `stockNo` (must be supplied via opts).

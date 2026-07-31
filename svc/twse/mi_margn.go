@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+
 	"github.com/bizshuk/yfin/model"
 )
-
 
 // FetchMI_MARGN retrieves the margin trading balances for `date`.
 // selectType=ALL is always added by this fetcher.

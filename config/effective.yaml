@@ -37,7 +37,7 @@ circuit_breaker:
   # *httpx.Config via Go code (facade.NewClientWithConfig).
 
 markets:
-  # Daily-only enforcement; other intervals are invalid for yfinance-go.
+  # Daily-only enforcement; other intervals are invalid for yfin.
   allowed_intervals: ["1d"]          # enforce daily-only here
   # Optional MIC allowlist; if empty, no filtering.
   allowed_mics: ["XNAS","XNYS","XNMS","NYQ","KSC","XETR","XTKS"]
@@ -45,7 +45,7 @@ markets:
 
 fx:
   provider: "none"                    # none | yahoo-web
-  target: ""                          # optional; CLI preview override allowed
+  target: ""                          # schema compatibility; CLI only validates matching currency
   cache_ttl_ms: 60000
   rate_scale: 8
   rounding: "half_up"

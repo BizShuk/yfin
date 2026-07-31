@@ -40,13 +40,16 @@ yfin --config ./config/production.yaml config --print-effective
 | `pull` 同時缺少或同時提供 `--ticker` / `--universe-file` | `either --ticker or --universe-file must be specified` |
 | `pull` 缺少 `--start` / `--end` | `--start and --end are required` |
 | `--adjusted` 非 `raw` / `split_dividend` | `--adjusted must be 'raw' or 'split_dividend'` |
-| `--out` 非 `json` / `parquet` | `--out must be 'json' or 'parquet'` |
+| `pull --out` 非 `json` | `--out must be 'json'` |
+| `quote --out` 非 `json` | `--out must be 'json' for quotes` |
+| 只指定 `--out` | `--out-dir is required when --out is set` |
+| 只指定 `--out-dir` | `--out is required when --out-dir is set` |
 | 未指定或同時指定多個 scrape modes | `exactly one of --check, --preview-json, or --preview-news is required` |
 | `--check` 缺少 `--endpoint` | `--endpoint is required for --check mode` |
 | `--preview-json` 缺少 `--endpoints` | `--endpoints is required for --preview-json mode` |
 | YAML schema / invariant 不合法 | `Failed to load configuration: ...` |
 
-`pull` 與 `quote` 沒有 `--preview` flag；未要求 local export 時，它們仍會將摘要寫到 stdout。`--out parquet` 目前會回報尚未實作。
+`pull` 與 `quote` 沒有 `--preview` flag；未要求 local export 時，它們仍會將摘要寫到 stdout。Local export 只接受 JSON，且 `--out` / `--out-dir` 必須成對出現。
 
 ## Scrape 診斷模式
 

@@ -1,302 +1,146 @@
 # Installation Guide
 
-本指南涵蓋 `yfin` 的三種安裝方式 (This guide covers three ways to install `yfin` on your system).
+目前 repository-owned installation paths 是 source build 與 `go install`。本 repo 沒有 Dockerfile、Homebrew formula 或 release-build workflow，因此本頁不宣稱存在預建 artifacts。
 
-## Pre-built Binaries (Recommended)
+## Prerequisites
 
-### Download from GitHub Releases
-
-1. 前往 [Releases 頁面](https://github.com/bizshuk/yfin/releases)
-2. 下載對應平台的 binary：
-   - `yfin_darwin_amd64.tar.gz` - macOS (Intel)
-   - `yfin_darwin_arm64.tar.gz` - macOS (Apple Silicon)
-   - `yfin_linux_amd64.tar.gz` - Linux (x86_64)
-   - `yfin_linux_arm64.tar.gz` - Linux (ARM64)
-
-3. 解壓並安裝：
+Go version 以 `go.mod` 為準：
 
 ```bash
-# 解壓 (extract)
-tar xzf yfin_darwin_arm64.tar.gz
-
-# 移至 PATH 中的目錄 (move to a directory in your PATH)
-sudo mv yfin /usr/local/bin/
-
-# 驗證安裝 (verify)
-yfin version
-```
-
-### Using curl (macOS/Linux)
-
-```bash
-# 設定變數 (set variables)
-VERSION="v1.0.0"
-OS="darwin"  # 或 "linux"
-ARCH="arm64" # 或 "amd64"
-
-# 下載並安裝 (download and install)
-curl -L "https://github.com/bizshuk/yfin/releases/download/${VERSION}/yfin_${OS}_${ARCH}.tar.gz" | tar xz
-sudo mv yfin /usr/local/bin/
-yfin version
-```
-
-### Verify Installation
-
-```bash
-yfin version
-```
-
-預期輸出 (Expected output)：
-
-```
-yfin version v1.0.0
-commit: abc123
-build date: 2024-01-15
+go version
 ```
 
 ## Build from Source
 
-### Prerequisites
-
-- Go 1.26 或更新版本 (Go 1.26+)
-- Git
-
-### Build Steps
-
 ```bash
-# 複製儲存庫 (clone the repository)
-git clone https://github.com/bizshuk/yfin.git
+git clone https://github.com/BizShuk/yfin.git
 cd yfin
-
-# 編譯 binary (build the binary)
+go mod download
 go build -o yfin .
-
-# 安裝至系統 (install to system)
-sudo mv yfin /usr/local/bin/
-
-# 驗證安裝 (verify)
-yfin version
+./yfin version
+./yfin --help
 ```
 
-### Build with Version Information
+需要放入 user PATH 時：
 
 ```bash
-# 注入版本資訊 (build with version details)
-go build -ldflags="-X github.com/bizshuk/yfin/cmd.Version=v1.0.0 -X github.com/bizshuk/yfin/cmd.Commit=$(git rev-parse --short HEAD) -X github.com/bizshuk/yfin/cmd.Date=$(date -u +%Y-%m-%d)" -o yfin .
+install -m 0755 ./yfin "${HOME}/bin/yfin"
 ```
 
-## Go Module Installation
+確保 `${HOME}/bin` 已在 `PATH`。是否安裝到 system-wide directory 由 operator 自行決定。
 
-若要將 `yfin` 作為 Go 函式庫使用 (If you want to use `yfin` as a Go library)：
+## Go Install
+
+指定已發布 tag：
 
 ```bash
-go get github.com/bizshuk/yfin@v1.0.0
+go install github.com/bizshuk/yfin@<version>
 ```
 
-於 Go 程式碼中 import (Then import in your Go code)：
+Binary 會寫入 `GOBIN`；未設定時通常是 `$(go env GOPATH)/bin`。先確認：
+
+```bash
+go env GOBIN GOPATH
+```
+
+不要把文件中的 placeholder `<version>` 原樣執行；依 repository tags / release policy 選明確版本。
+
+## SDK Dependency
+
+在 Go application 中：
+
+```bash
+go get github.com/bizshuk/yfin@<version>
+```
+
+Operations 從 `facade` import，DTO 可從 `model` import：
 
 ```go
-import "github.com/bizshuk/yfin/facade"
+import (
+	"github.com/bizshuk/yfin/facade"
+	"github.com/bizshuk/yfin/model"
+)
 ```
 
-> **Facade boundary 提醒 (Facade boundary reminder)**：對外 import 請走 `github.com/bizshuk/yfin/facade`，避免直接 import `internal/` 或 `svc/` 的型別。
+不要直接依賴 `svc/*` transport internals。
 
-## Docker
+## Runtime Metadata Directories
 
-尚未發佈預編譯 Docker image (No pre-built Docker image is published at this time)。以下為自行 build 的範例 (Use the Dockerfile below to build a custom image)：
-
-```dockerfile
-FROM golang:1.26-alpine AS builder
-
-WORKDIR /app
-COPY . .
-RUN go build -o yfin .
-
-FROM alpine:latest
-RUN apk --no-cache add ca-certificates
-WORKDIR /root/
-COPY --from=builder /app/yfin .
-CMD ["./yfin"]
-```
-
-Build 與執行 (Build and run)：
+Source checkout 提供 metadata-only setup：
 
 ```bash
-docker build -t yfin .
-docker run --rm yfin yfin version
+./run.sh
 ```
+
+它建立：
+
+```text
+${XDG_CONFIG_HOME:-$HOME/.config}/yfin/data
+${XDG_CONFIG_HOME:-$HOME/.config}/yfin/logs
+```
+
+Script 不會啟動 CLI、PM2 或 background service。yfin logs 寫到 stderr；`logs/` 是 deployment metadata location，不代表 CLI 會自行寫 log file。
 
 ## Configuration
 
-### Default Configuration
-
-`yfin` 的 CLI YAML loader 預設載入 `config/effective.yaml`；`gosdk/config` 另負責 `~/.config/yfin/` 的應用 metadata：
-
-- 應用設定根目錄：`~/.config/yfin/`
-- 設定檔：`config/effective.yaml`（相對於執行目錄）
-- 環境覆寫：`APP_*` 環境變數（由 `gosdk/config` 預設處理）
-
-> 如需切換 YAML 設定檔，使用 Global Flag `--config <path>`。
-
-### Custom Configuration
+CLI 預設讀取 current working directory 下的 `config/effective.yaml`。Installed binary 應明確指定 deployment config：
 
 ```bash
-# 指定 config 檔 (use custom config file)
-yfin --config ./my-config.yaml pull --ticker AAPL --start 2024-01-01 --end 2024-12-31
+yfin \
+  --config /absolute/path/to/effective.yaml \
+  config \
+  --print-effective
 ```
 
-### Environment Variables (via gosdk)
+範例統一把 global flags 放在 subcommand 前；Cobra parser 也接受放在 subcommand 後。YAML schema 與 precedence 見 [Configuration](../operations/configuration.md)。
 
-`yfin` 不直接綁定 `YFINANCE_*` 環境變數；log / observability 設定透過 `gosdk` 的 `APP_*` 慣例覆寫：
+## Build Metadata
+
+Default source build 會顯示 `dev / unknown`。需要注入 metadata：
 
 ```bash
-export APP_LOG_LEVEL=debug
-export APP_ENV=dev
-yfin pull --ticker AAPL --start 2024-01-01 --end 2024-12-31
+go build \
+  -ldflags "\
+-X github.com/bizshuk/yfin/cmd.Version=<version> \
+-X github.com/bizshuk/yfin/cmd.Commit=$(git rev-parse --short HEAD) \
+-X github.com/bizshuk/yfin/cmd.Date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  -o yfin .
 ```
-
-CLI flag (`--log-level`, `--qps`, `--retry-max`, `--timeout`) 為通用 runtime overrides；`--concurrency` 只控制 `pull` universe / multi-ticker `quote`，且受 YAML per-host limit 約束。Log precedence 為 explicit `--log-level` > `APP_LOG_LEVEL` > YAML > `info`。
 
 ## Verification
 
-### Test Installation
+Offline / deterministic checks：
 
 ```bash
-# 檢查版本 (check version)
-yfin version
-
-# 測試基本功能 (test basic functionality)
-yfin pull --ticker AAPL --start 2024-01-01 --end 2024-01-02
-
-# 印出 effective config (view effective configuration)
-yfin config --print-effective
+./yfin version
+./yfin --help
+go test ./...
+go test -tags=integration ./... -run '^$'
 ```
 
-### Expected Output
+Live smoke（需要 provider network）：
 
 ```bash
-$ yfin version
-yfin version v1.0.0
-commit: abc123
-build date: 2024-01-15
-
-$ yfin pull --ticker AAPL --start 2024-01-01 --end 2024-01-02
-RUN yfin_1704067200  (env=dev)
-SYMBOL AAPL (MIC=XNAS, CCY=USD)  range=2024-01-01..2024-01-02  bars=1  adjusted=split_dividend
-first=2024-01-01T00:00:00Z  last=2024-01-02T00:00:00Z  last_close=192.5300 USD
+./yfin \
+  --config ./config/effective.yaml \
+  pull \
+  --ticker AAPL \
+  --start 2026-01-01 \
+  --end 2026-01-05
 ```
+
+Live fetch failure 不等於 installation failure；先確認 `version`、`--help`、config load 與 deterministic tests。
 
 ## Troubleshooting
 
-### Common Issues
+- `command not found`：檢查 `GOBIN` / `GOPATH/bin` / `PATH`。
+- config not found：用 global `--config` 傳入明確路徑。
+- provider timeout / 429：依 [Error Handling](../operations/error-handling.md) 降低 QPS 或調整 timeout。
+- module download failure：確認 network、Go proxy / private-module settings 與 requested tag。
 
-#### Permission Denied
+## See Also
 
-```bash
-# 確認 binary 可執行 (make sure the binary is executable)
-chmod +x yfin
-
-# 檢查 PATH (check PATH)
-echo $PATH
-which yfin
-```
-
-#### Go Module Issues
-
-```bash
-# 清除 module cache (clean module cache)
-go clean -modcache
-
-# 更新相依套件 (update dependencies)
-go mod tidy
-go mod download
-```
-
-#### Configuration Issues
-
-```bash
-# 檢查組態 (check configuration)
-yfin config --print-effective
-
-# 從指定 config 載入 (validate configuration file)
-yfin config --config ./config/effective.yaml --print-effective
-```
-
-### Getting Help
-
-```bash
-# 顯示說明 (show help)
-yfin --help
-
-# 顯示 subcommand 說明 (show command-specific help)
-yfin pull --help
-yfin quote --help
-yfin fundamentals --help
-yfin scrape --help
-yfin twse --help
-yfin config --help
-yfin version --help
-```
-
-### Logs and Debugging
-
-```bash
-# 啟用 debug logging (enable debug logging)
-yfin --log-level debug pull --ticker AAPL --start 2024-01-01 --end 2024-01-02
-
-# 關閉 observability（測試用）(disable observability for testing)
-yfin --observability-disable-tracing --observability-disable-metrics pull --ticker AAPL --start 2024-01-01 --end 2024-01-02
-```
-
-## Uninstallation
-
-### Remove Binary
-
-```bash
-# 從系統移除 (remove from system)
-sudo rm /usr/local/bin/yfin
-
-# 或從使用者目錄移除 (or if installed in user directory)
-rm ~/bin/yfin
-```
-
-### Remove Go Module
-
-```bash
-# 從 go.mod 移除 (remove from go.mod)
-go mod edit -droprequire github.com/bizshuk/yfin
-
-# 清理 (clean up)
-go mod tidy
-```
-
-## Security
-
-### Verify Binary Integrity
-
-```bash
-# 下載 checksums (download checksums)
-curl -L "https://github.com/bizshuk/yfin/releases/download/v1.0.0/checksums.txt" -o checksums.txt
-
-# 驗證下載的 binary (verify downloaded binary)
-shasum -a 256 -c checksums.txt
-```
-
-### GPG Signatures
-
-如有 GPG 簽章可供驗證 (If GPG signatures are available)：
-
-```bash
-# 匯入公鑰 (import public key)
-gpg --keyserver keyserver.ubuntu.com --recv-keys <KEY_ID>
-
-# 驗證簽章 (verify signature)
-gpg --verify yfin_darwin_arm64.tar.gz.asc yfin_darwin_arm64.tar.gz
-```
-
-## Next Steps
-
-安裝完成後，可參考 (After installation, see)：
-
-- [Usage Guide](../cli/usage.md) - 學習如何使用 `yfin`
-- [Configuration](https://github.com/bizshuk/yfin/tree/main/configs) - 環境組態範例
+- [Onboarding](onboarding.md)
+- [CLI Usage](../cli/usage.md)
+- [Versioning](../integrations/versioning.md)
+- [Security Policy](../../SECURITY.md)

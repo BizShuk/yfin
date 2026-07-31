@@ -1,7 +1,5 @@
 // `historical_data_example.go` — end-to-end look at `facade.Client` historical
-// APIs: daily bars, intraday bars, and a spot quote. Capacity: ~71 LOC; APIs
-// include `FetchDailyBars`, `FetchIntradayBars`, `FetchQuote` returning
-// `facade.BarBatch` and `facade.Quote`.
+// APIs: daily bars, intraday bars, and a spot quote.
 package main
 
 import (
@@ -13,10 +11,8 @@ import (
 	"github.com/bizshuk/yfin/facade"
 )
 
-// historical_data_example demonstrates the plain-struct SDK surface. As of
-// Step 6 of plans/spicy-singing-swan.md, facade.Client returns reflection-free
-// structs (facade.BarBatch, facade.Quote) instead of internal/norm types; this
-// file prints the new public fields directly.
+// historical_data_example demonstrates the plain-struct SDK surface returned
+// by facade.Client.
 func main() {
 	client := facade.NewClient()
 	ctx := context.Background()

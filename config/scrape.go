@@ -5,11 +5,9 @@
 //
 // HTTP-layer knobs (timeout, qps, retry, user_agent, body cap) are NOT
 // declared here — they live in `utils/httpx.Config` and the loader
-// populates `HTTP *httpx.Config` from `svc/scrape.DefaultConfig().HTTP`.
+// populates `HTTP *httpx.Config` from `httpx.DefaultScrapeConfig()`.
 // To customise, callers mutate `cfg.Scrape.HTTP` after loading and apply
 // the resulting config through `(*facade.Client).ConfigureScrape`.
-//
-// Capacity: 2 structs (`ScrapeConfig`, `ScrapeEndpointConfig`).
 package config
 
 import "github.com/bizshuk/yfin/utils/httpx"
@@ -17,10 +15,8 @@ import "github.com/bizshuk/yfin/utils/httpx"
 // ScrapeConfig represents scraping configuration
 type ScrapeConfig struct {
 	// HTTP is the assembled HTTP-layer config for scrape traffic. The
-	// loader populates this from `svc/scrape.DefaultConfig().HTTP` after
-	// Load(), so yaml users get sensible scrape-tuned defaults (QPS 0.7,
-	// 4 retries with 300–4000 ms backoff, 8 MiB body cap, robots.txt
-	// enforced). Override via Go code if needed.
+	// loader populates this from `httpx.DefaultScrapeConfig()` after Load().
+	// Override the returned config through Go code when needed.
 	HTTP *httpx.Config `yaml:"-"`
 
 	// Scrape-only knobs (no HTTP-layer concerns).

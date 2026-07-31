@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
+
 	"github.com/bizshuk/yfin/model"
 )
-
-
 
 // FetchBWIBBU_d retrieves the per-stock P/E, dividend yield, and P/B
 // ratio snapshot for `date`. `opts` may include `selectType=ALL`

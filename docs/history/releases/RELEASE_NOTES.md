@@ -132,5 +132,4 @@ This release includes significant improvements to data extraction accuracy and c
 
 ---
 
-**Full Changelog:** See [CHANGELOG.md](CHANGELOG.md) for complete version history.
-
+**Full Changelog:** See [CHANGELOG.md](../../CHANGELOG.md) for complete version history.

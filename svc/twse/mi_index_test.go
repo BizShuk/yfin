@@ -4,14 +4,15 @@ package twse
 import (
 	"context"
 	"encoding/json"
-	"github.com/bizshuk/yfin/utils/httpx"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
 	"time"
+
 	"github.com/bizshuk/yfin/model"
+	"github.com/bizshuk/yfin/utils/httpx"
 )
 
 // newTestClient points the package BaseURL at the httptest server so FetchJSON

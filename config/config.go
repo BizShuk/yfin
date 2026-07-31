@@ -4,12 +4,12 @@
 // maps 1:1 onto the on-disk YAML. Adapter methods live in adapters.go.
 // The `HTTP` and `Scrape.HTTP` fields hold the post-load assembled
 // `*httpx.Config` (the canonical HTTP type), populated once in
-// `Loader.Load`. Capacity: 1 struct (`Config`).
+// `Loader.Load`.
 package config
 
 import "github.com/bizshuk/yfin/utils/httpx"
 
-// Config represents the complete configuration for yfinance-go
+// Config represents the complete configuration for yfin.
 type Config struct {
 	App            AppConfig            `yaml:"app"`
 	Yahoo          YahooConfig          `yaml:"yahoo"`

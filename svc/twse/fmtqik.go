@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"net/url"
+
 	"github.com/bizshuk/yfin/model"
 )
-
 
 // FetchFMTQIK retrieves the TAIEX index and trading volume for `date`.
 // `date` should be YYYYMMDD (month-start or month-end).

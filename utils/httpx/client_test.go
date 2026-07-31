@@ -58,6 +58,36 @@ func TestClientRetry(t *testing.T) {
 	}
 }
 
+func TestNewClientAppliesConfiguredTransportWrapper(t *testing.T) {
+	var wrappedRequests int
+	config := DefaultConfig()
+	config.MaxAttempts = 1
+	config.QPS = 100
+	config.Burst = 1
+	config.WrapTransport = func(next http.RoundTripper) http.RoundTripper {
+		return roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			wrappedRequests++
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Status:     "200 OK",
+				Header:     make(http.Header),
+				Body:       io.NopCloser(bytes.NewBufferString("wrapped")),
+				Request:    req,
+			}, nil
+		})
+	}
+
+	client := NewClient(config)
+	req, err := http.NewRequest(http.MethodGet, "https://transport.test/value", nil)
+	require.NoError(t, err)
+
+	resp, err := client.Do(context.Background(), req)
+
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	require.Equal(t, 1, wrappedRequests)
+}
+
 func TestClient_ProfileRequestDefaultsAndEndpoint(t *testing.T) {
 	config := DefaultConfig()
 	config.MaxAttempts = 1

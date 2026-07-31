@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
 	"github.com/bizshuk/yfin/model"
 )
 
