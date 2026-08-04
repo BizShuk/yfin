@@ -1,0 +1,15 @@
+{
+  "name": "yfin",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Yahoo Finance and TWSE market data Go SDK plus flat CLI",
+  "scripts": {
+    "dev": "go run .",
+    "test": "./run_tests.sh",
+    "build": "go build -o bin/yfin .",
+    "lint": "gofmt -l . && go vet ./...",
+    "clean": "rm -rf bin",
+    "run:setup": "./scripts/run.sh",
+    "run:verify-yf-parity": "./scripts/verify-yf-parity.sh"
+  }
+}
