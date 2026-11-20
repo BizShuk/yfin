@@ -75,7 +75,7 @@ _.sublime-workspace
 
 # ── C. Node / JavaScript / TypeScript ────────────────────────────────────────
 
-node*modules/
+**/node_modules/
 jspm_packages/
 .npm/
 .yarn/
